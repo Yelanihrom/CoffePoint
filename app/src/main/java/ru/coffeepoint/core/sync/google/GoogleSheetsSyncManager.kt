@@ -1,6 +1,8 @@
 package ru.coffeepoint.core.sync.google
 
 import android.content.Context
+import ru.coffeepoint.core.data.local.entity.EmployeeEntity
+import ru.coffeepoint.core.data.local.entity.EmployeeStationAssignmentEntity
 import ru.coffeepoint.core.data.local.entity.SupplyCatalogEntity
 import ru.coffeepoint.core.data.local.entity.WarehouseStockEntity
 import ru.coffeepoint.core.sync.google.worker.GoogleSheetsSyncScheduler
@@ -81,6 +83,16 @@ class GoogleSheetsSyncManager(
         items: List<WarehouseStockEntity>
     ): GoogleSheetsEntitySyncResult {
         return remoteDataSource.syncWarehouseStock(items)
+    }
+
+    suspend fun syncEmployeesAndAssignments(
+        employees: List<EmployeeEntity>,
+        assignments: List<EmployeeStationAssignmentEntity>
+    ): GoogleSheetsEntitySyncResult {
+        return remoteDataSource.syncEmployeesAndAssignments(
+            employees = employees,
+            assignments = assignments
+        )
     }
 
     suspend fun syncWarehouseStockItems(

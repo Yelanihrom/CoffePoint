@@ -11,7 +11,9 @@ import ru.coffeepoint.core.data.local.DatabaseProvider
 import ru.coffeepoint.core.data.local.entity.EmployeeEntity
 import ru.coffeepoint.core.data.local.entity.EmployeeStationAssignmentEntity
 import ru.coffeepoint.core.data.remote.repository.TerminalCommandRepository
+import ru.coffeepoint.core.data.repository.EmployeeSyncRepository
 import ru.coffeepoint.core.data.repository.StationRepository
+import ru.coffeepoint.core.sync.google.GoogleSheetsSyncMessages
 import ru.coffeepoint.core.util.normalizeTime
 import ru.coffeepoint.feature.station.model.StationDetail
 import ru.coffeepoint.feature.station.model.syncErrorDialogMessage
@@ -25,6 +27,7 @@ class StationSettingsViewModel(
 ) : AndroidViewModel(application) {
 
     private val stationRepository = StationRepository(application)
+    private val employeeSyncRepository = EmployeeSyncRepository(application)
     private val commandRepository = TerminalCommandRepository()
     private val db = DatabaseProvider.getDatabase(application)
     private val employeeDao = db.employeeDao()
@@ -340,15 +343,23 @@ class StationSettingsViewModel(
             )
 
             saveEmployeeAssignmentIfChanged(current.station.id)
+            val employeeSyncResult =
+                employeeSyncRepository.syncEmployeesAndAssignments()
 
             station = stationRepository.getStation(current.station.id)
             isSaving = false
 
-            if (saved) {
+            if (saved && employeeSyncResult.synced) {
                 onSuccess()
             } else {
-                syncErrorMessage = station?.syncErrorDialogMessage()
-                    ?: "Проверьте подключение к интернету или VPN"
+                syncErrorMessage = if (saved) {
+                    GoogleSheetsSyncMessages.errorMessage(
+                        employeeSyncResult.errorType
+                    )
+                } else {
+                    station?.syncErrorDialogMessage()
+                        ?: "Проверьте подключение к интернету или VPN"
+                }
                 showSyncError = true
             }
 

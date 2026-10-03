@@ -9,6 +9,9 @@ import ru.coffeepoint.core.data.local.entity.EmployeeStationAssignmentEntity
 @Dao
 interface EmployeeStationAssignmentDao {
 
+    @Query("SELECT * FROM employee_station_assignments ORDER BY stationId, validFrom")
+    suspend fun getAll(): List<EmployeeStationAssignmentEntity>
+
     @Query(
         """
         SELECT *

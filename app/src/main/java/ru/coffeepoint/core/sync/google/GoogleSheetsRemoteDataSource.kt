@@ -1,6 +1,8 @@
 package ru.coffeepoint.core.sync.google
 
 import android.util.Log
+import ru.coffeepoint.core.data.local.entity.EmployeeEntity
+import ru.coffeepoint.core.data.local.entity.EmployeeStationAssignmentEntity
 import ru.coffeepoint.core.data.local.entity.SupplyCatalogEntity
 import ru.coffeepoint.core.data.local.entity.WarehouseStockEntity
 import ru.coffeepoint.core.util.normalizeTime
@@ -276,6 +278,35 @@ class GoogleSheetsRemoteDataSource {
         )
     }
 
+    suspend fun syncEmployeesAndAssignments(
+        employees: List<EmployeeEntity>,
+        assignments: List<EmployeeStationAssignmentEntity>
+    ): GoogleSheetsEntitySyncResult {
+        if (!GoogleSheetsSyncConfig.isEnabled()) {
+            return GoogleSheetsEntitySyncResult.error(
+                GoogleSheetsSyncErrorType.CONNECTION
+            )
+        }
+
+        return syncEntity(
+            tag = "employees and assignments",
+            block = {
+                employees.forEach { employee ->
+                    upsert(
+                        entity = "employees",
+                        data = employee.toEmployeeData()
+                    )
+                }
+                assignments.forEach { assignment ->
+                    upsert(
+                        entity = "employee_station_assignments",
+                        data = assignment.toEmployeeStationAssignmentData()
+                    )
+                }
+            }
+        )
+    }
+
     private suspend fun syncEntity(
         tag: String,
         block: suspend () -> Unit
@@ -415,6 +446,30 @@ class GoogleSheetsRemoteDataSource {
             "itemType" to itemType,
             "quantity" to quantity,
             "updatedAt" to updatedAt.requireSyncTimestamp("warehouse_stock")
+        )
+    }
+
+    private fun EmployeeEntity.toEmployeeData(): Map<String, Any?> {
+        return mapOf(
+            "id" to id,
+            "name" to name,
+            "role" to role,
+            "workStartDate" to workStartDate,
+            "isActive" to isActive,
+            "createdAt" to createdAt,
+            "updatedAt" to updatedAt.requireSyncTimestamp("employees")
+        )
+    }
+
+    private fun EmployeeStationAssignmentEntity.toEmployeeStationAssignmentData(): Map<String, Any?> {
+        return mapOf(
+            "id" to id,
+            "employeeId" to employeeId,
+            "stationId" to stationId,
+            "validFrom" to validFrom,
+            "validTo" to validTo,
+            "createdAt" to createdAt,
+            "updatedAt" to updatedAt.requireSyncTimestamp("employee_station_assignments")
         )
     }
 
