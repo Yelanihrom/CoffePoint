@@ -21,6 +21,7 @@ class MonthlyEarningsRepository(
     private val salesRepository = SalesRepository()
     private val networkChecker = NetworkChecker(context)
     private val preferences = MonthlyEarningsPreferences(context)
+    private val employeeSyncRepository = EmployeeSyncRepository(context)
     private val db = DatabaseProvider.getDatabase(context)
     private val employeeDao = db.employeeDao()
     private val employeeTransactionDao = db.employeeTransactionDao()
@@ -125,6 +126,7 @@ class MonthlyEarningsRepository(
             salesCount = salesCount,
             amount = amount
         )
+        employeeSyncRepository.syncEmployeeTransactions()
         preferences.updateSettlementAmount(
             getSettlementAmount(
                 employee = employee,
@@ -181,6 +183,7 @@ class MonthlyEarningsRepository(
                 updatedAt = storageDate
             )
         )
+        employeeSyncRepository.syncEmployeeTransactions()
 
         preferences.updatePaymentsAmount(
             getPaymentsAmountForPeriod(

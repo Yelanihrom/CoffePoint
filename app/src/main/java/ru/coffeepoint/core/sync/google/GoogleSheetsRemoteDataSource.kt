@@ -3,6 +3,7 @@ package ru.coffeepoint.core.sync.google
 import android.util.Log
 import ru.coffeepoint.core.data.local.entity.EmployeeEntity
 import ru.coffeepoint.core.data.local.entity.EmployeeStationAssignmentEntity
+import ru.coffeepoint.core.data.local.entity.EmployeeTransactionEntity
 import ru.coffeepoint.core.data.local.entity.SupplyCatalogEntity
 import ru.coffeepoint.core.data.local.entity.WarehouseStockEntity
 import ru.coffeepoint.core.util.normalizeTime
@@ -307,6 +308,28 @@ class GoogleSheetsRemoteDataSource {
         )
     }
 
+    suspend fun syncEmployeeTransactions(
+        transactions: List<EmployeeTransactionEntity>
+    ): GoogleSheetsEntitySyncResult {
+        if (!GoogleSheetsSyncConfig.isEnabled()) {
+            return GoogleSheetsEntitySyncResult.error(
+                GoogleSheetsSyncErrorType.CONNECTION
+            )
+        }
+
+        return syncEntity(
+            tag = "employee transactions",
+            block = {
+                transactions.forEach { transaction ->
+                    upsert(
+                        entity = "employees_transactions",
+                        data = transaction.toEmployeeTransactionData()
+                    )
+                }
+            }
+        )
+    }
+
     private suspend fun syncEntity(
         tag: String,
         block: suspend () -> Unit
@@ -470,6 +493,22 @@ class GoogleSheetsRemoteDataSource {
             "validTo" to validTo,
             "createdAt" to createdAt,
             "updatedAt" to updatedAt.requireSyncTimestamp("employee_station_assignments")
+        )
+    }
+
+    private fun EmployeeTransactionEntity.toEmployeeTransactionData(): Map<String, Any?> {
+        return mapOf(
+            "id" to id,
+            "employeeId" to employeeId,
+            "type" to type,
+            "operationDate" to operationDate,
+            "periodFrom" to periodFrom,
+            "periodTo" to periodTo,
+            "salesCount" to salesCount,
+            "amount" to amount,
+            "comment" to comment,
+            "createdAt" to createdAt,
+            "updatedAt" to updatedAt.requireSyncTimestamp("employees_transactions")
         )
     }
 

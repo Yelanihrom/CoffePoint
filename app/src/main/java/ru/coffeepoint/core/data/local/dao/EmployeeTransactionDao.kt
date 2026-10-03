@@ -12,6 +12,9 @@ interface EmployeeTransactionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: EmployeeTransactionEntity)
 
+    @Query("SELECT * FROM employees_transactions ORDER BY operationDate DESC")
+    suspend fun getAll(): List<EmployeeTransactionEntity>
+
     @Query(
         """
         SELECT *

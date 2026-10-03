@@ -3,6 +3,7 @@ package ru.coffeepoint.core.sync.google
 import android.content.Context
 import ru.coffeepoint.core.data.local.entity.EmployeeEntity
 import ru.coffeepoint.core.data.local.entity.EmployeeStationAssignmentEntity
+import ru.coffeepoint.core.data.local.entity.EmployeeTransactionEntity
 import ru.coffeepoint.core.data.local.entity.SupplyCatalogEntity
 import ru.coffeepoint.core.data.local.entity.WarehouseStockEntity
 import ru.coffeepoint.core.sync.google.worker.GoogleSheetsSyncScheduler
@@ -93,6 +94,12 @@ class GoogleSheetsSyncManager(
             employees = employees,
             assignments = assignments
         )
+    }
+
+    suspend fun syncEmployeeTransactions(
+        transactions: List<EmployeeTransactionEntity>
+    ): GoogleSheetsEntitySyncResult {
+        return remoteDataSource.syncEmployeeTransactions(transactions)
     }
 
     suspend fun syncWarehouseStockItems(

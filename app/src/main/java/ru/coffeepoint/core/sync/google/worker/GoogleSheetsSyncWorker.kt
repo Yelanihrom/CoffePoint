@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import ru.coffeepoint.core.data.repository.EmployeeSyncRepository
 import ru.coffeepoint.core.data.repository.StationRepository
 import ru.coffeepoint.core.data.repository.WarehouseStockRepository
 
@@ -23,6 +24,7 @@ class GoogleSheetsSyncWorker(
 
         StationRepository(applicationContext).syncPendingGoogleSheets()
         WarehouseStockRepository(applicationContext).syncPendingGoogleSheets()
+        EmployeeSyncRepository(applicationContext).syncEmployeeData()
 
         Log.d(
             TAG,
