@@ -1,0 +1,738 @@
+package ru.coffeepoint.core.sync.google
+
+import android.util.Log
+import ru.coffeepoint.core.data.local.entity.SupplyCatalogEntity
+import ru.coffeepoint.core.data.local.entity.WarehouseStockEntity
+import ru.coffeepoint.core.util.normalizeTime
+import ru.coffeepoint.core.sync.google.dto.GoogleSheetsSyncRequestDto
+import ru.coffeepoint.core.sync.google.network.GoogleSheetsApiProvider
+import ru.coffeepoint.feature.station.model.CoffeeStation
+import ru.coffeepoint.feature.station.model.StationDetail
+import ru.coffeepoint.feature.station.model.StationInventory
+import ru.coffeepoint.feature.station.model.StationSettings
+import java.math.BigDecimal
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
+
+class GoogleSheetsRemoteDataSource {
+
+    private val api = GoogleSheetsApiProvider.syncApi
+
+    suspend fun syncStationDetail(
+        detail: StationDetail,
+        includeStation: Boolean,
+        includeInventory: Boolean,
+        includeSettings: Boolean
+    ): GoogleSheetsSyncResult {
+        if (!GoogleSheetsSyncConfig.isEnabled()) {
+            return GoogleSheetsSyncResult()
+        }
+
+        var stationResult = GoogleSheetsEntitySyncResult.skipped()
+        var inventoryResult = GoogleSheetsEntitySyncResult.skipped()
+        var settingsResult = GoogleSheetsEntitySyncResult.skipped()
+
+        if (includeStation) {
+            stationResult = syncEntity(
+                tag = "station",
+                block = {
+                upsert(
+                    entity = "coffee_station",
+                    data = detail.toStationData()
+                )
+                }
+            )
+        }
+
+        if (includeInventory) {
+            inventoryResult = syncEntity(
+                tag = "inventory",
+                block = {
+                upsert(
+                    entity = "station_inventory",
+                    data = detail.toInventoryData()
+                )
+                }
+            )
+        }
+
+        if (includeSettings) {
+            settingsResult = syncEntity(
+                tag = "settings",
+                block = {
+                upsert(
+                    entity = "station_settings",
+                    data = detail.toSettingsData()
+                )
+                }
+            )
+        }
+
+        return GoogleSheetsSyncResult(
+            station = stationResult,
+            inventory = inventoryResult,
+            settings = settingsResult
+        )
+    }
+
+    suspend fun syncStationDetail(detail: StationDetail): GoogleSheetsSyncResult {
+        return syncStationDetail(
+            detail = detail,
+            includeStation = true,
+            includeInventory = true,
+            includeSettings = true
+        )
+    }
+
+    suspend fun loadFullSync(
+        includeSettings: Boolean = true
+    ): List<StationDetail> {
+        return loadFullSyncBundle(
+            includeSettings = includeSettings,
+            includeSupplyCatalog = false
+        ).stations
+    }
+
+    suspend fun loadFullSyncBundle(
+        includeSettings: Boolean = true,
+        includeSupplyCatalog: Boolean = true,
+        includeWarehouseStock: Boolean = true
+    ): GoogleSheetsFullSyncBundle {
+        if (!GoogleSheetsSyncConfig.isEnabled()) {
+            return GoogleSheetsFullSyncBundle()
+        }
+
+        val response = api.fullSync(
+            url = GoogleSheetsSyncConfig.WEB_APP_URL,
+            action = "full_sync",
+            token = GoogleSheetsSyncConfig.SYNC_TOKEN,
+            entities = if (includeSettings && includeSupplyCatalog && includeWarehouseStock) {
+                null
+            } else {
+                buildList {
+                    add("coffee_station")
+                    add("station_inventory")
+                    if (includeSettings) add("station_settings")
+                    if (includeSupplyCatalog) add("supply_catalog")
+                    if (includeWarehouseStock) add("warehouse_stock")
+                }.joinToString(",")
+            }
+        )
+
+        if (!response.success) {
+            error(response.error?.message ?: "Google Sheets full sync error")
+        }
+
+        val data = response.data ?: return GoogleSheetsFullSyncBundle()
+        val inventoriesByStationId = data.inventories.associateBy {
+            it.intValue("stationId")
+        }
+        val settingsByStationId = data.settings.associateBy {
+            it.intValue("stationId")
+        }
+
+        val stations = data.stations.mapNotNull { stationRow ->
+            val stationId = stationRow.intValue("id")
+            val inventoryRow = inventoriesByStationId[stationId] ?: return@mapNotNull null
+
+            StationDetail(
+                station = stationRow.toStation(),
+                inventory = inventoryRow.toInventory(),
+                settings = if (includeSettings) {
+                    settingsByStationId[stationId]?.toSettings()
+                        ?: return@mapNotNull null
+                } else {
+                    StationSettings(
+                        cupsMax = 15,
+                        lidsMax = 6,
+                        coffeeMax = 6,
+                        milkMax = 10,
+                        chocolateMax = 10,
+                        toppingMax = 10
+                    )
+                }
+            )
+        }
+
+        return GoogleSheetsFullSyncBundle(
+            stations = stations,
+            supplyCatalog = data.supplyCatalog.map { row ->
+                row.toSupplyCatalogEntity()
+            },
+            warehouseStock = data.warehouseStock.map { row ->
+                row.toWarehouseStockEntity()
+            }
+        )
+    }
+
+    suspend fun loadSupplyCatalog(): List<SupplyCatalogEntity> {
+        if (!GoogleSheetsSyncConfig.isEnabled()) {
+            return emptyList()
+        }
+
+        val response = api.fullSync(
+            url = GoogleSheetsSyncConfig.WEB_APP_URL,
+            action = "full_sync",
+            token = GoogleSheetsSyncConfig.SYNC_TOKEN,
+            entities = "supply_catalog"
+        )
+
+        if (!response.success) {
+            error(response.error?.message ?: "Google Sheets supply catalog sync error")
+        }
+
+        return response.data?.supplyCatalog.orEmpty().map { row ->
+            row.toSupplyCatalogEntity()
+        }
+    }
+
+    suspend fun syncSupplyCatalogOption(
+        option: SupplyCatalogEntity
+    ): GoogleSheetsEntitySyncResult {
+        if (!GoogleSheetsSyncConfig.isEnabled()) {
+            return GoogleSheetsEntitySyncResult.error(
+                GoogleSheetsSyncErrorType.CONNECTION
+            )
+        }
+
+        return syncEntity(
+            tag = "supply catalog",
+            block = {
+            upsert(
+                entity = "supply_catalog",
+                data = option.toSupplyCatalogData(currentTimestamp())
+            )
+            }
+        )
+    }
+
+    suspend fun upsertSupplyCatalogOption(
+        option: SupplyCatalogEntity,
+        updatedAt: String
+    ): GoogleSheetsEntitySyncResult {
+        if (!GoogleSheetsSyncConfig.isEnabled()) {
+            return GoogleSheetsEntitySyncResult.error(
+                GoogleSheetsSyncErrorType.CONNECTION
+            )
+        }
+
+        return syncEntity(
+            tag = "supply catalog upsert",
+            block = {
+                upsert(
+                    entity = "supply_catalog",
+                    data = option.toSupplyCatalogData(updatedAt)
+                )
+            }
+        )
+    }
+
+    suspend fun deleteSupplyCatalogOption(
+        optionId: Int
+    ): GoogleSheetsEntitySyncResult {
+        if (!GoogleSheetsSyncConfig.isEnabled()) {
+            return GoogleSheetsEntitySyncResult.error(
+                GoogleSheetsSyncErrorType.CONNECTION
+            )
+        }
+
+        return syncEntity(
+            tag = "supply catalog delete",
+            block = {
+                request(
+                    action = "delete",
+                    entity = "supply_catalog",
+                    data = mapOf(
+                        "id" to optionId
+                    )
+                )
+            }
+        )
+    }
+
+    suspend fun syncWarehouseStock(
+        items: List<WarehouseStockEntity>
+    ): GoogleSheetsEntitySyncResult {
+        if (!GoogleSheetsSyncConfig.isEnabled()) {
+            return GoogleSheetsEntitySyncResult.error(
+                GoogleSheetsSyncErrorType.CONNECTION
+            )
+        }
+
+        return syncEntity(
+            tag = "warehouse stock",
+            block = {
+                items.forEach { item ->
+                    upsert(
+                        entity = "warehouse_stock",
+                        data = item.toWarehouseStockData()
+                    )
+                }
+            }
+        )
+    }
+
+    private suspend fun syncEntity(
+        tag: String,
+        block: suspend () -> Unit
+    ): GoogleSheetsEntitySyncResult {
+        return runCatching {
+            block()
+        }.fold(
+            onSuccess = {
+                GoogleSheetsEntitySyncResult.success()
+            },
+            onFailure = { error ->
+                Log.w(TAG, "Google Sheets $tag sync failed", error)
+                GoogleSheetsEntitySyncResult.error(error.toSyncErrorType())
+            }
+        )
+    }
+
+    private suspend fun upsert(
+        entity: String,
+        data: Map<String, Any?>
+    ) {
+        request(
+            action = "upsert",
+            entity = entity,
+            data = data
+        )
+    }
+
+    private suspend fun request(
+        action: String,
+        entity: String,
+        data: Map<String, Any?>
+    ) {
+        val response = api.upsert(
+            url = GoogleSheetsSyncConfig.WEB_APP_URL,
+            request = GoogleSheetsSyncRequestDto(
+                action = action,
+                token = GoogleSheetsSyncConfig.SYNC_TOKEN,
+                entity = entity,
+                data = data
+            )
+        )
+
+        if (!response.success) {
+            throw GoogleSheetsSyncException(
+                status = response.error?.status,
+                syncMessage = response.error?.message ?: "Google Sheets sync error"
+            )
+        }
+    }
+
+    private fun StationDetail.toStationData(): Map<String, Any?> {
+        return mapOf(
+            "id" to station.id,
+            "name" to station.name,
+            "terminalId" to station.terminalId,
+            "address" to station.address,
+            "visitDays" to station.visitDays,
+            "visitTimeFrom" to normalizeTime(station.visitTimeFrom).ifBlank { "09:00" },
+            "visitTimeTo" to normalizeTime(station.visitTimeTo).ifBlank { "18:00" },
+            "lastServiceDate" to station.lastServiceDate,
+            "rentPaidUntil" to station.rentPaidUntil,
+            "excludeFromSupplyPlanning" to station.excludeFromSupplyPlanning,
+            "excludeFromOperatorEarnings" to station.excludeFromOperatorEarnings,
+            "liquidWasteContainerServiceDate" to station.liquidWasteContainerServiceDate,
+            "brewUnitServiceDate" to station.brewUnitServiceDate,
+            "coffeeGrinderServiceDate" to station.coffeeGrinderServiceDate,
+            "mixersServiceDate" to station.mixersServiceDate,
+            "expansionTankServiceDate" to station.expansionTankServiceDate,
+            "exhaustServiceDate" to station.exhaustServiceDate,
+            "machinePhotoPath" to station.machinePhotoPath,
+            "overviewPhotoPath" to station.overviewPhotoPath,
+            "updatedAt" to station.updatedAt.requireSyncTimestamp("coffee_station")
+        )
+    }
+
+    private fun StationDetail.toInventoryData(): Map<String, Any?> {
+        return mapOf(
+            "stationId" to station.id,
+            "cups" to inventory.cups,
+            "lids" to inventory.lids,
+            "coffee" to inventory.coffee,
+            "milk" to inventory.milk,
+            "chocolate" to inventory.chocolate,
+            "topping" to inventory.topping,
+            "sugar" to inventory.sugar,
+            "stirrers" to inventory.stirrers,
+            "garbageBags" to inventory.garbageBags,
+            "updatedAt" to inventory.updatedAt.requireSyncTimestamp("station_inventory")
+        )
+    }
+
+    private fun StationDetail.toSettingsData(): Map<String, Any?> {
+        return mapOf(
+            "stationId" to station.id,
+            "cupsMax" to settings.cupsMax,
+            "lidsMax" to settings.lidsMax,
+            "coffeeMax" to settings.coffeeMax,
+            "milkMax" to settings.milkMax,
+            "chocolateMax" to settings.chocolateMax,
+            "toppingMax" to settings.toppingMax,
+            "sugarMax" to settings.sugarMax,
+            "stirrersMax" to settings.stirrersMax,
+            "garbageBagsMax" to settings.garbageBagsMax,
+            "updatedAt" to settings.updatedAt.requireSyncTimestamp("station_settings")
+        )
+    }
+
+    private fun String.requireSyncTimestamp(entity: String): String {
+        check(isNotBlank()) {
+            "Missing local updatedAt for $entity"
+        }
+
+        return this
+    }
+
+    private fun SupplyCatalogEntity.toSupplyCatalogData(
+        updatedAt: String
+    ): Map<String, Any?> {
+        return mapOf(
+            "id" to id,
+            "itemType" to itemType,
+            "title" to title,
+            "supplier" to supplier,
+            "article" to article,
+            "url" to url,
+            "maxPrice" to maxPrice,
+            "isActive" to isActive,
+            "priority" to priority,
+            "comment" to comment,
+            "updatedAt" to updatedAt
+        )
+    }
+
+    private fun WarehouseStockEntity.toWarehouseStockData(): Map<String, Any?> {
+        return mapOf(
+            "itemType" to itemType,
+            "quantity" to quantity,
+            "updatedAt" to updatedAt.requireSyncTimestamp("warehouse_stock")
+        )
+    }
+
+    private fun currentTimestamp(): String {
+        return SimpleDateFormat(
+            "yyyy-MM-dd'T'HH:mm:ss",
+            Locale.getDefault()
+        ).format(Date())
+    }
+
+    private fun Map<String, Any?>.toStation(): CoffeeStation {
+        return CoffeeStation(
+            id = intValue("id"),
+            name = stringValue("name"),
+            terminalId = longOrNull("terminalId"),
+            address = stringValue("address"),
+            visitDays = stringValue("visitDays").ifBlank { "1,2,3,4,5" },
+            visitTimeFrom = timeValue("visitTimeFrom").ifBlank { "09:00" },
+            visitTimeTo = timeValue("visitTimeTo").ifBlank { "18:00" },
+            lastServiceDate = dateTimeValue("lastServiceDate"),
+            salesAfterService = 0,
+            rentPaidUntil = dateValue("rentPaidUntil"),
+            excludeFromSupplyPlanning = booleanValue("excludeFromSupplyPlanning"),
+            excludeFromOperatorEarnings =
+                booleanValue("excludeFromOperatorEarnings"),
+            liquidWasteContainerServiceDate =
+                dateValue("liquidWasteContainerServiceDate"),
+            brewUnitServiceDate = dateValue("brewUnitServiceDate"),
+            coffeeGrinderServiceDate = dateValue("coffeeGrinderServiceDate"),
+            mixersServiceDate = dateValue("mixersServiceDate"),
+            expansionTankServiceDate = dateValue("expansionTankServiceDate"),
+            exhaustServiceDate = dateValue("exhaustServiceDate"),
+            machinePhotoPath = stringValue("machinePhotoPath").ifBlank { null },
+            overviewPhotoPath = stringValue("overviewPhotoPath").ifBlank { null },
+            updatedAt = timestampValue("updatedAt"),
+            isSynced = true
+        )
+    }
+
+    private fun Map<String, Any?>.toInventory(): StationInventory {
+        return StationInventory(
+            cups = intValue("cups"),
+            lids = intValue("lids"),
+            coffee = intValue("coffee"),
+            milk = intValue("milk"),
+            chocolate = intValue("chocolate"),
+            topping = intValue("topping"),
+            sugar = stockAmountValue(
+                key = "sugar",
+                empty = 0,
+                low = 1,
+                medium = 1,
+                full = 2
+            ),
+            stirrers = stockAmountValue(
+                key = "stirrers",
+                empty = 0,
+                low = 1,
+                medium = 2,
+                full = 4
+            ),
+            garbageBags = intValue("garbageBags", defaultValue = 2),
+            updatedAt = timestampValue("updatedAt"),
+            isSynced = true
+        )
+    }
+
+    private fun Map<String, Any?>.toSettings(): StationSettings {
+        return StationSettings(
+            cupsMax = intValue("cupsMax"),
+            lidsMax = intValue("lidsMax"),
+            coffeeMax = intValue("coffeeMax"),
+            milkMax = intValue("milkMax"),
+            chocolateMax = intValue("chocolateMax"),
+            toppingMax = intValue("toppingMax"),
+            sugarMax = intValue("sugarMax", defaultValue = 2),
+            stirrersMax = intValue("stirrersMax", defaultValue = 4),
+            garbageBagsMax = intValue("garbageBagsMax", defaultValue = 2),
+            updatedAt = timestampValue("updatedAt"),
+            isSynced = true
+        )
+    }
+
+    private fun Map<String, Any?>.toSupplyCatalogEntity(): SupplyCatalogEntity {
+        return SupplyCatalogEntity(
+            id = intValue("id"),
+            itemType = stringValue("itemType"),
+            title = stringValue("title"),
+            supplier = stringValue("supplier"),
+            article = plainStringValue("article"),
+            url = stringValue("url"),
+            maxPrice = intValue("maxPrice"),
+            isActive = booleanValue("isActive"),
+            priority = intValue("priority", defaultValue = 1),
+            comment = stringValue("comment"),
+            updatedAt = dateTimeValue("updatedAt"),
+            isSynced = true,
+            syncError = false
+        )
+    }
+
+    private fun Map<String, Any?>.toWarehouseStockEntity(): WarehouseStockEntity {
+        return WarehouseStockEntity(
+            itemType = stringValue("itemType"),
+            quantity = intValue("quantity"),
+            updatedAt = timestampValue("updatedAt")
+        )
+    }
+
+    private fun Map<String, Any?>.stringValue(key: String): String {
+        return this[key]?.toString().orEmpty()
+    }
+
+    private fun Map<String, Any?>.plainStringValue(key: String): String {
+        return when (val value = this[key]) {
+            is Number -> BigDecimal.valueOf(value.toDouble())
+                .stripTrailingZeros()
+                .toPlainString()
+
+            else -> value?.toString().orEmpty()
+        }
+    }
+
+    private fun Map<String, Any?>.intValue(
+        key: String,
+        defaultValue: Int = 0
+    ): Int {
+        return when (val value = this[key]) {
+            is Number -> value.toInt()
+            is String -> value.toDoubleOrNull()?.toInt() ?: defaultValue
+            else -> defaultValue
+        }
+    }
+
+    private fun Map<String, Any?>.longOrNull(key: String): Long? {
+        return when (val value = this[key]) {
+            is Number -> value.toLong()
+            is String -> value.toDoubleOrNull()?.toLong()
+            else -> null
+        }
+    }
+
+    private fun Map<String, Any?>.booleanValue(key: String): Boolean {
+        return when (val value = this[key]) {
+            is Boolean -> value
+            is Number -> value.toInt() != 0
+            is String -> value.equals("true", ignoreCase = true) || value == "1"
+            else -> false
+        }
+    }
+
+    private fun Map<String, Any?>.stockAmountValue(
+        key: String,
+        empty: Int,
+        low: Int,
+        medium: Int,
+        full: Int
+    ): Int {
+
+        return when (val value = this[key]) {
+            is Number -> value.toInt()
+            is String -> {
+                value.toDoubleOrNull()?.toInt() ?: when (value.uppercase(Locale.getDefault())) {
+                    "EMPTY" -> empty
+                    "LOW" -> low
+                    "MEDIUM" -> medium
+                    "FULL" -> full
+                    else -> full
+                }
+            }
+
+            else -> full
+        }
+    }
+
+    private fun Map<String, Any?>.dateValue(key: String): String {
+        return formatGoogleDate(
+            value = stringValue(key),
+            outputPattern = "dd.MM.yyyy"
+        )
+    }
+
+    private fun Map<String, Any?>.dateTimeValue(key: String): String {
+        return formatGoogleDate(
+            value = stringValue(key),
+            outputPattern = "dd.MM.yyyy HH:mm"
+        )
+    }
+
+    private fun Map<String, Any?>.timeValue(key: String): String {
+        return normalizeTime(stringValue(key))
+    }
+
+    private fun Throwable.toSyncErrorType(): GoogleSheetsSyncErrorType {
+        val message = message.orEmpty()
+
+        return when {
+            this is GoogleSheetsSyncException && status == 409 ->
+                GoogleSheetsSyncErrorType.CONFLICT
+
+            message.contains("Conflict:", ignoreCase = true) ->
+                GoogleSheetsSyncErrorType.CONFLICT
+
+            this is UnknownHostException ||
+                this is SocketTimeoutException ||
+                message.contains("Unable to resolve host", ignoreCase = true) ->
+                GoogleSheetsSyncErrorType.CONNECTION
+
+            else -> GoogleSheetsSyncErrorType.UNKNOWN
+        }
+    }
+
+    private fun Map<String, Any?>.timestampValue(key: String): String {
+        val value = stringValue(key)
+        if (value.isBlank()) return ""
+
+        val formatted = formatGoogleDate(
+            value = value,
+            outputPattern = "yyyy-MM-dd'T'HH:mm:ss"
+        )
+
+        return formatted.ifBlank { value }
+    }
+
+    private fun formatGoogleDate(
+        value: String,
+        outputPattern: String
+    ): String {
+
+        if (value.isBlank()) return ""
+
+        val inputFormats = listOf(
+            SimpleDateFormat(
+                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+                Locale.getDefault()
+            ).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+                isLenient = false
+            },
+            SimpleDateFormat(
+                "dd.MM.yyyy HH:mm",
+                Locale.getDefault()
+            ).apply {
+                isLenient = false
+            },
+            SimpleDateFormat(
+                "dd.MM.yyyy",
+                Locale.getDefault()
+            ).apply {
+                isLenient = false
+            }
+        )
+
+        val date = inputFormats.firstNotNullOfOrNull { formatter ->
+            runCatching {
+                formatter.parse(value)
+            }.getOrNull()
+        } ?: return value
+
+        return SimpleDateFormat(
+            outputPattern,
+            Locale.getDefault()
+        ).apply {
+            timeZone = GOOGLE_SHEETS_TIME_ZONE
+        }.format(date)
+
+    }
+
+    private companion object {
+        const val TAG = "GoogleSheetsSync"
+        val GOOGLE_SHEETS_TIME_ZONE: TimeZone = TimeZone.getTimeZone("Europe/Moscow")
+    }
+
+}
+
+data class GoogleSheetsSyncResult(
+    val station: GoogleSheetsEntitySyncResult = GoogleSheetsEntitySyncResult.skipped(),
+    val inventory: GoogleSheetsEntitySyncResult = GoogleSheetsEntitySyncResult.skipped(),
+    val settings: GoogleSheetsEntitySyncResult = GoogleSheetsEntitySyncResult.skipped()
+)
+
+data class GoogleSheetsEntitySyncResult(
+    val synced: Boolean,
+    val errorType: GoogleSheetsSyncErrorType
+) {
+    companion object {
+        fun skipped(): GoogleSheetsEntitySyncResult {
+            return GoogleSheetsEntitySyncResult(
+                synced = false,
+                errorType = GoogleSheetsSyncErrorType.NONE
+            )
+        }
+
+        fun success(): GoogleSheetsEntitySyncResult {
+            return GoogleSheetsEntitySyncResult(
+                synced = true,
+                errorType = GoogleSheetsSyncErrorType.NONE
+            )
+        }
+
+        fun error(
+            errorType: GoogleSheetsSyncErrorType
+        ): GoogleSheetsEntitySyncResult {
+            return GoogleSheetsEntitySyncResult(
+                synced = false,
+                errorType = errorType
+            )
+        }
+    }
+}
+
+private class GoogleSheetsSyncException(
+    val status: Int?,
+    val syncMessage: String
+) : IllegalStateException(syncMessage)
+
+data class GoogleSheetsFullSyncBundle(
+    val stations: List<StationDetail> = emptyList(),
+    val supplyCatalog: List<SupplyCatalogEntity> = emptyList(),
+    val warehouseStock: List<WarehouseStockEntity> = emptyList()
+)

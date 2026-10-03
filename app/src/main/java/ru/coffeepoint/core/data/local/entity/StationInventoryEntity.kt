@@ -2,7 +2,6 @@ package ru.coffeepoint.core.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import ru.coffeepoint.feature.station.model.StockLevel
 
 @Entity(tableName = "station_inventory")
 data class StationInventoryEntity(
@@ -22,8 +21,18 @@ data class StationInventoryEntity(
 
     val topping: Int,
 
-    val sugar: StockLevel,
+    val sugar: Int,
 
-    val stirrers: StockLevel
+    val stirrers: Int,
+
+    val garbageBags: Int = 2,
+
+    val updatedAt: String = "",
+
+    val isSynced: Boolean = true,
+
+    val syncError: Boolean = false,
+
+    val syncErrorType: String = ""
 
 )

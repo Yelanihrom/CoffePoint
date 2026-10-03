@@ -1,17 +1,18 @@
 package ru.coffeepoint.feature.service.presentation
 
+import android.app.Application
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import ru.coffeepoint.feature.camera.model.PhotoType
-import ru.coffeepoint.feature.camera.model.ServicePhoto
-import ru.coffeepoint.feature.service.model.ServiceChecklistItem
-import android.net.Uri
-import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import ru.coffeepoint.core.data.repository.StationRepository
+import ru.coffeepoint.feature.camera.model.PhotoType
+import ru.coffeepoint.feature.camera.model.ServicePhoto
+import ru.coffeepoint.feature.service.model.ServiceChecklistItem
+import ru.coffeepoint.feature.station.model.syncErrorDialogMessage
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -29,12 +30,16 @@ class ServiceStep2ViewModel(
                 description = "Очистить остатки ингредиентов вокруг контейнеров, заварочный узел и контейнер для жмыха."
             ),
             ServiceChecklistItem(
-                title = "Протереть аппарат внутри",
-                description = "Протереть внутренние поверхности влажной салфеткой и затем сухой."
+                title = "Протереть аппарат внутри и снаружи",
+                description = "Сухой тряпкой убрать пыль с контейнеров, корпуса внутри, крышки и дверцы снаружи"
             ),
             ServiceChecklistItem(
-                title = "Протереть аппарат снаружи",
-                description = "Удалить пыль с крышки и дверцы аппарата."
+                title = "Протереть окно выдачи и столешницу",
+                description = "Протереть сначала влажной салфеткой, после чего сухой"
+            ),
+            ServiceChecklistItem(
+                title = "Почистить миксеры и промыть",
+                description = "Маленькой щеткой сбить скопившиеся наросты, после чего кнопкой Двойное эспрессо промыть миксеры"
             ),
             ServiceChecklistItem(
                 title = "Выбросить жмых",
@@ -46,7 +51,7 @@ class ServiceStep2ViewModel(
             ),
             ServiceChecklistItem(
                 title = "Заменить воду",
-                description = "Поменять канистры с водой."
+                description = "Залить в канистру свежую воду"
             )
         )
     )
@@ -56,6 +61,15 @@ class ServiceStep2ViewModel(
         private set
 
     var standPhoto by mutableStateOf<ServicePhoto?>(null)
+        private set
+
+    var isSaving by mutableStateOf(false)
+        private set
+
+    var showSyncError by mutableStateOf(false)
+        private set
+
+    var syncErrorMessage by mutableStateOf("Проверьте подключение к интернету или VPN")
         private set
 
     fun toggleChecklist(index: Int, checked: Boolean) {
@@ -101,14 +115,13 @@ class ServiceStep2ViewModel(
     fun isPhotosCompleted(): Boolean {
 
         return machinePhoto != null &&
-                standPhoto != null
+            standPhoto != null
 
     }
 
     fun canFinish(): Boolean {
 
-        return isChecklistCompleted() &&
-                isPhotosCompleted()
+        return isChecklistCompleted()
 
     }
 
@@ -117,7 +130,12 @@ class ServiceStep2ViewModel(
         onFinished: () -> Unit
     ) {
 
+        if (isSaving) return
+
         viewModelScope.launch {
+
+            isSaving = true
+            showSyncError = false
 
             val formatter = SimpleDateFormat(
                 "dd.MM.yyyy HH:mm",
@@ -128,17 +146,59 @@ class ServiceStep2ViewModel(
 
             val formattedDate = formatter.format(now)
 
-            repository.finishService(
+            val synced = repository.finishService(
                 stationId = stationId,
                 machinePhotoPath = machinePhoto?.uri?.toString(),
                 overviewPhotoPath = standPhoto?.uri?.toString(),
                 lastServiceDate = formattedDate
             )
 
-            onFinished()
+            isSaving = false
+
+            if (synced) {
+                onFinished()
+            } else {
+                syncErrorMessage = repository.getStation(stationId)
+                    ?.syncErrorDialogMessage()
+                    ?: "Проверьте подключение к интернету или VPN"
+                showSyncError = true
+            }
 
         }
 
+    }
+
+    fun retrySync(
+        stationId: Int,
+        onFinished: () -> Unit
+    ) {
+
+        if (isSaving) return
+
+        viewModelScope.launch {
+
+            isSaving = true
+            showSyncError = false
+
+            val synced = repository.syncStationNow(stationId)
+
+            isSaving = false
+
+            if (synced) {
+                onFinished()
+            } else {
+                syncErrorMessage = repository.getStation(stationId)
+                    ?.syncErrorDialogMessage()
+                    ?: "Проверьте подключение к интернету или VPN"
+                showSyncError = true
+            }
+
+        }
+
+    }
+
+    fun dismissSyncError() {
+        showSyncError = false
     }
 
 }

@@ -21,13 +21,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.coffeepoint.feature.service.component.ChecklistRow
-import ru.coffeepoint.feature.service.component.FinishServiceButton
-import ru.coffeepoint.feature.service.component.PhotoCard
 import ru.coffeepoint.feature.service.presentation.ServiceStep2ViewModel
 import ru.coffeepoint.feature.camera.model.PhotoType
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalContext
 import ru.coffeepoint.feature.service.presentation.ServiceStep1ViewModel
+import ru.coffeepoint.shared.component.BottomActionBar
+import ru.coffeepoint.shared.component.SyncSendingErrorDialog
+import ru.coffeepoint.shared.component.SyncSendingOverlay
+import ru.coffeepoint.shared.component.savedLocallySyncMessage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,8 +49,28 @@ fun ServiceStep2Screen(
     val viewModel: ServiceStep2ViewModel = viewModel()
 
     val checklist by viewModel::checklist
-    val machinePhoto by viewModel::machinePhoto
-    val overviewPhoto by viewModel::standPhoto
+
+    if (viewModel.isSaving) {
+        SyncSendingOverlay()
+    }
+
+    if (viewModel.showSyncError) {
+        SyncSendingErrorDialog(
+            message = savedLocallySyncMessage(viewModel.syncErrorMessage),
+            dismissText = "\u0413\u043e\u0442\u043e\u0432\u043e",
+            retryText = "\u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c \u0441\u0435\u0439\u0447\u0430\u0441",
+            onDismiss = {
+                viewModel.dismissSyncError()
+                onFinish()
+            },
+            onRetry = {
+                viewModel.retrySync(stationId) {
+                    onFinish()
+                }
+            }
+        )
+    }
+
     LaunchedEffect(photoResult) {
 
         photoResult ?: return@LaunchedEffect
@@ -69,8 +90,6 @@ fun ServiceStep2Screen(
         )
 
     }
-    val context = LocalContext.current
-
     Scaffold(
 
         topBar = {
@@ -100,6 +119,17 @@ fun ServiceStep2Screen(
 
             )
 
+        },
+        bottomBar = {
+            BottomActionBar(
+                text = "Завершить обслуживание",
+                enabled = viewModel.canFinish(),
+                onClick = {
+                    viewModel.finishService(stationId) {
+                        onFinish()
+                    }
+                }
+            )
         }
 
     ) { padding ->
@@ -158,36 +188,6 @@ fun ServiceStep2Screen(
                 }
 
             }
-
-            PhotoCard(
-
-                machinePhoto = machinePhoto,
-
-                overviewPhoto = overviewPhoto,
-
-                onMachineClick = {
-                    onOpenCamera(PhotoType.MACHINE)
-                },
-
-                onOverviewClick = {
-                    onOpenCamera(PhotoType.OVERVIEW)
-                }
-
-            )
-
-            FinishServiceButton(
-
-                enabled = viewModel.canFinish(),
-
-                onClick = {
-
-                    viewModel.finishService(stationId) {
-
-                        onFinish()
-
-                    }
-                }
-            )
 
         }
 

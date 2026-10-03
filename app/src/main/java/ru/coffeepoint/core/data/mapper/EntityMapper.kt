@@ -3,6 +3,7 @@ package ru.coffeepoint.core.data.mapper
 import ru.coffeepoint.core.data.local.entity.CoffeeStationEntity
 import ru.coffeepoint.core.data.local.entity.StationInventoryEntity
 import ru.coffeepoint.core.data.local.entity.StationSettingsEntity
+import ru.coffeepoint.core.util.normalizeTime
 import ru.coffeepoint.feature.station.model.CoffeeStation
 import ru.coffeepoint.feature.station.model.StationDetail
 import ru.coffeepoint.feature.station.model.StationInventory
@@ -13,11 +14,26 @@ fun StationDetail.toStationEntity() = CoffeeStationEntity(
     name = station.name,
     terminalId = station.terminalId,
     address = station.address,
+    visitDays = station.visitDays,
+    visitTimeFrom = normalizeTime(station.visitTimeFrom).ifBlank { "09:00" },
+    visitTimeTo = normalizeTime(station.visitTimeTo).ifBlank { "18:00" },
     lastServiceDate = station.lastServiceDate,
     salesAfterService = station.salesAfterService,
-    salesLimit = station.salesLimit,
+    rentPaidUntil = station.rentPaidUntil,
+    excludeFromSupplyPlanning = station.excludeFromSupplyPlanning,
+    excludeFromOperatorEarnings = station.excludeFromOperatorEarnings,
+    liquidWasteContainerServiceDate = station.liquidWasteContainerServiceDate,
+    brewUnitServiceDate = station.brewUnitServiceDate,
+    coffeeGrinderServiceDate = station.coffeeGrinderServiceDate,
+    mixersServiceDate = station.mixersServiceDate,
+    expansionTankServiceDate = station.expansionTankServiceDate,
+    exhaustServiceDate = station.exhaustServiceDate,
     machinePhotoPath = station.machinePhotoPath,
-    overviewPhotoPath = station.overviewPhotoPath
+    overviewPhotoPath = station.overviewPhotoPath,
+    updatedAt = station.updatedAt,
+    isSynced = station.isSynced,
+    syncError = station.syncError,
+    syncErrorType = station.syncErrorType
 )
 
 fun StationDetail.toInventoryEntity() = StationInventoryEntity(
@@ -29,7 +45,12 @@ fun StationDetail.toInventoryEntity() = StationInventoryEntity(
     chocolate = inventory.chocolate,
     topping = inventory.topping,
     sugar = inventory.sugar,
-    stirrers = inventory.stirrers
+    stirrers = inventory.stirrers,
+    garbageBags = inventory.garbageBags,
+    updatedAt = inventory.updatedAt,
+    isSynced = inventory.isSynced,
+    syncError = inventory.syncError,
+    syncErrorType = inventory.syncErrorType
 )
 
 fun StationDetail.toSettingsEntity() = StationSettingsEntity(
@@ -39,7 +60,14 @@ fun StationDetail.toSettingsEntity() = StationSettingsEntity(
     coffeeMax = settings.coffeeMax,
     milkMax = settings.milkMax,
     chocolateMax = settings.chocolateMax,
-    toppingMax = settings.toppingMax
+    toppingMax = settings.toppingMax,
+    sugarMax = settings.sugarMax,
+    stirrersMax = settings.stirrersMax,
+    garbageBagsMax = settings.garbageBagsMax,
+    updatedAt = settings.updatedAt,
+    isSynced = settings.isSynced,
+    syncError = settings.syncError,
+    syncErrorType = settings.syncErrorType
 )
 
 fun toStationDetail(
@@ -55,11 +83,27 @@ fun toStationDetail(
             name = station.name,
             terminalId = station.terminalId,
             address = station.address,
+            visitDays = station.visitDays,
+            visitTimeFrom = normalizeTime(station.visitTimeFrom).ifBlank { "09:00" },
+            visitTimeTo = normalizeTime(station.visitTimeTo).ifBlank { "18:00" },
             lastServiceDate = station.lastServiceDate,
             salesAfterService = station.salesAfterService,
-            salesLimit = station.salesLimit,
+            rentPaidUntil = station.rentPaidUntil,
+            excludeFromSupplyPlanning = station.excludeFromSupplyPlanning,
+            excludeFromOperatorEarnings = station.excludeFromOperatorEarnings,
+            liquidWasteContainerServiceDate =
+                station.liquidWasteContainerServiceDate,
+            brewUnitServiceDate = station.brewUnitServiceDate,
+            coffeeGrinderServiceDate = station.coffeeGrinderServiceDate,
+            mixersServiceDate = station.mixersServiceDate,
+            expansionTankServiceDate = station.expansionTankServiceDate,
+            exhaustServiceDate = station.exhaustServiceDate,
             machinePhotoPath = station.machinePhotoPath,
-            overviewPhotoPath = station.overviewPhotoPath
+            overviewPhotoPath = station.overviewPhotoPath,
+            updatedAt = station.updatedAt,
+            isSynced = station.isSynced,
+            syncError = station.syncError,
+            syncErrorType = station.syncErrorType
         ),
 
         inventory = StationInventory(
@@ -70,7 +114,12 @@ fun toStationDetail(
             chocolate = inventory.chocolate,
             topping = inventory.topping,
             sugar = inventory.sugar,
-            stirrers = inventory.stirrers
+            stirrers = inventory.stirrers,
+            garbageBags = inventory.garbageBags,
+            updatedAt = inventory.updatedAt,
+            isSynced = inventory.isSynced,
+            syncError = inventory.syncError,
+            syncErrorType = inventory.syncErrorType
         ),
 
         settings = StationSettings(
@@ -79,7 +128,14 @@ fun toStationDetail(
             coffeeMax = settings.coffeeMax,
             milkMax = settings.milkMax,
             chocolateMax = settings.chocolateMax,
-            toppingMax = settings.toppingMax
+            toppingMax = settings.toppingMax,
+            sugarMax = settings.sugarMax,
+            stirrersMax = settings.stirrersMax,
+            garbageBagsMax = settings.garbageBagsMax,
+            updatedAt = settings.updatedAt,
+            isSynced = settings.isSynced,
+            syncError = settings.syncError,
+            syncErrorType = settings.syncErrorType
         )
 
     )

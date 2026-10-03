@@ -1,0 +1,27 @@
+package ru.coffeepoint.core.data.local.dao
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import ru.coffeepoint.core.data.local.entity.EmployeeEntity
+
+@Dao
+interface EmployeeDao {
+
+    @Query("SELECT * FROM employees ORDER BY isActive DESC, id")
+    suspend fun getAll(): List<EmployeeEntity>
+
+    @Query("SELECT * FROM employees WHERE id = :id")
+    suspend fun getById(id: Int): EmployeeEntity?
+
+    @Query("SELECT * FROM employees WHERE isActive = 1 ORDER BY id LIMIT 1")
+    suspend fun getFirstActive(): EmployeeEntity?
+
+    @Query("SELECT * FROM employees WHERE isActive = 1 AND role = :role ORDER BY id")
+    suspend fun getActiveByRole(role: String): List<EmployeeEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entity: EmployeeEntity)
+
+}

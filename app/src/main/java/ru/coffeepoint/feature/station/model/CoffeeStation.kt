@@ -10,13 +10,43 @@ data class CoffeeStation(
 
     val address: String = "",
 
+    val visitDays: String = "1,2,3,4,5",
+
+    val visitTimeFrom: String = "09:00",
+
+    val visitTimeTo: String = "18:00",
+
     val lastServiceDate: String,
 
     val salesAfterService: Int,
 
-    val salesLimit: Int = 120,
+    val rentPaidUntil: String = "",
+
+    val excludeFromSupplyPlanning: Boolean = false,
+
+    val excludeFromOperatorEarnings: Boolean = false,
+
+    val liquidWasteContainerServiceDate: String = "",
+
+    val brewUnitServiceDate: String = "",
+
+    val coffeeGrinderServiceDate: String = "",
+
+    val mixersServiceDate: String = "",
+
+    val expansionTankServiceDate: String = "",
+
+    val exhaustServiceDate: String = "",
 
     val machinePhotoPath: String? = null,
 
-    val overviewPhotoPath: String? = null
+    val overviewPhotoPath: String? = null,
+
+    val updatedAt: String = "",
+
+    val isSynced: Boolean = true,
+
+    val syncError: Boolean = false,
+
+    val syncErrorType: String = ""
 )

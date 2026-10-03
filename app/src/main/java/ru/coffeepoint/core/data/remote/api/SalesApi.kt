@@ -13,7 +13,10 @@ interface SalesApi {
         token: String,
 
         @Query("DateFrom")
-        dateFrom: String
+        dateFrom: String,
+
+        @Query("DateTo")
+        dateTo: String? = null
 
     ): SalesResponseDto
 

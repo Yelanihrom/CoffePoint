@@ -17,3 +17,8 @@
 .cxx
 local.properties
 *.apk
+/keystores/
+/release-signing.properties
+/local-jdk/
+/.codex/
+/CoffePoint-*.png

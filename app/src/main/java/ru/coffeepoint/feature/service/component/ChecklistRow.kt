@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -19,6 +20,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -26,10 +29,12 @@ fun ChecklistRow(
     checked: Boolean,
     title: String,
     hint: String,
+    warningText: String? = null,
     onCheckedChange: (Boolean) -> Unit
 ) {
 
     var showHint by remember { mutableStateOf(false) }
+    val warningColor = Color(0xFFF57C00)
 
     Column {
 
@@ -66,27 +71,52 @@ fun ChecklistRow(
 
         }
 
-            AnimatedVisibility(
-                visible = showHint
+        warningText?.let { text ->
+            Row(
+                modifier = Modifier
+                    .padding(
+                        start = 0.dp,
+                        end = 16.dp,
+                        bottom = 6.dp
+                    ),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-
-                Text(
-
-                    text = hint,
-
-                    modifier = Modifier
-                        .padding(
-                            start = 52.dp,
-                            end = 16.dp,
-                            bottom = 12.dp
-                        ),
-
-                    style = androidx.compose.material3.MaterialTheme.typography.bodyMedium
-
+                Icon(
+                    imageVector = Icons.Filled.WarningAmber,
+                    contentDescription = null,
+                    tint = warningColor,
+                    modifier = Modifier.padding(end = 6.dp)
                 )
 
+                Text(
+                    text = text,
+                    color = warningColor,
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
+        }
+
+        AnimatedVisibility(
+            visible = showHint
+        ) {
+
+            Text(
+
+                text = hint,
+
+                modifier = Modifier
+                    .padding(
+                        start = 52.dp,
+                        end = 16.dp,
+                        bottom = 12.dp
+                    ),
+
+                style = MaterialTheme.typography.bodyMedium
+
+            )
 
         }
 
     }
+
+}

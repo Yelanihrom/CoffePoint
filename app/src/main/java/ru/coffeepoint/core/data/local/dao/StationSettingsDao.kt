@@ -12,16 +12,33 @@ interface StationSettingsDao {
     @Query("SELECT * FROM station_settings")
     suspend fun getAll(): List<StationSettingsEntity>
 
+    @Query("SELECT * FROM station_settings WHERE isSynced = 0")
+    suspend fun getUnsynced(): List<StationSettingsEntity>
+
     @Query("SELECT * FROM station_settings WHERE stationId = :stationId")
     suspend fun getByStationId(stationId: Int): StationSettingsEntity?
 
     @Query("DELETE FROM station_settings WHERE stationId = :stationId")
     suspend fun deleteByStationId(stationId: Int)
 
+    @Query("DELETE FROM station_settings")
+    suspend fun deleteAll()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: StationSettingsEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(entities: List<StationSettingsEntity>)
+
+    @Query("UPDATE station_settings SET isSynced = :isSynced, syncError = :syncError, syncErrorType = :syncErrorType WHERE stationId = :stationId")
+    suspend fun updateSyncStatus(
+        stationId: Int,
+        isSynced: Boolean,
+        syncError: Boolean,
+        syncErrorType: String
+    )
+
+    @Query("UPDATE station_settings SET isSynced = 1, syncError = 0, syncErrorType = '' WHERE isSynced = 0 AND syncErrorType = :conflictType")
+    suspend fun markConflictsAsResolvedForImport(conflictType: String)
 
 }

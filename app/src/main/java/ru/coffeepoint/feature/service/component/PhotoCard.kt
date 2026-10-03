@@ -16,6 +16,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import ru.coffeepoint.feature.camera.model.ServicePhoto
+import ru.coffeepoint.shared.component.asActionButtonText
 
 @Composable
 fun PhotoCard(
@@ -43,7 +44,7 @@ fun PhotoCard(
                 onClick = onMachineClick,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Фото открытого аппарата")
+                Text("Фото открытого аппарата".asActionButtonText())
             }
 
             machinePhoto?.let {
@@ -65,7 +66,7 @@ fun PhotoCard(
                 onClick = onOverviewClick,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Общее фото стойки")
+                Text("Общее фото стойки".asActionButtonText())
             }
 
             overviewPhoto?.let {

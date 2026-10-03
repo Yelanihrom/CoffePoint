@@ -14,8 +14,18 @@ data class StationInventory(
 
     val topping: Int,
 
-    val sugar: StockLevel,
+    val sugar: Int,
 
-    val stirrers: StockLevel
+    val stirrers: Int,
+
+    val garbageBags: Int = 2,
+
+    val updatedAt: String = "",
+
+    val isSynced: Boolean = true,
+
+    val syncError: Boolean = false,
+
+    val syncErrorType: String = ""
 
 )

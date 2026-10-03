@@ -1,11 +1,15 @@
 package ru.coffeepoint
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.launch
-import ru.coffeepoint.core.data.DatabaseSeeder
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import ru.coffeepoint.core.sync.google.worker.GoogleSheetsSyncScheduler
+import ru.coffeepoint.core.worker.SalesRefreshScheduler
 import ru.coffeepoint.navigation.AppNavigation
 import ru.coffeepoint.ui.theme.CoffeePointTheme
 
@@ -14,11 +18,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        lifecycleScope.launch {
+        requestNotificationPermission()
 
-            DatabaseSeeder.seed(this@MainActivity)
-
-        }
+        SalesRefreshScheduler.schedule(this)
+        GoogleSheetsSyncScheduler.schedule(this)
 
         setContent {
 
@@ -29,6 +32,35 @@ class MainActivity : ComponentActivity() {
             }
 
         }
+
+    }
+
+    private fun requestNotificationPermission() {
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+
+        val permission = Manifest.permission.POST_NOTIFICATIONS
+
+        if (
+            ContextCompat.checkSelfPermission(
+                this,
+                permission
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(permission),
+            NOTIFICATION_PERMISSION_REQUEST_CODE
+        )
+
+    }
+
+    private companion object {
+
+        const val NOTIFICATION_PERMISSION_REQUEST_CODE = 100
 
     }
 

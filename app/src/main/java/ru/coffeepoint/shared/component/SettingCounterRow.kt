@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 fun SettingCounterRow(
     title: String,
     value: Int,
+    valueSuffix: String = "",
     onMinus: () -> Unit,
     onPlus: () -> Unit
 ) {
@@ -57,9 +58,13 @@ fun SettingCounterRow(
 
             Text(
 
-                text = value.toString(),
+                text = if (valueSuffix.isNotBlank()) {
+                    "$value $valueSuffix"
+                } else {
+                    value.toString()
+                },
 
-                modifier = Modifier.width(50.dp),
+                modifier = Modifier.width(72.dp),
 
                 style = MaterialTheme.typography.titleMedium,
 

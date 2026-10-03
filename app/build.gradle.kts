@@ -1,7 +1,16 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     id("com.google.devtools.ksp") version "2.2.10-2.0.2"
+}
+
+val releaseSigningProperties = Properties().apply {
+    val propertiesFile = rootProject.file("release-signing.properties")
+    if (propertiesFile.exists()) {
+        propertiesFile.inputStream().use(::load)
+    }
 }
 
 android {
@@ -12,15 +21,27 @@ android {
         applicationId = "ru.coffeepoint"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 14
+        versionName = "1.0.14"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        create("release") {
+            if (releaseSigningProperties.isNotEmpty()) {
+                storeFile = rootProject.file(releaseSigningProperties["storeFile"] as String)
+                storePassword = releaseSigningProperties["storePassword"] as String
+                keyAlias = releaseSigningProperties["keyAlias"] as String
+                keyPassword = releaseSigningProperties["keyPassword"] as String
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -69,6 +90,7 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation("androidx.work:work-runtime-ktx:2.10.3")
 
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

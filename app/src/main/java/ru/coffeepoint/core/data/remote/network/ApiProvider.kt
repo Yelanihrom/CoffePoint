@@ -5,6 +5,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import ru.coffeepoint.core.data.remote.api.SalesApi
+import ru.coffeepoint.core.data.remote.api.TerminalCommandApi
 
 object ApiProvider {
 
@@ -25,5 +26,8 @@ object ApiProvider {
         .build()
 
     val salesApi: SalesApi = retrofit.create(SalesApi::class.java)
+
+    val terminalCommandApi: TerminalCommandApi =
+        retrofit.create(TerminalCommandApi::class.java)
 
 }
