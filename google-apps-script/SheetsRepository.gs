@@ -13,6 +13,18 @@ function getFullSyncData(entities) {
       : [],
     supplyCatalog: requestedEntities.has(SHEETS.SUPPLY_CATALOG.name)
       ? readSheet(SHEETS.SUPPLY_CATALOG)
+      : [],
+    warehouseStock: requestedEntities.has(SHEETS.WAREHOUSE_STOCK.name)
+      ? readSheet(SHEETS.WAREHOUSE_STOCK)
+      : [],
+    employees: requestedEntities.has(SHEETS.EMPLOYEES.name)
+      ? readSheet(SHEETS.EMPLOYEES)
+      : [],
+    employeeStationAssignments: requestedEntities.has(SHEETS.EMPLOYEE_STATION_ASSIGNMENTS.name)
+      ? readSheet(SHEETS.EMPLOYEE_STATION_ASSIGNMENTS)
+      : [],
+    employeeTransactions: requestedEntities.has(SHEETS.EMPLOYEES_TRANSACTIONS.name)
+      ? readSheet(SHEETS.EMPLOYEES_TRANSACTIONS)
       : []
   };
 }
@@ -23,7 +35,11 @@ function parseEntities(entities) {
       SHEETS.COFFEE_STATION.name,
       SHEETS.STATION_INVENTORY.name,
       SHEETS.STATION_SETTINGS.name,
-      SHEETS.SUPPLY_CATALOG.name
+      SHEETS.SUPPLY_CATALOG.name,
+      SHEETS.WAREHOUSE_STOCK.name,
+      SHEETS.EMPLOYEES.name,
+      SHEETS.EMPLOYEE_STATION_ASSIGNMENTS.name,
+      SHEETS.EMPLOYEES_TRANSACTIONS.name
     ]);
   }
 
@@ -146,7 +162,11 @@ function findSheetConfig(entityName) {
     SHEETS.COFFEE_STATION,
     SHEETS.STATION_INVENTORY,
     SHEETS.STATION_SETTINGS,
-    SHEETS.SUPPLY_CATALOG
+    SHEETS.SUPPLY_CATALOG,
+    SHEETS.WAREHOUSE_STOCK,
+    SHEETS.EMPLOYEES,
+    SHEETS.EMPLOYEE_STATION_ASSIGNMENTS,
+    SHEETS.EMPLOYEES_TRANSACTIONS
   ];
 
   const config = configs.find((item) => item.name === entityName);
