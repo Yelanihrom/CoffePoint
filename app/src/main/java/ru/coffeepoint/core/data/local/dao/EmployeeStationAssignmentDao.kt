@@ -62,4 +62,10 @@ interface EmployeeStationAssignmentDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: EmployeeStationAssignmentEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(entities: List<EmployeeStationAssignmentEntity>)
+
+    @Query("DELETE FROM employee_station_assignments")
+    suspend fun deleteAll()
+
 }

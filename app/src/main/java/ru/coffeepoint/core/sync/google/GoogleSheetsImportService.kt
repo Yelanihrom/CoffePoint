@@ -1,6 +1,9 @@
 package ru.coffeepoint.core.sync.google
 
 import ru.coffeepoint.core.data.local.dao.CoffeeStationDao
+import ru.coffeepoint.core.data.local.dao.EmployeeDao
+import ru.coffeepoint.core.data.local.dao.EmployeeStationAssignmentDao
+import ru.coffeepoint.core.data.local.dao.EmployeeTransactionDao
 import ru.coffeepoint.core.data.local.dao.StationInventoryDao
 import ru.coffeepoint.core.data.local.dao.StationSettingsDao
 import ru.coffeepoint.core.data.local.dao.SupplyCatalogDao
@@ -16,6 +19,9 @@ class GoogleSheetsImportService(
     private val settingsDao: StationSettingsDao,
     private val supplyCatalogDao: SupplyCatalogDao,
     private val warehouseStockDao: WarehouseStockDao,
+    private val employeeDao: EmployeeDao,
+    private val employeeStationAssignmentDao: EmployeeStationAssignmentDao,
+    private val employeeTransactionDao: EmployeeTransactionDao,
     private val syncManager: GoogleSheetsSyncManager = GoogleSheetsSyncManager()
 ) {
 
@@ -54,6 +60,9 @@ class GoogleSheetsImportService(
 
         supplyCatalogDao.insertAll(remoteData.supplyCatalog)
         warehouseStockDao.insertAll(remoteData.warehouseStock)
+        employeeDao.insertAll(remoteData.employees)
+        employeeStationAssignmentDao.insertAll(remoteData.employeeStationAssignments)
+        employeeTransactionDao.insertAll(remoteData.employeeTransactions)
 
         return GoogleSheetsImportResult.Success
     }

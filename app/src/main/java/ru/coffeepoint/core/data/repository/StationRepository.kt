@@ -37,7 +37,10 @@ class StationRepository(
         inventoryDao = inventoryDao,
         settingsDao = settingsDao,
         supplyCatalogDao = db.supplyCatalogDao(),
-        warehouseStockDao = db.warehouseStockDao()
+        warehouseStockDao = db.warehouseStockDao(),
+        employeeDao = db.employeeDao(),
+        employeeStationAssignmentDao = db.employeeStationAssignmentDao(),
+        employeeTransactionDao = db.employeeTransactionDao()
     )
     private val googleSheetsStationSyncService = GoogleSheetsStationSyncService(
         stationDao = stationDao,

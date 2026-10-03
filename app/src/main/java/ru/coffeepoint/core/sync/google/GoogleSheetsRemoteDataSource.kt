@@ -168,6 +168,15 @@ class GoogleSheetsRemoteDataSource {
             },
             warehouseStock = data.warehouseStock.map { row ->
                 row.toWarehouseStockEntity()
+            },
+            employees = data.employees.map { row ->
+                row.toEmployeeEntity()
+            },
+            employeeStationAssignments = data.employeeStationAssignments.map { row ->
+                row.toEmployeeStationAssignmentEntity()
+            },
+            employeeTransactions = data.employeeTransactions.map { row ->
+                row.toEmployeeTransactionEntity()
             }
         )
     }
@@ -618,6 +627,46 @@ class GoogleSheetsRemoteDataSource {
         )
     }
 
+    private fun Map<String, Any?>.toEmployeeEntity(): EmployeeEntity {
+        return EmployeeEntity(
+            id = intValue("id"),
+            name = stringValue("name"),
+            role = stringValue("role"),
+            workStartDate = storageDateValue("workStartDate"),
+            isActive = booleanValue("isActive"),
+            createdAt = timestampValue("createdAt"),
+            updatedAt = timestampValue("updatedAt")
+        )
+    }
+
+    private fun Map<String, Any?>.toEmployeeStationAssignmentEntity(): EmployeeStationAssignmentEntity {
+        return EmployeeStationAssignmentEntity(
+            id = plainStringValue("id"),
+            employeeId = intValue("employeeId"),
+            stationId = intValue("stationId"),
+            validFrom = storageDateValue("validFrom"),
+            validTo = nullableStorageDateValue("validTo"),
+            createdAt = timestampValue("createdAt"),
+            updatedAt = timestampValue("updatedAt")
+        )
+    }
+
+    private fun Map<String, Any?>.toEmployeeTransactionEntity(): EmployeeTransactionEntity {
+        return EmployeeTransactionEntity(
+            id = plainStringValue("id"),
+            employeeId = intValue("employeeId"),
+            type = stringValue("type"),
+            operationDate = timestampValue("operationDate"),
+            periodFrom = nullableStorageDateValue("periodFrom"),
+            periodTo = nullableStorageDateValue("periodTo"),
+            salesCount = nullableIntValue("salesCount"),
+            amount = intValue("amount"),
+            comment = stringValue("comment"),
+            createdAt = timestampValue("createdAt"),
+            updatedAt = timestampValue("updatedAt")
+        )
+    }
+
     private fun Map<String, Any?>.stringValue(key: String): String {
         return this[key]?.toString().orEmpty()
     }
@@ -640,6 +689,14 @@ class GoogleSheetsRemoteDataSource {
             is Number -> value.toInt()
             is String -> value.toDoubleOrNull()?.toInt() ?: defaultValue
             else -> defaultValue
+        }
+    }
+
+    private fun Map<String, Any?>.nullableIntValue(key: String): Int? {
+        return when (val value = this[key]) {
+            is Number -> value.toInt()
+            is String -> value.toDoubleOrNull()?.toInt()
+            else -> null
         }
     }
 
@@ -698,6 +755,20 @@ class GoogleSheetsRemoteDataSource {
         )
     }
 
+    private fun Map<String, Any?>.storageDateValue(key: String): String {
+        val value = stringValue(key)
+        if (value.isBlank()) return ""
+
+        return formatGoogleDate(
+            value = value,
+            outputPattern = "yyyy-MM-dd"
+        ).ifBlank { value }
+    }
+
+    private fun Map<String, Any?>.nullableStorageDateValue(key: String): String? {
+        return storageDateValue(key).ifBlank { null }
+    }
+
     private fun Map<String, Any?>.timeValue(key: String): String {
         return normalizeTime(stringValue(key))
     }
@@ -746,6 +817,18 @@ class GoogleSheetsRemoteDataSource {
                 Locale.getDefault()
             ).apply {
                 timeZone = TimeZone.getTimeZone("UTC")
+                isLenient = false
+            },
+            SimpleDateFormat(
+                "yyyy-MM-dd'T'HH:mm:ss",
+                Locale.getDefault()
+            ).apply {
+                isLenient = false
+            },
+            SimpleDateFormat(
+                "yyyy-MM-dd",
+                Locale.getDefault()
+            ).apply {
                 isLenient = false
             },
             SimpleDateFormat(
@@ -828,5 +911,8 @@ private class GoogleSheetsSyncException(
 data class GoogleSheetsFullSyncBundle(
     val stations: List<StationDetail> = emptyList(),
     val supplyCatalog: List<SupplyCatalogEntity> = emptyList(),
-    val warehouseStock: List<WarehouseStockEntity> = emptyList()
+    val warehouseStock: List<WarehouseStockEntity> = emptyList(),
+    val employees: List<EmployeeEntity> = emptyList(),
+    val employeeStationAssignments: List<EmployeeStationAssignmentEntity> = emptyList(),
+    val employeeTransactions: List<EmployeeTransactionEntity> = emptyList()
 )
