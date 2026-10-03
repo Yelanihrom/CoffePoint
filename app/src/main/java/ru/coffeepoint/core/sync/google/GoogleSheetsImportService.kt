@@ -25,11 +25,23 @@ class GoogleSheetsImportService(
     private val syncManager: GoogleSheetsSyncManager = GoogleSheetsSyncManager()
 ) {
 
-    suspend fun importFullSync(): GoogleSheetsImportResult {
-        if (hasUnsyncedChanges()) return GoogleSheetsImportResult.SkippedPendingChanges
+    suspend fun importFullSync(
+        includeSupplyCatalog: Boolean = true,
+        includeEmployeeData: Boolean = true
+    ): GoogleSheetsImportResult {
+        if (
+            hasUnsyncedChanges(
+                includeSupplyCatalog = includeSupplyCatalog
+            )
+        ) {
+            return GoogleSheetsImportResult.SkippedPendingChanges
+        }
 
         val remoteData = runCatching {
-            syncManager.loadFullSyncBundle()
+            syncManager.loadFullSyncBundle(
+                includeSupplyCatalog = includeSupplyCatalog,
+                includeEmployeeData = includeEmployeeData
+            )
         }.getOrElse {
             return GoogleSheetsImportResult.Error
         }
@@ -41,7 +53,6 @@ class GoogleSheetsImportService(
             detail.station.id to detail.station.salesAfterService
         }
 
-        supplyCatalogDao.deleteAll()
         inventoryDao.deleteAll()
         settingsDao.deleteAll()
         stationDao.deleteAll()
@@ -58,20 +69,29 @@ class GoogleSheetsImportService(
             settingsDao.insert(mergedDetail.toSettingsEntity())
         }
 
-        supplyCatalogDao.insertAll(remoteData.supplyCatalog)
+        if (includeSupplyCatalog) {
+            supplyCatalogDao.deleteAll()
+            supplyCatalogDao.insertAll(remoteData.supplyCatalog)
+        }
+
         warehouseStockDao.insertAll(remoteData.warehouseStock)
-        employeeDao.insertAll(remoteData.employees)
-        employeeStationAssignmentDao.insertAll(remoteData.employeeStationAssignments)
-        employeeTransactionDao.insertAll(remoteData.employeeTransactions)
+
+        if (includeEmployeeData) {
+            employeeDao.insertAll(remoteData.employees)
+            employeeStationAssignmentDao.insertAll(remoteData.employeeStationAssignments)
+            employeeTransactionDao.insertAll(remoteData.employeeTransactions)
+        }
 
         return GoogleSheetsImportResult.Success
     }
 
-    private suspend fun hasUnsyncedChanges(): Boolean {
+    private suspend fun hasUnsyncedChanges(
+        includeSupplyCatalog: Boolean
+    ): Boolean {
         return stationDao.getUnsynced().isNotEmpty() ||
             inventoryDao.getUnsynced().isNotEmpty() ||
             settingsDao.getUnsynced().isNotEmpty() ||
-            supplyCatalogDao.getUnsynced().isNotEmpty() ||
+            (includeSupplyCatalog && supplyCatalogDao.getUnsynced().isNotEmpty()) ||
             warehouseStockDao.getUnsynced().isNotEmpty()
     }
 

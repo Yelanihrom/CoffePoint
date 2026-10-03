@@ -39,4 +39,24 @@ class EmployeeSyncRepository(
         }
     }
 
+    suspend fun refreshEmployeeDataFromGoogleSheets(): Boolean {
+        val remoteData = runCatching {
+            syncManager.loadFullSyncBundle(
+                includeStations = false,
+                includeSettings = false,
+                includeSupplyCatalog = false,
+                includeWarehouseStock = false,
+                includeEmployeeData = true
+            )
+        }.getOrElse {
+            return false
+        }
+
+        employeeDao.insertAll(remoteData.employees)
+        assignmentDao.insertAll(remoteData.employeeStationAssignments)
+        transactionDao.insertAll(remoteData.employeeTransactions)
+
+        return true
+    }
+
 }

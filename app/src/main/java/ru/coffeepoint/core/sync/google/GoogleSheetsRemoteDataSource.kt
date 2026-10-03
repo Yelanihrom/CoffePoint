@@ -101,9 +101,11 @@ class GoogleSheetsRemoteDataSource {
     }
 
     suspend fun loadFullSyncBundle(
+        includeStations: Boolean = true,
         includeSettings: Boolean = true,
         includeSupplyCatalog: Boolean = true,
-        includeWarehouseStock: Boolean = true
+        includeWarehouseStock: Boolean = true,
+        includeEmployeeData: Boolean = true
     ): GoogleSheetsFullSyncBundle {
         if (!GoogleSheetsSyncConfig.isEnabled()) {
             return GoogleSheetsFullSyncBundle()
@@ -113,15 +115,28 @@ class GoogleSheetsRemoteDataSource {
             url = GoogleSheetsSyncConfig.WEB_APP_URL,
             action = "full_sync",
             token = GoogleSheetsSyncConfig.SYNC_TOKEN,
-            entities = if (includeSettings && includeSupplyCatalog && includeWarehouseStock) {
+            entities = if (
+                includeStations &&
+                includeSettings &&
+                includeSupplyCatalog &&
+                includeWarehouseStock &&
+                includeEmployeeData
+            ) {
                 null
             } else {
                 buildList {
-                    add("coffee_station")
-                    add("station_inventory")
-                    if (includeSettings) add("station_settings")
+                    if (includeStations) {
+                        add("coffee_station")
+                        add("station_inventory")
+                        if (includeSettings) add("station_settings")
+                    }
                     if (includeSupplyCatalog) add("supply_catalog")
                     if (includeWarehouseStock) add("warehouse_stock")
+                    if (includeEmployeeData) {
+                        add("employees")
+                        add("employee_station_assignments")
+                        add("employees_transactions")
+                    }
                 }.joinToString(",")
             }
         )
@@ -138,27 +153,31 @@ class GoogleSheetsRemoteDataSource {
             it.intValue("stationId")
         }
 
-        val stations = data.stations.mapNotNull { stationRow ->
-            val stationId = stationRow.intValue("id")
-            val inventoryRow = inventoriesByStationId[stationId] ?: return@mapNotNull null
+        val stations = if (includeStations) {
+            data.stations.mapNotNull { stationRow ->
+                val stationId = stationRow.intValue("id")
+                val inventoryRow = inventoriesByStationId[stationId] ?: return@mapNotNull null
 
-            StationDetail(
-                station = stationRow.toStation(),
-                inventory = inventoryRow.toInventory(),
-                settings = if (includeSettings) {
-                    settingsByStationId[stationId]?.toSettings()
-                        ?: return@mapNotNull null
-                } else {
-                    StationSettings(
-                        cupsMax = 15,
-                        lidsMax = 6,
-                        coffeeMax = 6,
-                        milkMax = 10,
-                        chocolateMax = 10,
-                        toppingMax = 10
-                    )
-                }
-            )
+                StationDetail(
+                    station = stationRow.toStation(),
+                    inventory = inventoryRow.toInventory(),
+                    settings = if (includeSettings) {
+                        settingsByStationId[stationId]?.toSettings()
+                            ?: return@mapNotNull null
+                    } else {
+                        StationSettings(
+                            cupsMax = 15,
+                            lidsMax = 6,
+                            coffeeMax = 6,
+                            milkMax = 10,
+                            chocolateMax = 10,
+                            toppingMax = 10
+                        )
+                    }
+                )
+            }
+        } else {
+            emptyList()
         }
 
         return GoogleSheetsFullSyncBundle(

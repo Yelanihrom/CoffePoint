@@ -37,6 +37,8 @@ class MonthlyEarningsRepository(
 
         return runCatching {
 
+            employeeSyncRepository.refreshEmployeeDataFromGoogleSheets()
+
             val employee = currentEmployee()
             val workStartDate = toDisplayDate(employee.workStartDate)
             val terminalIds = stationRepository.getStations()
@@ -204,6 +206,8 @@ class MonthlyEarningsRepository(
         startDate: String,
         endDate: String? = null
     ) {
+
+        employeeSyncRepository.refreshEmployeeDataFromGoogleSheets()
 
         preferences.updatePaymentsAmount(
             getPaymentsAmountForPeriod(

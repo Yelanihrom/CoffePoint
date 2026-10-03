@@ -32,8 +32,20 @@ class GoogleSheetsSyncManager(
         )
     }
 
-    suspend fun loadFullSyncBundle(): GoogleSheetsFullSyncBundle {
-        return remoteDataSource.loadFullSyncBundle()
+    suspend fun loadFullSyncBundle(
+        includeStations: Boolean = true,
+        includeSettings: Boolean = true,
+        includeSupplyCatalog: Boolean = true,
+        includeWarehouseStock: Boolean = true,
+        includeEmployeeData: Boolean = true
+    ): GoogleSheetsFullSyncBundle {
+        return remoteDataSource.loadFullSyncBundle(
+            includeStations = includeStations,
+            includeSettings = includeSettings,
+            includeSupplyCatalog = includeSupplyCatalog,
+            includeWarehouseStock = includeWarehouseStock,
+            includeEmployeeData = includeEmployeeData
+        )
     }
 
     fun enqueueBackgroundSync(context: Context) {

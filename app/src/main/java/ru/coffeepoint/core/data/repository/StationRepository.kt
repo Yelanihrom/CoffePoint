@@ -93,7 +93,10 @@ class StationRepository(
     }
 
     suspend fun importFromGoogleSheetsResult(): GoogleSheetsImportResult {
-        return googleSheetsImportService.importFullSync()
+        return googleSheetsImportService.importFullSync(
+            includeSupplyCatalog = false,
+            includeEmployeeData = false
+        )
     }
 
     suspend fun saveStation(
