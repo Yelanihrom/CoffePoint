@@ -30,7 +30,7 @@ import ru.coffeepoint.core.data.local.entity.WarehouseStockEntity
         EmployeeStationAssignmentEntity::class,
         EmployeeTransactionEntity::class,
     ],
-    version = 28,
+    version = 29,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

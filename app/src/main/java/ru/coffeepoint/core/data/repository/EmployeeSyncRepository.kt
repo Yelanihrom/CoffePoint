@@ -2,7 +2,11 @@ package ru.coffeepoint.core.data.repository
 
 import android.content.Context
 import ru.coffeepoint.core.data.local.DatabaseProvider
+import ru.coffeepoint.core.data.local.entity.EmployeeEntity
+import ru.coffeepoint.core.data.local.entity.EmployeeStationAssignmentEntity
+import ru.coffeepoint.core.data.local.entity.EmployeeTransactionEntity
 import ru.coffeepoint.core.sync.google.GoogleSheetsEntitySyncResult
+import ru.coffeepoint.core.sync.google.GoogleSheetsSyncErrorType
 import ru.coffeepoint.core.sync.google.GoogleSheetsSyncManager
 
 class EmployeeSyncRepository(
@@ -16,16 +20,47 @@ class EmployeeSyncRepository(
     private val syncManager = GoogleSheetsSyncManager()
 
     suspend fun syncEmployeesAndAssignments(): GoogleSheetsEntitySyncResult {
-        return syncManager.syncEmployeesAndAssignments(
-            employees = employeeDao.getAll(),
-            assignments = assignmentDao.getAll()
+        val employees = employeeDao.getUnsynced()
+        val assignments = assignmentDao.getUnsynced()
+
+        if (employees.isEmpty() && assignments.isEmpty()) {
+            return GoogleSheetsEntitySyncResult.success()
+        }
+
+        val result = syncManager.syncEmployeesAndAssignments(
+            employees = employees,
+            assignments = assignments
         )
+
+        updateEmployeesSyncStatus(
+            employees = employees,
+            result = result
+        )
+        updateAssignmentsSyncStatus(
+            assignments = assignments,
+            result = result
+        )
+
+        return result
     }
 
     suspend fun syncEmployeeTransactions(): GoogleSheetsEntitySyncResult {
-        return syncManager.syncEmployeeTransactions(
-            transactions = transactionDao.getAll()
+        val transactions = transactionDao.getUnsynced()
+
+        if (transactions.isEmpty()) {
+            return GoogleSheetsEntitySyncResult.success()
+        }
+
+        val result = syncManager.syncEmployeeTransactions(
+            transactions = transactions
         )
+
+        updateTransactionsSyncStatus(
+            transactions = transactions,
+            result = result
+        )
+
+        return result
     }
 
     suspend fun syncEmployeeData(): GoogleSheetsEntitySyncResult {
@@ -57,6 +92,60 @@ class EmployeeSyncRepository(
         transactionDao.insertAll(remoteData.employeeTransactions)
 
         return true
+    }
+
+    private suspend fun updateEmployeesSyncStatus(
+        employees: List<EmployeeEntity>,
+        result: GoogleSheetsEntitySyncResult
+    ) {
+        employees.forEach { employee ->
+            employeeDao.updateSyncStatus(
+                id = employee.id,
+                isSynced = result.synced,
+                syncError = !result.synced,
+                syncErrorType = if (result.synced) {
+                    GoogleSheetsSyncErrorType.NONE.storageValue
+                } else {
+                    result.errorType.storageValue
+                }
+            )
+        }
+    }
+
+    private suspend fun updateAssignmentsSyncStatus(
+        assignments: List<EmployeeStationAssignmentEntity>,
+        result: GoogleSheetsEntitySyncResult
+    ) {
+        assignments.forEach { assignment ->
+            assignmentDao.updateSyncStatus(
+                id = assignment.id,
+                isSynced = result.synced,
+                syncError = !result.synced,
+                syncErrorType = if (result.synced) {
+                    GoogleSheetsSyncErrorType.NONE.storageValue
+                } else {
+                    result.errorType.storageValue
+                }
+            )
+        }
+    }
+
+    private suspend fun updateTransactionsSyncStatus(
+        transactions: List<EmployeeTransactionEntity>,
+        result: GoogleSheetsEntitySyncResult
+    ) {
+        transactions.forEach { transaction ->
+            transactionDao.updateSyncStatus(
+                id = transaction.id,
+                isSynced = result.synced,
+                syncError = !result.synced,
+                syncErrorType = if (result.synced) {
+                    GoogleSheetsSyncErrorType.NONE.storageValue
+                } else {
+                    result.errorType.storageValue
+                }
+            )
+        }
     }
 
 }

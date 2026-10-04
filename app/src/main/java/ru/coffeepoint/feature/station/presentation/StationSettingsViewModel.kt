@@ -498,7 +498,8 @@ class StationSettingsViewModel(
             workStartDate = DEFAULT_EMPLOYEE_WORK_START_DATE,
             isActive = true,
             createdAt = now,
-            updatedAt = now
+            updatedAt = now,
+            isSynced = false
         )
 
         employeeDao.insert(defaultEmployee)
@@ -529,7 +530,8 @@ class StationSettingsViewModel(
                 validFrom = validFrom,
                 validTo = null,
                 createdAt = now,
-                updatedAt = now
+                updatedAt = now,
+                isSynced = false
             )
         )
 

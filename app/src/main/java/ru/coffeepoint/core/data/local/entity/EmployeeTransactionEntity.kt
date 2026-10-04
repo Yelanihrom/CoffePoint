@@ -29,5 +29,8 @@ data class EmployeeTransactionEntity(
     val amount: Int,
     val comment: String,
     val createdAt: String,
-    val updatedAt: String
+    val updatedAt: String,
+    val isSynced: Boolean = true,
+    val syncError: Boolean = false,
+    val syncErrorType: String = ""
 )

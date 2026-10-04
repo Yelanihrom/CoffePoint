@@ -44,7 +44,8 @@ object DatabaseProvider {
                     MIGRATION_24_25,
                     MIGRATION_25_26,
                     MIGRATION_26_27,
-                    MIGRATION_27_28
+                    MIGRATION_27_28,
+                    MIGRATION_28_29
                 )
                 .build()
                 .also {
@@ -704,6 +705,42 @@ object DatabaseProvider {
                 CREATE INDEX IF NOT EXISTS index_employees_transactions_employeeId_type_periodFrom_periodTo
                 ON employees_transactions(employeeId, type, periodFrom, periodTo)
                 """.trimIndent()
+            )
+
+        }
+
+    }
+
+    private val MIGRATION_28_29 = object : Migration(28, 29) {
+
+        override fun migrate(db: SupportSQLiteDatabase) {
+
+            db.execSQL(
+                "ALTER TABLE employees ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 1"
+            )
+            db.execSQL(
+                "ALTER TABLE employees ADD COLUMN syncError INTEGER NOT NULL DEFAULT 0"
+            )
+            db.execSQL(
+                "ALTER TABLE employees ADD COLUMN syncErrorType TEXT NOT NULL DEFAULT ''"
+            )
+            db.execSQL(
+                "ALTER TABLE employee_station_assignments ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 1"
+            )
+            db.execSQL(
+                "ALTER TABLE employee_station_assignments ADD COLUMN syncError INTEGER NOT NULL DEFAULT 0"
+            )
+            db.execSQL(
+                "ALTER TABLE employee_station_assignments ADD COLUMN syncErrorType TEXT NOT NULL DEFAULT ''"
+            )
+            db.execSQL(
+                "ALTER TABLE employees_transactions ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 1"
+            )
+            db.execSQL(
+                "ALTER TABLE employees_transactions ADD COLUMN syncError INTEGER NOT NULL DEFAULT 0"
+            )
+            db.execSQL(
+                "ALTER TABLE employees_transactions ADD COLUMN syncErrorType TEXT NOT NULL DEFAULT ''"
             )
 
         }

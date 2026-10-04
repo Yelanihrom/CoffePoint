@@ -654,7 +654,9 @@ class GoogleSheetsRemoteDataSource {
             workStartDate = storageDateValue("workStartDate"),
             isActive = booleanValue("isActive"),
             createdAt = timestampValue("createdAt"),
-            updatedAt = timestampValue("updatedAt")
+            updatedAt = timestampValue("updatedAt"),
+            isSynced = true,
+            syncError = false
         )
     }
 
@@ -666,7 +668,9 @@ class GoogleSheetsRemoteDataSource {
             validFrom = storageDateValue("validFrom"),
             validTo = nullableStorageDateValue("validTo"),
             createdAt = timestampValue("createdAt"),
-            updatedAt = timestampValue("updatedAt")
+            updatedAt = timestampValue("updatedAt"),
+            isSynced = true,
+            syncError = false
         )
     }
 
@@ -682,7 +686,9 @@ class GoogleSheetsRemoteDataSource {
             amount = intValue("amount"),
             comment = stringValue("comment"),
             createdAt = timestampValue("createdAt"),
-            updatedAt = timestampValue("updatedAt")
+            updatedAt = timestampValue("updatedAt"),
+            isSynced = true,
+            syncError = false
         )
     }
 

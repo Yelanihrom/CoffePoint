@@ -12,6 +12,9 @@ interface EmployeeDao {
     @Query("SELECT * FROM employees ORDER BY isActive DESC, id")
     suspend fun getAll(): List<EmployeeEntity>
 
+    @Query("SELECT * FROM employees WHERE isSynced = 0")
+    suspend fun getUnsynced(): List<EmployeeEntity>
+
     @Query("SELECT * FROM employees WHERE id = :id")
     suspend fun getById(id: Int): EmployeeEntity?
 
@@ -29,5 +32,22 @@ interface EmployeeDao {
 
     @Query("DELETE FROM employees")
     suspend fun deleteAll()
+
+    @Query(
+        """
+        UPDATE employees
+        SET
+            isSynced = :isSynced,
+            syncError = :syncError,
+            syncErrorType = :syncErrorType
+        WHERE id = :id
+        """
+    )
+    suspend fun updateSyncStatus(
+        id: Int,
+        isSynced: Boolean,
+        syncError: Boolean,
+        syncErrorType: String
+    )
 
 }

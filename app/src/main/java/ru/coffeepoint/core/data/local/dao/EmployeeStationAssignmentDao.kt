@@ -12,6 +12,9 @@ interface EmployeeStationAssignmentDao {
     @Query("SELECT * FROM employee_station_assignments ORDER BY stationId, validFrom")
     suspend fun getAll(): List<EmployeeStationAssignmentEntity>
 
+    @Query("SELECT * FROM employee_station_assignments WHERE isSynced = 0")
+    suspend fun getUnsynced(): List<EmployeeStationAssignmentEntity>
+
     @Query(
         """
         SELECT *
@@ -67,5 +70,22 @@ interface EmployeeStationAssignmentDao {
 
     @Query("DELETE FROM employee_station_assignments")
     suspend fun deleteAll()
+
+    @Query(
+        """
+        UPDATE employee_station_assignments
+        SET
+            isSynced = :isSynced,
+            syncError = :syncError,
+            syncErrorType = :syncErrorType
+        WHERE id = :id
+        """
+    )
+    suspend fun updateSyncStatus(
+        id: String,
+        isSynced: Boolean,
+        syncError: Boolean,
+        syncErrorType: String
+    )
 
 }

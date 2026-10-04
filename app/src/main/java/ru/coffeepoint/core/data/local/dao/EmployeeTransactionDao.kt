@@ -18,8 +18,28 @@ interface EmployeeTransactionDao {
     @Query("SELECT * FROM employees_transactions ORDER BY operationDate DESC")
     suspend fun getAll(): List<EmployeeTransactionEntity>
 
+    @Query("SELECT * FROM employees_transactions WHERE isSynced = 0")
+    suspend fun getUnsynced(): List<EmployeeTransactionEntity>
+
     @Query("DELETE FROM employees_transactions")
     suspend fun deleteAll()
+
+    @Query(
+        """
+        UPDATE employees_transactions
+        SET
+            isSynced = :isSynced,
+            syncError = :syncError,
+            syncErrorType = :syncErrorType
+        WHERE id = :id
+        """
+    )
+    suspend fun updateSyncStatus(
+        id: String,
+        isSynced: Boolean,
+        syncError: Boolean,
+        syncErrorType: String
+    )
 
     @Query(
         """

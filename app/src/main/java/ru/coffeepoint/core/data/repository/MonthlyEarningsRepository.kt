@@ -128,7 +128,7 @@ class MonthlyEarningsRepository(
             salesCount = salesCount,
             amount = amount
         )
-        employeeSyncRepository.syncEmployeeTransactions()
+        employeeSyncRepository.syncEmployeeData()
         preferences.updateSettlementAmount(
             getSettlementAmount(
                 employee = employee,
@@ -182,10 +182,11 @@ class MonthlyEarningsRepository(
                 amount = amount,
                 comment = "",
                 createdAt = storageDate,
-                updatedAt = storageDate
+                updatedAt = storageDate,
+                isSynced = false
             )
         )
-        employeeSyncRepository.syncEmployeeTransactions()
+        employeeSyncRepository.syncEmployeeData()
 
         preferences.updatePaymentsAmount(
             getPaymentsAmountForPeriod(
@@ -313,7 +314,8 @@ class MonthlyEarningsRepository(
                 amount = amount,
                 comment = "",
                 createdAt = now,
-                updatedAt = now
+                updatedAt = now,
+                isSynced = false
             )
         )
 
@@ -373,7 +375,8 @@ class MonthlyEarningsRepository(
             workStartDate = DEFAULT_EMPLOYEE_WORK_START_DATE,
             isActive = true,
             createdAt = DEFAULT_EMPLOYEE_CREATED_AT,
-            updatedAt = DEFAULT_EMPLOYEE_CREATED_AT
+            updatedAt = DEFAULT_EMPLOYEE_CREATED_AT,
+            isSynced = false
         )
 
     }
