@@ -497,6 +497,11 @@ private fun SettlementCard(
     settlementAmount: Int
 ) {
     val isAdvanceDebt = settlementAmount < 0
+    val settlementColor = if (isAdvanceDebt) {
+        MaterialTheme.colorScheme.error
+    } else {
+        Color(0xFF30C96B)
+    }
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -506,18 +511,36 @@ private fun SettlementCard(
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            EarningsSummaryRow(
-                label = "\u0412\u0437\u0430\u0438\u043c\u043e\u0440\u0430\u0441\u0447\u0435\u0442",
-                value = settlementText,
-                valueStyle = MaterialTheme.typography.headlineSmall,
-                valueColor = if (isAdvanceDebt) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.primary
-                }
+            Text(
+                text = "\u0412\u0437\u0430\u0438\u043c\u043e\u0440\u0430\u0441\u0447\u0435\u0442",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = if (isAdvanceDebt) {
+                        "\u0414\u043e\u043b\u0433 \u043f\u043e \u0430\u0432\u0430\u043d\u0441\u0443"
+                    } else {
+                        "\u041e\u0436\u0438\u0434\u0430\u0435\u043c\u0430\u044f \u0432\u044b\u043f\u043b\u0430\u0442\u0430"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Text(
+                    text = settlementText,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = settlementColor,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }
