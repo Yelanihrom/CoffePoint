@@ -66,10 +66,7 @@ class MonthlyEarningsRepository(
             )
             val earningsAmount = salesCount * EARNINGS_PER_SALE
             val periodTo = endDate ?: currentDisplayDate()
-            val settlementAmount = getSettlementAmount(
-                employee = employee,
-                endDate = periodTo
-            )
+            val settlementAmount = getSettlementAmount(employee)
 
             preferences.save(
                 salesCount = salesCount,
@@ -131,8 +128,7 @@ class MonthlyEarningsRepository(
         employeeSyncRepository.syncEmployeeData()
         preferences.updateSettlementAmount(
             getSettlementAmount(
-                employee = employee,
-                endDate = endDate
+                employee = employee
             )
         )
 
@@ -196,8 +192,7 @@ class MonthlyEarningsRepository(
         )
         preferences.updateSettlementAmount(
             getSettlementAmount(
-                employee = currentEmployee(),
-                endDate = endDate ?: currentDisplayDate()
+                employee = currentEmployee()
             )
         )
 
@@ -218,8 +213,7 @@ class MonthlyEarningsRepository(
         )
         preferences.updateSettlementAmount(
             getSettlementAmount(
-                employee = currentEmployee(),
-                endDate = endDate ?: currentDisplayDate()
+                employee = currentEmployee()
             )
         )
 
@@ -322,22 +316,16 @@ class MonthlyEarningsRepository(
     }
 
     private suspend fun getSettlementAmount(
-        employee: EmployeeEntity,
-        endDate: String
+        employee: EmployeeEntity
     ): Int {
 
-        val startDate = toDisplayDate(employee.workStartDate)
-        val storageStartDate = toStorageDate(startDate)
-        val storageEndDate = toStorageDate(endDate)
-        val earningsAmount = employeeTransactionDao.getPeriodTotalAmount(
+        val earningsAmount = employeeTransactionDao.getTotalAmount(
             employeeId = employee.id,
-            type = TRANSACTION_TYPE_EARNING,
-            startDate = storageStartDate,
-            endDate = storageEndDate
+            type = TRANSACTION_TYPE_EARNING
         )
-        val paymentsAmount = getPaymentsAmountForPeriod(
-            startDate = startDate,
-            endDate = endDate
+        val paymentsAmount = employeeTransactionDao.getTotalAmount(
+            employeeId = employee.id,
+            type = TRANSACTION_TYPE_PAYMENT
         )
 
         return earningsAmount - paymentsAmount

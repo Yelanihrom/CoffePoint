@@ -88,4 +88,17 @@ interface EmployeeTransactionDao {
         endDate: String
     ): Int
 
+    @Query(
+        """
+        SELECT COALESCE(SUM(amount), 0)
+        FROM employees_transactions
+        WHERE employeeId = :employeeId
+            AND type = :type
+        """
+    )
+    suspend fun getTotalAmount(
+        employeeId: Int,
+        type: String
+    ): Int
+
 }
