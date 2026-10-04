@@ -3,6 +3,8 @@ package ru.coffeepoint.core.worker
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import ru.coffeepoint.core.data.repository.WarehouseStockRepository
+import ru.coffeepoint.core.sync.google.GoogleSheetsImportResult
 import ru.coffeepoint.core.data.repository.StationRepository
 import ru.coffeepoint.core.data.repository.SalesRefreshRepository
 import ru.coffeepoint.core.data.repository.SalesRefreshResult
@@ -18,6 +20,18 @@ class SalesRefreshWorker(
 
     override suspend fun doWork(): Result {
 
+        val stationRepository = StationRepository(
+            applicationContext
+        )
+
+        val googleSheetsImportResult = importGoogleSheets(
+            stationRepository = stationRepository
+        )
+
+        if (googleSheetsImportResult != GoogleSheetsImportResult.Success) {
+            return Result.success()
+        }
+
         val repository = SalesRefreshRepository(
             applicationContext
         )
@@ -29,10 +43,6 @@ class SalesRefreshWorker(
         return when (repository.refreshSales()) {
 
             is SalesRefreshResult.Success -> {
-
-                val stationRepository = StationRepository(
-                    applicationContext
-                )
 
                 val stations = stationRepository.getStations()
 
@@ -47,6 +57,22 @@ class SalesRefreshWorker(
 
         }
 
+    }
+
+    private suspend fun importGoogleSheets(
+        stationRepository: StationRepository
+    ): GoogleSheetsImportResult {
+        val firstResult = stationRepository.importFromGoogleSheetsResult()
+
+        if (firstResult != GoogleSheetsImportResult.SkippedPendingChanges) {
+            return firstResult
+        }
+
+        stationRepository.syncPendingGoogleSheets()
+        WarehouseStockRepository(applicationContext).syncPendingGoogleSheets()
+        stationRepository.resolveConflictBlocksForImport()
+
+        return stationRepository.importFromGoogleSheetsResult()
     }
 
 }
