@@ -45,7 +45,8 @@ object DatabaseProvider {
                     MIGRATION_25_26,
                     MIGRATION_26_27,
                     MIGRATION_27_28,
-                    MIGRATION_28_29
+                    MIGRATION_28_29,
+                    MIGRATION_29_30
                 )
                 .build()
                 .also {
@@ -716,7 +717,7 @@ object DatabaseProvider {
         override fun migrate(db: SupportSQLiteDatabase) {
 
             db.execSQL(
-                "ALTER TABLE employees ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 1"
+                "ALTER TABLE employees ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0"
             )
             db.execSQL(
                 "ALTER TABLE employees ADD COLUMN syncError INTEGER NOT NULL DEFAULT 0"
@@ -725,7 +726,7 @@ object DatabaseProvider {
                 "ALTER TABLE employees ADD COLUMN syncErrorType TEXT NOT NULL DEFAULT ''"
             )
             db.execSQL(
-                "ALTER TABLE employee_station_assignments ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 1"
+                "ALTER TABLE employee_station_assignments ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0"
             )
             db.execSQL(
                 "ALTER TABLE employee_station_assignments ADD COLUMN syncError INTEGER NOT NULL DEFAULT 0"
@@ -734,13 +735,46 @@ object DatabaseProvider {
                 "ALTER TABLE employee_station_assignments ADD COLUMN syncErrorType TEXT NOT NULL DEFAULT ''"
             )
             db.execSQL(
-                "ALTER TABLE employees_transactions ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 1"
+                "ALTER TABLE employees_transactions ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 0"
             )
             db.execSQL(
                 "ALTER TABLE employees_transactions ADD COLUMN syncError INTEGER NOT NULL DEFAULT 0"
             )
             db.execSQL(
                 "ALTER TABLE employees_transactions ADD COLUMN syncErrorType TEXT NOT NULL DEFAULT ''"
+            )
+
+        }
+
+    }
+
+    private val MIGRATION_29_30 = object : Migration(29, 30) {
+
+        override fun migrate(db: SupportSQLiteDatabase) {
+
+            db.execSQL(
+                """
+                UPDATE employees
+                SET isSynced = 0,
+                    syncError = 0,
+                    syncErrorType = ''
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                UPDATE employee_station_assignments
+                SET isSynced = 0,
+                    syncError = 0,
+                    syncErrorType = ''
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                UPDATE employees_transactions
+                SET isSynced = 0,
+                    syncError = 0,
+                    syncErrorType = ''
+                """.trimIndent()
             )
 
         }
