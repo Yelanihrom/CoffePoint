@@ -640,13 +640,13 @@ private fun PaymentsSectionHeader(
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Text(
-            text = "\u0412\u044b\u043f\u043b\u0430\u0442\u044b \u0437\u0430 \u043f\u0435\u0440\u0438\u043e\u0434",
+            text = "\u041e\u043f\u0435\u0440\u0430\u0446\u0438\u0438 \u0437\u0430 \u043f\u0435\u0440\u0438\u043e\u0434",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
 
         Text(
-            text = "$count ${paymentCountSuffix(count)}",
+            text = "$count ${operationCountSuffix(count)}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -673,7 +673,13 @@ private fun PaymentRow(
             )
 
             Text(
-                text = payment.comment.ifBlank { "\u0412\u044b\u043f\u043b\u0430\u0442\u0430" },
+                text = payment.comment.ifBlank {
+                    if (payment.isEarning) {
+                        "\u041d\u0430\u0447\u0438\u0441\u043b\u0435\u043d\u0438\u0435"
+                    } else {
+                        "\u0412\u044b\u043f\u043b\u0430\u0442\u0430"
+                    }
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -682,7 +688,11 @@ private fun PaymentRow(
         Text(
             text = payment.amountText,
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary,
+            color = if (payment.isEarning) {
+                Color(0xFF30C96B)
+            } else {
+                MaterialTheme.colorScheme.error
+            },
             fontWeight = FontWeight.Bold
         )
     }
@@ -691,7 +701,7 @@ private fun PaymentRow(
 @Composable
 private fun EmptyPaymentsMessage() {
     Text(
-        text = "\u0417\u0430 \u0432\u044b\u0431\u0440\u0430\u043d\u043d\u044b\u0439 \u043f\u0435\u0440\u0438\u043e\u0434 \u0432\u044b\u043f\u043b\u0430\u0442 \u043d\u0435\u0442",
+        text = "\u0417\u0430 \u0432\u044b\u0431\u0440\u0430\u043d\u043d\u044b\u0439 \u043f\u0435\u0440\u0438\u043e\u0434 \u043e\u043f\u0435\u0440\u0430\u0446\u0438\u0439 \u043d\u0435\u0442",
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -802,11 +812,11 @@ private fun displayDateFormatter(): SimpleDateFormat {
     }
 }
 
-private fun paymentCountSuffix(count: Int): String {
+private fun operationCountSuffix(count: Int): String {
     return when {
-        count % 10 == 1 && count % 100 != 11 -> "\u0432\u044b\u043f\u043b\u0430\u0442\u0430"
-        count % 10 in 2..4 && count % 100 !in 12..14 -> "\u0432\u044b\u043f\u043b\u0430\u0442\u044b"
-        else -> "\u0432\u044b\u043f\u043b\u0430\u0442"
+        count % 10 == 1 && count % 100 != 11 -> "\u043e\u043f\u0435\u0440\u0430\u0446\u0438\u044f"
+        count % 10 in 2..4 && count % 100 !in 12..14 -> "\u043e\u043f\u0435\u0440\u0430\u0446\u0438\u0438"
+        else -> "\u043e\u043f\u0435\u0440\u0430\u0446\u0438\u0439"
     }
 }
 

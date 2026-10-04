@@ -230,9 +230,8 @@ class MonthlyEarningsRepository(
             parsePeriodEndMillis(value)
         } ?: System.currentTimeMillis()
 
-        return employeeTransactionDao.getByEmployeeAndType(
-            employeeId = currentEmployeeId(),
-            type = TRANSACTION_TYPE_PAYMENT
+        return employeeTransactionDao.getByEmployee(
+            employeeId = currentEmployeeId()
         )
             .mapNotNull { transaction ->
                 val paymentMillis = parsePaymentDateMillis(transaction.operationDate)
@@ -246,8 +245,12 @@ class MonthlyEarningsRepository(
                     id = transaction.id,
                     operationDateMillis = paymentMillis,
                     dateText = formatPaymentDisplayDate(paymentMillis),
-                    amountText = formatEarnings(transaction.amount),
-                    comment = transaction.comment
+                    amountText = formatOperationAmount(
+                        amount = transaction.amount,
+                        type = transaction.type
+                    ),
+                    comment = transaction.comment,
+                    isEarning = transaction.type == TRANSACTION_TYPE_EARNING
                 )
             }
             .sortedByDescending { payment ->
@@ -373,6 +376,15 @@ class MonthlyEarningsRepository(
 
         return "${NumberFormat.getIntegerInstance(Locale.forLanguageTag("ru-RU")).format(value)} \u20bd"
 
+    }
+
+    private fun formatOperationAmount(
+        amount: Int,
+        type: String
+    ): String {
+        val sign = if (type == TRANSACTION_TYPE_EARNING) "+" else "-"
+
+        return "$sign${formatEarnings(amount)}"
     }
 
     private fun formatPaymentDisplayDate(
@@ -618,7 +630,8 @@ data class MonthlyEarningsPayment(
     val operationDateMillis: Long,
     val dateText: String,
     val amountText: String,
-    val comment: String
+    val comment: String,
+    val isEarning: Boolean
 )
 
 sealed interface MonthlyEarningsResult {

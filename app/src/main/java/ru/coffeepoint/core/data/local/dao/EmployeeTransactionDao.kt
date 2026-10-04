@@ -46,6 +46,17 @@ interface EmployeeTransactionDao {
         SELECT *
         FROM employees_transactions
         WHERE employeeId = :employeeId
+        """
+    )
+    suspend fun getByEmployee(
+        employeeId: Int
+    ): List<EmployeeTransactionEntity>
+
+    @Query(
+        """
+        SELECT *
+        FROM employees_transactions
+        WHERE employeeId = :employeeId
             AND type = :type
         """
     )
