@@ -229,12 +229,6 @@ fun MonthlyEarningsScreen(
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold
                     )
-
-                    Text(
-                        text = "\u0420\u0430\u0441\u0447\u0435\u0442 \u0437\u0430 \u0432\u044b\u0431\u0440\u0430\u043d\u043d\u044b\u0439 \u043f\u0435\u0440\u0438\u043e\u0434",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
         },
@@ -399,6 +393,12 @@ private fun PeriodEarningsCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            Text(
+                text = "\u0420\u0430\u0441\u0447\u0435\u0442 \u0437\u0430 \u0432\u044b\u0431\u0440\u0430\u043d\u043d\u044b\u0439 \u043f\u0435\u0440\u0438\u043e\u0434",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -617,7 +617,7 @@ private fun PaymentsSectionHeader(
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Text(
-            text = "\u0412\u044b\u043f\u043b\u0430\u0442\u0430 \u0437\u0430 \u043f\u0435\u0440\u0438\u043e\u0434",
+            text = "\u0412\u044b\u043f\u043b\u0430\u0442\u044b \u0437\u0430 \u043f\u0435\u0440\u0438\u043e\u0434",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
