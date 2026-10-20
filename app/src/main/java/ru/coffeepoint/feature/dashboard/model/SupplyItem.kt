@@ -25,15 +25,15 @@ val SupplyItem.isWarning: Boolean
 
 fun SupplyItem.iconRes(): Int? {
     return when (title) {
-        "\u0421\u0442\u0430\u043a\u0430\u043d\u044b" -> R.drawable.ic_supply_cups
-        "\u041a\u0440\u044b\u0448\u043a\u0438" -> R.drawable.ic_supply_lids
-        "\u0421\u0430\u0445\u0430\u0440" -> R.drawable.ic_supply_sugar_cubes
-        "\u041c\u0435\u0448\u0430\u043b\u043a\u0438" -> R.drawable.ic_supply_stirrers
-        "\u041c\u0443\u0441\u043e\u0440\u043d\u044b\u0435 \u043f\u0430\u043a\u0435\u0442\u044b" -> R.drawable.ic_supply_garbage_bags
-        "\u041a\u043e\u0444\u0435" -> R.drawable.ic_supply_coffee_bean
-        "\u041c\u043e\u043b\u043e\u043a\u043e" -> R.drawable.ic_supply_milk
-        "\u0428\u043e\u043a\u043e\u043b\u0430\u0434" -> R.drawable.ic_supply_chocolate
-        "\u0422\u043e\u043f\u043f\u0438\u043d\u0433" -> R.drawable.ic_supply_topping_banana
+        "Стаканы" -> R.drawable.ic_supply_cups
+        "Крышки" -> R.drawable.ic_supply_lids
+        "Сахар" -> R.drawable.ic_supply_sugar_cubes
+        "Мешалки" -> R.drawable.ic_supply_stirrers
+        "Пакеты" -> R.drawable.ic_supply_garbage_bags
+        "Кофе" -> R.drawable.ic_supply_coffee_bean
+        "Молоко" -> R.drawable.ic_supply_milk
+        "Шоколад" -> R.drawable.ic_supply_chocolate
+        "Топпинг" -> R.drawable.ic_supply_topping_banana
         else -> null
     }
 }
@@ -45,27 +45,27 @@ fun StationDetail.supplyItems(): List<SupplyItem> {
     val items = mutableListOf<SupplyItem>()
 
     if (inventory.cups < settings.cupsMax) {
-        items.addSupplyItem("Стаканы", settings.cupsMax, inventory.cups)
+        items.addSupplyItem("Стаканы", settings.cupsMax, inventory.cups, minimum = settings.cupsMin)
     }
 
     if (inventory.lids < settings.lidsMax) {
-        items.addSupplyItem("Крышки", settings.lidsMax, inventory.lids)
+        items.addSupplyItem("Крышки", settings.lidsMax, inventory.lids, minimum = settings.lidsMin)
     }
 
     if (inventory.coffee < settings.coffeeMax) {
-        items.addSupplyItem("Кофе", settings.coffeeMax, inventory.coffee)
+        items.addSupplyItem("Кофе", settings.coffeeMax, inventory.coffee, minimum = settings.coffeeMin)
     }
 
     if (inventory.milk < settings.milkMax) {
-        items.addSupplyItem("Молоко", settings.milkMax, inventory.milk)
+        items.addSupplyItem("Молоко", settings.milkMax, inventory.milk, minimum = settings.milkMin)
     }
 
     if (inventory.chocolate < settings.chocolateMax) {
-        items.addSupplyItem("Шоколад", settings.chocolateMax, inventory.chocolate)
+        items.addSupplyItem("Шоколад", settings.chocolateMax, inventory.chocolate, minimum = settings.chocolateMin)
     }
 
     if (inventory.topping < settings.toppingMax) {
-        items.addSupplyItem("Топпинг", settings.toppingMax, inventory.topping)
+        items.addSupplyItem("Топпинг", settings.toppingMax, inventory.topping, minimum = settings.toppingMin)
     }
 
     if (inventory.sugar < settings.sugarMax) {
@@ -75,7 +75,7 @@ fun StationDetail.supplyItems(): List<SupplyItem> {
             current = inventory.sugar,
             valueSuffix = "кон.",
             includeSugarDescription = true,
-            criticalThreshold = 0
+            minimum = settings.sugarMin
         )
     }
 
@@ -84,16 +84,16 @@ fun StationDetail.supplyItems(): List<SupplyItem> {
             title = "Мешалки",
             max = settings.stirrersMax,
             current = inventory.stirrers,
-            criticalThreshold = 0
+            minimum = settings.stirrersMin
         )
     }
 
     if (inventory.garbageBags < settings.garbageBagsMax) {
         items.addSupplyItem(
-            title = "Мусорные пакеты",
+            title = "Пакеты",
             max = settings.garbageBagsMax,
             current = inventory.garbageBags,
-            criticalThreshold = 0
+            minimum = settings.garbageBagsMin
         )
     }
 
@@ -186,6 +186,7 @@ fun List<StationDetail>.supplySummaryItems(): List<SupplyItem> {
             urgency = plannedStations.supplySummaryUrgency(
                 currentSelector = { detail -> detail.inventory.cups },
                 maxSelector = { detail -> detail.settings.cupsMax },
+                minSelector = { detail -> detail.settings.cupsMin },
                 includeSelector = { detail ->
                     detail.inventory.cups < detail.settings.cupsMax
                 }
@@ -197,6 +198,7 @@ fun List<StationDetail>.supplySummaryItems(): List<SupplyItem> {
             urgency = plannedStations.supplySummaryUrgency(
                 currentSelector = { detail -> detail.inventory.lids },
                 maxSelector = { detail -> detail.settings.lidsMax },
+                minSelector = { detail -> detail.settings.lidsMin },
                 includeSelector = { detail ->
                     detail.inventory.lids < detail.settings.lidsMax
                 }
@@ -208,6 +210,7 @@ fun List<StationDetail>.supplySummaryItems(): List<SupplyItem> {
             urgency = plannedStations.supplySummaryUrgency(
                 currentSelector = { detail -> detail.inventory.coffee },
                 maxSelector = { detail -> detail.settings.coffeeMax },
+                minSelector = { detail -> detail.settings.coffeeMin },
                 includeSelector = { detail ->
                     detail.inventory.coffee < detail.settings.coffeeMax
                 }
@@ -219,6 +222,7 @@ fun List<StationDetail>.supplySummaryItems(): List<SupplyItem> {
             urgency = plannedStations.supplySummaryUrgency(
                 currentSelector = { detail -> detail.inventory.milk },
                 maxSelector = { detail -> detail.settings.milkMax },
+                minSelector = { detail -> detail.settings.milkMin },
                 includeSelector = { detail ->
                     detail.inventory.milk < detail.settings.milkMax
                 }
@@ -230,6 +234,7 @@ fun List<StationDetail>.supplySummaryItems(): List<SupplyItem> {
             urgency = plannedStations.supplySummaryUrgency(
                 currentSelector = { detail -> detail.inventory.chocolate },
                 maxSelector = { detail -> detail.settings.chocolateMax },
+                minSelector = { detail -> detail.settings.chocolateMin },
                 includeSelector = { detail ->
                     detail.inventory.chocolate < detail.settings.chocolateMax
                 }
@@ -241,6 +246,7 @@ fun List<StationDetail>.supplySummaryItems(): List<SupplyItem> {
             urgency = plannedStations.supplySummaryUrgency(
                 currentSelector = { detail -> detail.inventory.topping },
                 maxSelector = { detail -> detail.settings.toppingMax },
+                minSelector = { detail -> detail.settings.toppingMin },
                 includeSelector = { detail ->
                     detail.inventory.topping < detail.settings.toppingMax
                 }
@@ -253,10 +259,10 @@ fun List<StationDetail>.supplySummaryItems(): List<SupplyItem> {
             urgency = plannedStations.supplySummaryUrgency(
                 currentSelector = { detail -> detail.inventory.sugar },
                 maxSelector = { detail -> detail.settings.sugarMax },
+                minSelector = { detail -> detail.settings.sugarMin },
                 includeSelector = { detail ->
                     detail.inventory.sugar < detail.settings.sugarMax
                 },
-                criticalThreshold = 0
             )
         )
         addPositiveAmount(
@@ -265,22 +271,22 @@ fun List<StationDetail>.supplySummaryItems(): List<SupplyItem> {
             urgency = plannedStations.supplySummaryUrgency(
                 currentSelector = { detail -> detail.inventory.stirrers },
                 maxSelector = { detail -> detail.settings.stirrersMax },
+                minSelector = { detail -> detail.settings.stirrersMin },
                 includeSelector = { detail ->
                     detail.inventory.stirrers < detail.settings.stirrersMax
                 },
-                criticalThreshold = 0
             )
         )
         addPositiveAmount(
-            title = "Мусорные пакеты",
+            title = "Пакеты",
             amount = garbageBags,
             urgency = plannedStations.supplySummaryUrgency(
                 currentSelector = { detail -> detail.inventory.garbageBags },
                 maxSelector = { detail -> detail.settings.garbageBagsMax },
+                minSelector = { detail -> detail.settings.garbageBagsMin },
                 includeSelector = { detail ->
                     detail.inventory.garbageBags < detail.settings.garbageBagsMax
                 },
-                criticalThreshold = 0
             )
         )
     }
@@ -293,7 +299,7 @@ private fun MutableList<SupplyItem>.addSupplyItem(
     current: Int,
     valueSuffix: String = "",
     includeSugarDescription: Boolean = false,
-    criticalThreshold: Int = 2
+    minimum: Int
 ) {
 
     val amount = (max - current).coerceAtLeast(0)
@@ -307,7 +313,7 @@ private fun MutableList<SupplyItem>.addSupplyItem(
             urgency = supplyUrgency(
                 current = current,
                 max = max,
-                criticalThreshold = criticalThreshold
+                minimum = minimum
             )
         )
     }
@@ -336,15 +342,15 @@ private fun MutableList<SupplyItem>.addPositiveAmount(
 
 private fun itemTypeByTitle(title: String): String {
     return when (title) {
-        "\u0421\u0442\u0430\u043a\u0430\u043d\u044b" -> "cups"
-        "\u041a\u0440\u044b\u0448\u043a\u0438" -> "lids"
-        "\u0421\u0430\u0445\u0430\u0440" -> "sugar"
-        "\u041c\u0435\u0448\u0430\u043b\u043a\u0438" -> "stirrers"
-        "\u041c\u0443\u0441\u043e\u0440\u043d\u044b\u0435 \u043f\u0430\u043a\u0435\u0442\u044b" -> "garbageBags"
-        "\u041a\u043e\u0444\u0435" -> "coffee"
-        "\u041c\u043e\u043b\u043e\u043a\u043e" -> "milk"
-        "\u0428\u043e\u043a\u043e\u043b\u0430\u0434" -> "chocolate"
-        "\u0422\u043e\u043f\u043f\u0438\u043d\u0433" -> "topping"
+        "Стаканы" -> "cups"
+        "Крышки" -> "lids"
+        "Сахар" -> "sugar"
+        "Мешалки" -> "stirrers"
+        "Пакеты" -> "garbageBags"
+        "Кофе" -> "coffee"
+        "Молоко" -> "milk"
+        "Шоколад" -> "chocolate"
+        "Топпинг" -> "topping"
         else -> ""
     }
 }
@@ -352,11 +358,12 @@ private fun itemTypeByTitle(title: String): String {
 private fun supplyUrgency(
     current: Int,
     max: Int,
-    criticalThreshold: Int = 2
+    minimum: Int
 ): SupplyUrgency {
     return when {
-        current <= criticalThreshold -> SupplyUrgency.CRITICAL
-        current * 2 <= max -> SupplyUrgency.WARNING
+        minimum > 0 && current < minimum -> SupplyUrgency.CRITICAL
+        minimum > 0 && max > 0 && current < (minimum + max) / 2.0 ->
+            SupplyUrgency.WARNING
         else -> SupplyUrgency.NORMAL
     }
 }
@@ -365,16 +372,22 @@ private fun List<StationDetail>.supplySummaryUrgency(
     currentSelector: (StationDetail) -> Int,
     maxSelector: (StationDetail) -> Int,
     includeSelector: (StationDetail) -> Boolean,
-    criticalThreshold: Int = 2
+    minSelector: (StationDetail) -> Int
 ): SupplyUrgency {
     val included = filter(includeSelector)
 
     return when {
-        included.any { detail -> currentSelector(detail) <= criticalThreshold } ->
+        included.any { detail ->
+            val minimum = minSelector(detail)
+            minimum > 0 && currentSelector(detail) < minimum
+        } ->
             SupplyUrgency.CRITICAL
 
         included.any { detail ->
-            currentSelector(detail) * 2 <= maxSelector(detail)
+            val minimum = minSelector(detail)
+            val max = maxSelector(detail)
+            minimum > 0 && max > 0 &&
+                currentSelector(detail) < (minimum + max) / 2.0
         } -> SupplyUrgency.WARNING
 
         else -> SupplyUrgency.NORMAL

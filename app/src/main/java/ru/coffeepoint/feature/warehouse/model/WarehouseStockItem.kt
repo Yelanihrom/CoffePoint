@@ -6,6 +6,8 @@ data class WarehouseStockItem(
     val itemType: String,
     val title: String,
     val quantity: Int,
+    val minQuantity: Int,
+    val maxQuantity: Int,
     val iconRes: Int
 )
 
@@ -14,6 +16,31 @@ enum class WarehouseItemType(
     val title: String,
     val iconRes: Int
 ) {
+    Cups(
+        code = "cups",
+        title = "\u0421\u0442\u0430\u043a\u0430\u043d\u044b",
+        iconRes = R.drawable.ic_supply_cups
+    ),
+    Lids(
+        code = "lids",
+        title = "\u041a\u0440\u044b\u0448\u043a\u0438",
+        iconRes = R.drawable.ic_supply_lids
+    ),
+    Sugar(
+        code = "sugar",
+        title = "\u0421\u0430\u0445\u0430\u0440",
+        iconRes = R.drawable.ic_supply_sugar_cubes
+    ),
+    Stirrers(
+        code = "stirrers",
+        title = "\u041c\u0435\u0448\u0430\u043b\u043a\u0438",
+        iconRes = R.drawable.ic_supply_stirrers
+    ),
+    GarbageBags(
+        code = "garbageBags",
+        title = "\u041f\u0430\u043a\u0435\u0442\u044b",
+        iconRes = R.drawable.ic_supply_garbage_bags
+    ),
     Coffee(
         code = "coffee",
         title = "\u041a\u043e\u0444\u0435",

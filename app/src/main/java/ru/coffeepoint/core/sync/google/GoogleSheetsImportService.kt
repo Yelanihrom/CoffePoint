@@ -10,7 +10,6 @@ import ru.coffeepoint.core.data.local.dao.SupplyCatalogDao
 import ru.coffeepoint.core.data.local.dao.WarehouseStockDao
 import ru.coffeepoint.core.data.mapper.toInventoryEntity
 import ru.coffeepoint.core.data.mapper.toSettingsEntity
-import ru.coffeepoint.core.data.mapper.toStationDetail
 import ru.coffeepoint.core.data.mapper.toStationEntity
 
 class GoogleSheetsImportService(
@@ -37,36 +36,28 @@ class GoogleSheetsImportService(
             return GoogleSheetsImportResult.SkippedPendingChanges
         }
 
-        val remoteData = runCatching {
+        val remoteData = try {
             syncManager.loadFullSyncBundle(
                 includeSupplyCatalog = includeSupplyCatalog,
                 includeEmployeeData = includeEmployeeData
             )
-        }.getOrElse {
-            return GoogleSheetsImportResult.Error
+        } catch (cancellation: kotlin.coroutines.cancellation.CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            return GoogleSheetsImportResult.Error(error)
         }
 
         val remoteStations = remoteData.stations
         if (remoteStations.isEmpty()) return GoogleSheetsImportResult.Empty
-
-        val localSalesByStationId = getStationDetails().associate { detail ->
-            detail.station.id to detail.station.salesAfterService
-        }
 
         inventoryDao.deleteAll()
         settingsDao.deleteAll()
         stationDao.deleteAll()
 
         remoteStations.forEach { detail ->
-            val mergedDetail = detail.copy(
-                station = detail.station.copy(
-                    salesAfterService = localSalesByStationId[detail.station.id] ?: 0
-                )
-            )
-
-            stationDao.insert(mergedDetail.toStationEntity())
-            inventoryDao.insert(mergedDetail.toInventoryEntity())
-            settingsDao.insert(mergedDetail.toSettingsEntity())
+            stationDao.insert(detail.toStationEntity())
+            inventoryDao.insert(detail.toInventoryEntity())
+            settingsDao.insert(detail.toSettingsEntity())
         }
 
         if (includeSupplyCatalog) {
@@ -95,19 +86,6 @@ class GoogleSheetsImportService(
             warehouseStockDao.getUnsynced().isNotEmpty()
     }
 
-    private suspend fun getStationDetails() = stationDao.getAll().mapNotNull { station ->
-        val inventory = inventoryDao.getByStationId(station.id)
-            ?: return@mapNotNull null
-        val settings = settingsDao.getByStationId(station.id)
-            ?: return@mapNotNull null
-
-        toStationDetail(
-            station,
-            inventory,
-            settings
-        )
-    }
-
 }
 
 sealed interface GoogleSheetsImportResult {
@@ -118,6 +96,6 @@ sealed interface GoogleSheetsImportResult {
 
     data object Empty : GoogleSheetsImportResult
 
-    data object Error : GoogleSheetsImportResult
+    data class Error(val cause: Throwable) : GoogleSheetsImportResult
 
 }

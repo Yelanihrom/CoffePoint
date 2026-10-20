@@ -33,7 +33,12 @@ fun StationDetail.toStationEntity() = CoffeeStationEntity(
     updatedAt = station.updatedAt,
     isSynced = station.isSynced,
     syncError = station.syncError,
-    syncErrorType = station.syncErrorType
+    syncErrorType = station.syncErrorType,
+    pendingServiceOnly = station.pendingServiceOnly,
+    pendingFullStationSync = station.pendingFullStationSync,
+    pendingSupplyServiceOnly = station.pendingSupplyServiceOnly,
+    pendingMixersServiceDate = station.pendingMixersServiceDate,
+    pendingLiquidWasteContainerServiceDate = station.pendingLiquidWasteContainerServiceDate
 )
 
 fun StationDetail.toInventoryEntity() = StationInventoryEntity(
@@ -64,6 +69,15 @@ fun StationDetail.toSettingsEntity() = StationSettingsEntity(
     sugarMax = settings.sugarMax,
     stirrersMax = settings.stirrersMax,
     garbageBagsMax = settings.garbageBagsMax,
+    cupsMin = settings.cupsMin,
+    lidsMin = settings.lidsMin,
+    coffeeMin = settings.coffeeMin,
+    milkMin = settings.milkMin,
+    chocolateMin = settings.chocolateMin,
+    toppingMin = settings.toppingMin,
+    sugarMin = settings.sugarMin,
+    stirrersMin = settings.stirrersMin,
+    garbageBagsMin = settings.garbageBagsMin,
     updatedAt = settings.updatedAt,
     isSynced = settings.isSynced,
     syncError = settings.syncError,
@@ -103,7 +117,12 @@ fun toStationDetail(
             updatedAt = station.updatedAt,
             isSynced = station.isSynced,
             syncError = station.syncError,
-            syncErrorType = station.syncErrorType
+            syncErrorType = station.syncErrorType,
+            pendingServiceOnly = station.pendingServiceOnly,
+            pendingFullStationSync = station.pendingFullStationSync,
+            pendingSupplyServiceOnly = station.pendingSupplyServiceOnly,
+            pendingMixersServiceDate = station.pendingMixersServiceDate,
+            pendingLiquidWasteContainerServiceDate = station.pendingLiquidWasteContainerServiceDate
         ),
 
         inventory = StationInventory(
@@ -132,6 +151,15 @@ fun toStationDetail(
             sugarMax = settings.sugarMax,
             stirrersMax = settings.stirrersMax,
             garbageBagsMax = settings.garbageBagsMax,
+            cupsMin = settings.cupsMin,
+            lidsMin = settings.lidsMin,
+            coffeeMin = settings.coffeeMin,
+            milkMin = settings.milkMin,
+            chocolateMin = settings.chocolateMin,
+            toppingMin = settings.toppingMin,
+            sugarMin = settings.sugarMin,
+            stirrersMin = settings.stirrersMin,
+            garbageBagsMin = settings.garbageBagsMin,
             updatedAt = settings.updatedAt,
             isSynced = settings.isSynced,
             syncError = settings.syncError,

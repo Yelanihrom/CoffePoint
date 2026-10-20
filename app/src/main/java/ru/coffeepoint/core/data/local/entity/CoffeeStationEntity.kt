@@ -53,6 +53,16 @@ data class CoffeeStationEntity(
 
     val syncError: Boolean = false,
 
-    val syncErrorType: String = ""
+    val syncErrorType: String = "",
+
+    val pendingServiceOnly: Boolean = false,
+
+    val pendingFullStationSync: Boolean = false,
+
+    val pendingSupplyServiceOnly: Boolean = false,
+
+    val pendingMixersServiceDate: Boolean = false,
+
+    val pendingLiquidWasteContainerServiceDate: Boolean = false
 
 )

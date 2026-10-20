@@ -2,15 +2,19 @@ package ru.coffeepoint.feature.station.ui
 
 import android.app.TimePickerDialog
 import android.content.Context
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -46,13 +50,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ru.coffeepoint.core.data.local.entity.EmployeeEntity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.coffeepoint.feature.station.presentation.StationSettingsViewModel
+import ru.coffeepoint.feature.warehouse.model.WarehouseItemType
 import ru.coffeepoint.shared.component.BottomActionBar
-import ru.coffeepoint.shared.component.SettingCounterRow
 import ru.coffeepoint.shared.component.SyncSendingErrorDialog
 import ru.coffeepoint.shared.component.SyncSendingOverlay
 import ru.coffeepoint.shared.component.asActionButtonText
@@ -230,9 +237,6 @@ fun StationSettingsScreen(
                     viewModel = viewModel
                 )
 
-                StationSettingsTab.TERMINAL -> TerminalSettingsSection(
-                    viewModel = viewModel
-                )
             }
 
         }
@@ -518,120 +522,206 @@ private fun VisitTimeButton(
 private fun LimitsSettingsSection(
     viewModel: StationSettingsViewModel
 ) {
+    val inventory = viewModel.station?.inventory
+    val items = listOf(
+        LimitSettingItem(
+            type = WarehouseItemType.Cups,
+            current = inventory?.cups ?: 0,
+            minValue = viewModel.cupsMin,
+            maxValue = viewModel.cupsMax,
+            onMinChanged = viewModel::onCupsMinChanged,
+            onMaxChanged = viewModel::onCupsMaxChanged
+        ),
+        LimitSettingItem(
+            type = WarehouseItemType.Lids,
+            current = inventory?.lids ?: 0,
+            minValue = viewModel.lidsMin,
+            maxValue = viewModel.lidsMax,
+            onMinChanged = viewModel::onLidsMinChanged,
+            onMaxChanged = viewModel::onLidsMaxChanged
+        ),
+        LimitSettingItem(
+            type = WarehouseItemType.Sugar,
+            current = inventory?.sugar ?: 0,
+            minValue = viewModel.sugarMin,
+            maxValue = viewModel.sugarMax,
+            onMinChanged = viewModel::onSugarMinChanged,
+            onMaxChanged = viewModel::onSugarMaxChanged
+        ),
+        LimitSettingItem(
+            type = WarehouseItemType.Stirrers,
+            current = inventory?.stirrers ?: 0,
+            minValue = viewModel.stirrersMin,
+            maxValue = viewModel.stirrersMax,
+            onMinChanged = viewModel::onStirrersMinChanged,
+            onMaxChanged = viewModel::onStirrersMaxChanged
+        ),
+        LimitSettingItem(
+            type = WarehouseItemType.GarbageBags,
+            current = inventory?.garbageBags ?: 0,
+            minValue = viewModel.garbageBagsMin,
+            maxValue = viewModel.garbageBagsMax,
+            onMinChanged = viewModel::onGarbageBagsMinChanged,
+            onMaxChanged = viewModel::onGarbageBagsMaxChanged
+        ),
+        LimitSettingItem(
+            type = WarehouseItemType.Coffee,
+            current = inventory?.coffee ?: 0,
+            minValue = viewModel.coffeeMin,
+            maxValue = viewModel.coffeeMax,
+            onMinChanged = viewModel::onCoffeeMinChanged,
+            onMaxChanged = viewModel::onCoffeeMaxChanged
+        ),
+        LimitSettingItem(
+            type = WarehouseItemType.Milk,
+            current = inventory?.milk ?: 0,
+            minValue = viewModel.milkMin,
+            maxValue = viewModel.milkMax,
+            onMinChanged = viewModel::onMilkMinChanged,
+            onMaxChanged = viewModel::onMilkMaxChanged
+        ),
+        LimitSettingItem(
+            type = WarehouseItemType.Chocolate,
+            current = inventory?.chocolate ?: 0,
+            minValue = viewModel.chocolateMin,
+            maxValue = viewModel.chocolateMax,
+            onMinChanged = viewModel::onChocolateMinChanged,
+            onMaxChanged = viewModel::onChocolateMaxChanged
+        ),
+        LimitSettingItem(
+            type = WarehouseItemType.Topping,
+            current = inventory?.topping ?: 0,
+            minValue = viewModel.toppingMin,
+            maxValue = viewModel.toppingMax,
+            onMinChanged = viewModel::onToppingMinChanged,
+            onMaxChanged = viewModel::onToppingMaxChanged
+        )
+    )
 
-    Card(
-        modifier = Modifier.fillMaxWidth()
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        items.chunked(2).forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                rowItems.forEach { item ->
+                    LimitSettingCard(
+                        item = item,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                if (rowItems.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
 
+@Composable
+private fun LimitSettingCard(
+    item: LimitSettingItem,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+    ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Image(
+                    painter = painterResource(id = item.type.iconRes),
+                    contentDescription = item.type.title,
+                    modifier = Modifier.size(34.dp)
+                )
 
-            SettingCounterRow(
-                title = "Стаканы",
-                value = viewModel.cupsMax,
-                onMinus = {
-                    viewModel.minusCups()
-                },
-                onPlus = {
-                    viewModel.plusCups()
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = item.type.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                    Text(
+                        text = "Сейчас: ${item.current}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-            )
+            }
 
-            SettingCounterRow(
-                title = "Крышки",
-                value = viewModel.lidsMax,
-                onMinus = {
-                    viewModel.minusLids()
-                },
-                onPlus = {
-                    viewModel.plusLids()
-                }
-            )
-
-            SettingCounterRow(
-                title = "Кофе",
-                value = viewModel.coffeeMax,
-                onMinus = {
-                    viewModel.minusCoffee()
-                },
-                onPlus = {
-                    viewModel.plusCoffee()
-                }
-            )
-
-            SettingCounterRow(
-                title = "Молоко",
-                value = viewModel.milkMax,
-                onMinus = {
-                    viewModel.minusMilk()
-                },
-                onPlus = {
-                    viewModel.plusMilk()
-                }
-            )
-
-            SettingCounterRow(
-                title = "Шоколад",
-                value = viewModel.chocolateMax,
-                onMinus = {
-                    viewModel.minusChocolate()
-                },
-                onPlus = {
-                    viewModel.plusChocolate()
-                }
-            )
-
-            SettingCounterRow(
-                title = "Топпинг",
-                value = viewModel.toppingMax,
-                onMinus = {
-                    viewModel.minusTopping()
-                },
-                onPlus = {
-                    viewModel.plusTopping()
-                }
-            )
-
-            SettingCounterRow(
-                title = "Сахар",
-                value = viewModel.sugarMax,
-                onMinus = {
-                    viewModel.minusSugar()
-                },
-                onPlus = {
-                    viewModel.plusSugar()
-                }
-            )
-
-            SettingCounterRow(
-                title = "Мешалки",
-                value = viewModel.stirrersMax,
-                onMinus = {
-                    viewModel.minusStirrers()
-                },
-                onPlus = {
-                    viewModel.plusStirrers()
-                }
-            )
-
-            SettingCounterRow(
-                title = "Мусорные пакеты",
-                value = viewModel.garbageBagsMax,
-                onMinus = {
-                    viewModel.minusGarbageBags()
-                },
-                onPlus = {
-                    viewModel.plusGarbageBags()
-                }
-            )
-
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                StationLimitInput(
+                    title = "Мин.",
+                    value = item.minValue,
+                    onValueChanged = item.onMinChanged,
+                    modifier = Modifier.weight(1f)
+                )
+                StationLimitInput(
+                    title = "Макс.",
+                    value = item.maxValue,
+                    onValueChanged = item.onMaxChanged,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
-
     }
-
 }
+
+@Composable
+private fun StationLimitInput(
+    title: String,
+    value: Int,
+    onValueChanged: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        OutlinedTextField(
+            value = value.toString(),
+            onValueChange = { rawValue ->
+                onValueChanged(rawValue.filter(Char::isDigit))
+            },
+            singleLine = true,
+            textStyle = MaterialTheme.typography.titleMedium.copy(
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            ),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp)
+        )
+    }
+}
+
+private data class LimitSettingItem(
+    val type: WarehouseItemType,
+    val current: Int,
+    val minValue: Int,
+    val maxValue: Int,
+    val onMinChanged: (String) -> Unit,
+    val onMaxChanged: (String) -> Unit
+)
 
 @Composable
 private fun TerminalSettingsSection(
@@ -797,8 +887,7 @@ private enum class StationSettingsTab(
     val title: String
 ) {
 
-    MAIN("Основные данные"),
-    LIMITS("Лимиты остатков"),
-    TERMINAL("Терминал")
+    MAIN("\u0418\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044f"),
+    LIMITS("\u041e\u0441\u0442\u0430\u0442\u043a\u0438")
 
 }

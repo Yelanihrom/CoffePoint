@@ -1,10 +1,14 @@
 ﻿package ru.coffeepoint.feature.earnings.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -17,7 +21,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -48,7 +51,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import ru.coffeepoint.core.data.repository.MonthlyEarningsPayment
+import ru.coffeepoint.core.data.repository.MonthlyEarningsOperation
 import ru.coffeepoint.feature.earnings.presentation.MonthlyEarningsViewModel
 import ru.coffeepoint.shared.component.asActionButtonText
 import java.text.SimpleDateFormat
@@ -65,10 +68,10 @@ fun MonthlyEarningsScreen(
 ) {
 
     val viewModel: MonthlyEarningsViewModel = viewModel()
-    var startDate by remember {
-        mutableStateOf(currentMonthStartDisplayDate())
+    var operationsStartDate by remember {
+        mutableStateOf(lastSevenDaysStartDisplayDate())
     }
-    var endDate by remember {
+    var operationsEndDate by remember {
         mutableStateOf(currentDisplayDate())
     }
     var paymentAmount by remember {
@@ -79,9 +82,9 @@ fun MonthlyEarningsScreen(
     }
 
     LaunchedEffect(Unit) {
-        viewModel.refreshPayments(
-            startDate = startDate,
-            endDate = endDate
+        viewModel.refreshOperations(
+            startDate = operationsStartDate,
+            endDate = operationsEndDate
         )
     }
 
@@ -108,40 +111,17 @@ fun MonthlyEarningsScreen(
         )
     }
 
-    viewModel.accrualMessage?.let { message ->
-        AlertDialog(
-            onDismissRequest = {
-                viewModel.dismissAccrualMessage()
-            },
-            title = {
-                Text("\u041d\u0430\u0447\u0438\u0441\u043b\u0435\u043d\u0438\u0435")
-            },
-            text = {
-                Text(message)
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.dismissAccrualMessage()
-                    }
-                ) {
-                    Text("\u0417\u0430\u043a\u0440\u044b\u0442\u044c".asActionButtonText())
-                }
-            }
-        )
-    }
-
     if (datePickerTarget != null) {
         val target = datePickerTarget
             ?: return
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = when (target) {
-                EarningsDatePickerTarget.Start -> {
-                    parseDisplayDateToMillis(startDate)
+                EarningsDatePickerTarget.OperationsStart -> {
+                    parseDisplayDateToMillis(operationsStartDate)
                 }
 
-                EarningsDatePickerTarget.End -> {
-                    parseDisplayDateToMillis(endDate)
+                EarningsDatePickerTarget.OperationsEnd -> {
+                    parseDisplayDateToMillis(operationsEndDate)
                 }
             }
         )
@@ -160,26 +140,26 @@ fun MonthlyEarningsScreen(
                             ?: return@TextButton
 
                         when (target) {
-                            EarningsDatePickerTarget.Start -> {
-                                startDate = selectedDate
+                            EarningsDatePickerTarget.OperationsStart -> {
+                                operationsStartDate = selectedDate
 
-                                if (isAfter(startDate, endDate)) {
-                                    endDate = selectedDate
+                                if (isAfter(operationsStartDate, operationsEndDate)) {
+                                    operationsEndDate = selectedDate
                                 }
                             }
 
-                            EarningsDatePickerTarget.End -> {
-                                endDate = selectedDate
+                            EarningsDatePickerTarget.OperationsEnd -> {
+                                operationsEndDate = selectedDate
 
-                                if (isAfter(startDate, endDate)) {
-                                    startDate = selectedDate
+                                if (isAfter(operationsStartDate, operationsEndDate)) {
+                                    operationsStartDate = selectedDate
                                 }
                             }
                         }
 
-                        viewModel.refreshPayments(
-                            startDate = startDate,
-                            endDate = endDate
+                        viewModel.loadOperationsForPeriod(
+                            startDate = operationsStartDate,
+                            endDate = operationsEndDate
                         )
                         datePickerTarget = null
                     }
@@ -203,153 +183,151 @@ fun MonthlyEarningsScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(horizontal = 8.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = onBack
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "\u041d\u0430\u0437\u0430\u0434"
-                    )
-                }
-
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = "\u0417\u0430\u0440\u0430\u0431\u043e\u0442\u043e\u043a \u043e\u043f\u0435\u0440\u0430\u0442\u043e\u0440\u0430",
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        },
-        bottomBar = {
-            Surface(
-                color = MaterialTheme.colorScheme.background
-            ) {
-                Button(
-                    onClick = {
-                        viewModel.refresh(
-                            startDate = startDate,
-                            endDate = endDate
-                        )
-                    },
-                    enabled = !viewModel.loading,
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Scaffold(
+            topBar = {
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                        .height(EarningsButtonHeight),
-                    shape = RoundedCornerShape(8.dp)
+                        .statusBarsPadding()
+                        .padding(horizontal = 8.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (viewModel.loading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary
-                        )
-                    } else {
+                    IconButton(
+                        onClick = onBack
+                    ) {
                         Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "\u041d\u0430\u0437\u0430\u0434"
                         )
                     }
 
-                    Text(
-                        text = if (viewModel.loading) {
-                            "\u041e\u0431\u043d\u043e\u0432\u043b\u044f\u0435\u043c...".asActionButtonText()
-                        } else {
-                            "\u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0443".asActionButtonText()
-                        },
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 8.dp)
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "\u0417\u0430\u0440\u0430\u0431\u043e\u0442\u043e\u043a \u043e\u043f\u0435\u0440\u0430\u0442\u043e\u0440\u0430",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                }
+            },
+        ) { padding ->
+            LazyColumn(
+                modifier = Modifier
+                    .padding(padding)
+                    .padding(horizontal = 16.dp),
+                contentPadding = PaddingValues(
+                    bottom = if (canCreatePayment) 188.dp else 120.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    WorkStartDateCard(
+                        workStartDateText = viewModel.state.workStartDateText
                     )
                 }
+
+                item {
+                    OperationsCard(
+                        operations = viewModel.operations,
+                        startDate = operationsStartDate,
+                        endDate = operationsEndDate,
+                        onStartDateClick = {
+                            datePickerTarget = EarningsDatePickerTarget.OperationsStart
+                        },
+                        onEndDateClick = {
+                            datePickerTarget = EarningsDatePickerTarget.OperationsEnd
+                        }
+                    )
+                }
+
             }
         }
-    ) { padding ->
-        LazyColumn(
+
+        SettlementCard(
+            settlementText = viewModel.state.settlementText,
+            settlementAmount = viewModel.state.settlementAmount,
+            canCreatePayment = canCreatePayment,
+            paymentAmount = paymentAmount,
+            loading = viewModel.loading,
+            onPaymentAmountChanged = { value ->
+                paymentAmount = value.filter { char ->
+                    char.isDigit()
+                }
+            },
+            onPaymentClick = {
+                val amount = paymentAmount.toIntOrNull()
+                    ?: return@SettlementCard
+
+                viewModel.addPayment(
+                    amount = amount,
+                    startDate = operationsStartDate,
+                    endDate = operationsEndDate
+                )
+                paymentAmount = ""
+            },
             modifier = Modifier
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(horizontal = 16.dp)
+        )
+
+        if (viewModel.loading) {
+            BlockingLoaderOverlay()
+        }
+    }
+
+}
+
+@Composable
+private fun BlockingLoaderOverlay() {
+    val interactionSource = remember {
+        MutableInteractionSource()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = {}
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.36f)
+        ) {}
+
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
         ) {
-            item {
-                WorkStartDateCard(
-                    workStartDateText = viewModel.state.workStartDateText
+            Row(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 2.dp
                 )
-            }
 
-            item {
-                PeriodEarningsCard(
-                    startDate = startDate,
-                    endDate = endDate,
-                    earningsText = viewModel.state.earningsText,
-                    canAccrue = canCreatePayment,
-                    accrualEnabled = !viewModel.loading &&
-                        viewModel.state.periodFrom == startDate &&
-                        viewModel.state.periodTo == endDate,
-                    onStartClick = {
-                        datePickerTarget = EarningsDatePickerTarget.Start
-                    },
-                    onEndClick = {
-                        datePickerTarget = EarningsDatePickerTarget.End
-                    },
-                    onAccrueClick = {
-                        viewModel.accrueEarnings(
-                            startDate = startDate,
-                            endDate = endDate
-                        )
-                    }
-                )
-            }
-
-            item {
-                PaymentsCard(
-                    payments = viewModel.payments,
-                    canCreatePayment = canCreatePayment,
-                    paymentAmount = paymentAmount,
-                    loading = viewModel.loading,
-                    onPaymentAmountChanged = { value ->
-                        paymentAmount = value.filter { char ->
-                            char.isDigit()
-                        }
-                    },
-                    onCreatePayment = {
-                        val amount = paymentAmount.toIntOrNull()
-                            ?: return@PaymentsCard
-
-                        viewModel.addPayment(
-                            amount = amount,
-                            startDate = startDate,
-                            endDate = endDate
-                        )
-                        paymentAmount = ""
-                    }
-                )
-            }
-
-            item {
-                SettlementCard(
-                    settlementText = viewModel.state.settlementText,
-                    settlementAmount = viewModel.state.settlementAmount
+                Text(
+                    text = "\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }
     }
-
 }
 
 @Composable
@@ -373,79 +351,6 @@ private fun WorkStartDateCard(
 }
 
 @Composable
-private fun PeriodEarningsCard(
-    startDate: String,
-    endDate: String,
-    earningsText: String,
-    canAccrue: Boolean,
-    accrualEnabled: Boolean,
-    onStartClick: () -> Unit,
-    onEndClick: () -> Unit,
-    onAccrueClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            Text(
-                text = "\u0420\u0430\u0441\u0447\u0435\u0442 \u0437\u0430 \u0432\u044b\u0431\u0440\u0430\u043d\u043d\u044b\u0439 \u043f\u0435\u0440\u0438\u043e\u0434",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                PeriodDateCard(
-                    label = "\u0421",
-                    date = startDate,
-                    onClick = onStartClick,
-                    modifier = Modifier.weight(1f)
-                )
-
-                PeriodDateCard(
-                    label = "\u041f\u043e",
-                    date = endDate,
-                    onClick = onEndClick,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            EarningsSummaryRow(
-                label = "\u0417\u0430\u0440\u0430\u0431\u043e\u0442\u0430\u043d\u043e \u0437\u0430 \u043f\u0435\u0440\u0438\u043e\u0434",
-                value = earningsText,
-                valueStyle = MaterialTheme.typography.headlineSmall,
-                valueColor = MaterialTheme.colorScheme.primary
-            )
-
-            if (canAccrue) {
-                Button(
-                    onClick = onAccrueClick,
-                    enabled = accrualEnabled,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(EarningsButtonHeight),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text(
-                        text = "\u041d\u0430\u0447\u0438\u0441\u043b\u0438\u0442\u044c".asActionButtonText(),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun PeriodDateCard(
     label: String,
     date: String,
@@ -459,34 +364,26 @@ private fun PeriodDateCard(
         contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         onClick = onClick
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium
+                text = "$label $date",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+                maxLines = 1
             )
 
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = date,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Icon(
-                    imageVector = Icons.Default.DateRange,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
+            Icon(
+                imageVector = Icons.Default.DateRange,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
@@ -494,7 +391,13 @@ private fun PeriodDateCard(
 @Composable
 private fun SettlementCard(
     settlementText: String,
-    settlementAmount: Int
+    settlementAmount: Int,
+    canCreatePayment: Boolean,
+    paymentAmount: String,
+    loading: Boolean,
+    onPaymentAmountChanged: (String) -> Unit,
+    onPaymentClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val isAdvanceDebt = settlementAmount < 0
     val settlementColor = if (isAdvanceDebt) {
@@ -504,14 +407,14 @@ private fun SettlementCard(
     }
 
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
                 text = "\u0412\u0437\u0430\u0438\u043c\u043e\u0440\u0430\u0441\u0447\u0435\u0442",
@@ -526,9 +429,9 @@ private fun SettlementCard(
             ) {
                 Text(
                     text = if (isAdvanceDebt) {
-                        "\u0414\u043e\u043b\u0433 \u043f\u043e \u0430\u0432\u0430\u043d\u0441\u0443"
+                        "\u0412\u044b\u0434\u0430\u043d\u043e \u0430\u0432\u0430\u043d\u0441\u043e\u043c"
                     } else {
-                        "\u041e\u0436\u0438\u0434\u0430\u0435\u043c\u0430\u044f \u0432\u044b\u043f\u043b\u0430\u0442\u0430"
+                        "\u041a \u0432\u044b\u043f\u043b\u0430\u0442\u0435 \u043e\u043f\u0435\u0440\u0430\u0442\u043e\u0440\u0443"
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -541,18 +444,27 @@ private fun SettlementCard(
                     fontWeight = FontWeight.Bold
                 )
             }
+
+            if (canCreatePayment) {
+                CreatePaymentRow(
+                    paymentAmount = paymentAmount,
+                    loading = loading,
+                    onPaymentAmountChanged = onPaymentAmountChanged,
+                    onCreatePayment = onPaymentClick
+                )
+            }
+
         }
     }
 }
 
 @Composable
-private fun PaymentsCard(
-    payments: List<MonthlyEarningsPayment>,
-    canCreatePayment: Boolean,
-    paymentAmount: String,
-    loading: Boolean,
-    onPaymentAmountChanged: (String) -> Unit,
-    onCreatePayment: () -> Unit
+private fun OperationsCard(
+    operations: List<MonthlyEarningsOperation>,
+    startDate: String,
+    endDate: String,
+    onStartDateClick: () -> Unit,
+    onEndDateClick: () -> Unit
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -564,9 +476,28 @@ private fun PaymentsCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            PaymentsSectionHeader(
-                count = payments.size
+            OperationsSectionHeader(
+                count = operations.size
             )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                PeriodDateCard(
+                    label = "\u0421",
+                    date = startDate,
+                    onClick = onStartDateClick,
+                    modifier = Modifier.weight(1f)
+                )
+
+                PeriodDateCard(
+                    label = "\u041f\u043e",
+                    date = endDate,
+                    onClick = onEndDateClick,
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -582,24 +513,16 @@ private fun PaymentsCard(
                     modifier = Modifier.padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    if (payments.isEmpty()) {
-                        EmptyPaymentsMessage()
+                    if (operations.isEmpty()) {
+                        EmptyOperationsMessage()
                     } else {
-                        payments.forEach { payment ->
-                            PaymentRow(payment = payment)
+                        operations.forEach { operation ->
+                            OperationRow(operation = operation)
                         }
                     }
                 }
             }
 
-            if (canCreatePayment) {
-                CreatePaymentRow(
-                    paymentAmount = paymentAmount,
-                    loading = loading,
-                    onPaymentAmountChanged = onPaymentAmountChanged,
-                    onCreatePayment = onCreatePayment
-                )
-            }
         }
     }
 }
@@ -633,14 +556,14 @@ private fun EarningsSummaryRow(
 }
 
 @Composable
-private fun PaymentsSectionHeader(
+private fun OperationsSectionHeader(
     count: Int
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Text(
-            text = "\u041e\u043f\u0435\u0440\u0430\u0446\u0438\u0438 \u0437\u0430 \u043f\u0435\u0440\u0438\u043e\u0434",
+            text = "\u041d\u0430\u0447\u0438\u0441\u043b\u0435\u043d\u0438\u044f \u0438 \u0432\u044b\u043f\u043b\u0430\u0442\u044b \u0437\u0430 \u043f\u0435\u0440\u0438\u043e\u0434",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
@@ -654,8 +577,8 @@ private fun PaymentsSectionHeader(
 }
 
 @Composable
-private fun PaymentRow(
-    payment: MonthlyEarningsPayment
+private fun OperationRow(
+    operation: MonthlyEarningsOperation
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -664,31 +587,18 @@ private fun PaymentRow(
     ) {
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             Text(
-                text = payment.dateText,
+                text = operation.dateText,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold
-            )
-
-            Text(
-                text = payment.comment.ifBlank {
-                    if (payment.isEarning) {
-                        "\u041d\u0430\u0447\u0438\u0441\u043b\u0435\u043d\u0438\u0435"
-                    } else {
-                        "\u0412\u044b\u043f\u043b\u0430\u0442\u0430"
-                    }
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
 
         Text(
-            text = payment.amountText,
+            text = operation.amountText,
             style = MaterialTheme.typography.titleMedium,
-            color = if (payment.isEarning) {
+            color = if (operation.isEarning) {
                 Color(0xFF30C96B)
             } else {
                 MaterialTheme.colorScheme.error
@@ -699,7 +609,7 @@ private fun PaymentRow(
 }
 
 @Composable
-private fun EmptyPaymentsMessage() {
+private fun EmptyOperationsMessage() {
     Text(
         text = "\u0417\u0430 \u0432\u044b\u0431\u0440\u0430\u043d\u043d\u044b\u0439 \u043f\u0435\u0440\u0438\u043e\u0434 \u043e\u043f\u0435\u0440\u0430\u0446\u0438\u0439 \u043d\u0435\u0442",
         style = MaterialTheme.typography.bodyMedium,
@@ -755,10 +665,10 @@ private fun CreatePaymentRow(
     }
 }
 
-private fun currentMonthStartDisplayDate(): String {
+private fun lastSevenDaysStartDisplayDate(): String {
     return formatDisplayDate(
         Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-            set(Calendar.DAY_OF_MONTH, 1)
+            add(Calendar.DAY_OF_MONTH, -6)
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0)
@@ -823,6 +733,6 @@ private fun operationCountSuffix(count: Int): String {
 private val EarningsButtonHeight = 56.dp
 
 private enum class EarningsDatePickerTarget {
-    Start,
-    End
+    OperationsStart,
+    OperationsEnd
 }

@@ -46,10 +46,25 @@ class WarehouseStockViewModel(
 
     fun load() {
         viewModelScope.launch {
-            items = repository.getItems()
-            supplyCatalogItems = supplyCatalogRepository.getItems()
-            if (!isEditing) {
-                editableItems = items
+            loadLocalData()
+        }
+    }
+
+    fun refreshWarehouseStock() {
+        if (isSending || isEditing) return
+
+        viewModelScope.launch {
+            isSending = true
+            showSyncError = false
+
+            val result = repository.refreshFromGoogleSheetsNow()
+
+            isSending = false
+            loadLocalData()
+
+            if (!result.synced) {
+                syncErrorMessage = syncErrorMessage(result.errorType)
+                showSyncError = true
             }
         }
     }
@@ -106,6 +121,14 @@ class WarehouseStockViewModel(
                 syncErrorMessage = syncErrorMessage(result.errorType)
                 showSyncError = true
             }
+        }
+    }
+
+    private suspend fun loadLocalData() {
+        items = repository.getItems()
+        supplyCatalogItems = supplyCatalogRepository.getItems()
+        if (!isEditing) {
+            editableItems = items
         }
     }
 

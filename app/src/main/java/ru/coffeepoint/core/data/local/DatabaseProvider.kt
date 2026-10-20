@@ -46,7 +46,12 @@ object DatabaseProvider {
                     MIGRATION_26_27,
                     MIGRATION_27_28,
                     MIGRATION_28_29,
-                    MIGRATION_29_30
+                    MIGRATION_29_30,
+                    MIGRATION_30_31,
+                    MIGRATION_31_32,
+                    MIGRATION_32_33,
+                    MIGRATION_33_34,
+                    MIGRATION_34_35
                 )
                 .build()
                 .also {
@@ -777,6 +782,82 @@ object DatabaseProvider {
                 """.trimIndent()
             )
 
+        }
+
+    }
+
+    private val MIGRATION_30_31 = object : Migration(30, 31) {
+
+        override fun migrate(db: SupportSQLiteDatabase) {
+
+            db.execSQL(
+                "ALTER TABLE warehouse_stock ADD COLUMN minQuantity INTEGER NOT NULL DEFAULT 0"
+            )
+            db.execSQL(
+                "ALTER TABLE warehouse_stock ADD COLUMN maxQuantity INTEGER NOT NULL DEFAULT 0"
+            )
+
+        }
+
+    }
+
+    private val MIGRATION_31_32 = object : Migration(31, 32) {
+
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE station_settings ADD COLUMN cupsMin INTEGER NOT NULL DEFAULT 3")
+            db.execSQL("ALTER TABLE station_settings ADD COLUMN lidsMin INTEGER NOT NULL DEFAULT 3")
+            db.execSQL("ALTER TABLE station_settings ADD COLUMN coffeeMin INTEGER NOT NULL DEFAULT 3")
+            db.execSQL("ALTER TABLE station_settings ADD COLUMN milkMin INTEGER NOT NULL DEFAULT 3")
+            db.execSQL("ALTER TABLE station_settings ADD COLUMN chocolateMin INTEGER NOT NULL DEFAULT 3")
+            db.execSQL("ALTER TABLE station_settings ADD COLUMN toppingMin INTEGER NOT NULL DEFAULT 3")
+            db.execSQL("ALTER TABLE station_settings ADD COLUMN sugarMin INTEGER NOT NULL DEFAULT 1")
+            db.execSQL("ALTER TABLE station_settings ADD COLUMN stirrersMin INTEGER NOT NULL DEFAULT 1")
+            db.execSQL("ALTER TABLE station_settings ADD COLUMN garbageBagsMin INTEGER NOT NULL DEFAULT 1")
+            db.execSQL("UPDATE station_settings SET cupsMin = MIN(cupsMin, cupsMax)")
+            db.execSQL("UPDATE station_settings SET lidsMin = MIN(lidsMin, lidsMax)")
+            db.execSQL("UPDATE station_settings SET coffeeMin = MIN(coffeeMin, coffeeMax)")
+            db.execSQL("UPDATE station_settings SET milkMin = MIN(milkMin, milkMax)")
+            db.execSQL("UPDATE station_settings SET chocolateMin = MIN(chocolateMin, chocolateMax)")
+            db.execSQL("UPDATE station_settings SET toppingMin = MIN(toppingMin, toppingMax)")
+            db.execSQL("UPDATE station_settings SET sugarMin = MIN(sugarMin, sugarMax)")
+            db.execSQL("UPDATE station_settings SET stirrersMin = MIN(stirrersMin, stirrersMax)")
+            db.execSQL("UPDATE station_settings SET garbageBagsMin = MIN(garbageBagsMin, garbageBagsMax)")
+        }
+
+    }
+
+    private val MIGRATION_32_33 = object : Migration(32, 33) {
+
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE coffee_station ADD COLUMN pendingServiceOnly INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+
+    }
+
+    private val MIGRATION_33_34 = object : Migration(33, 34) {
+
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE coffee_station ADD COLUMN pendingFullStationSync INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+
+    }
+
+    private val MIGRATION_34_35 = object : Migration(34, 35) {
+
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE coffee_station ADD COLUMN pendingSupplyServiceOnly INTEGER NOT NULL DEFAULT 0"
+            )
+            db.execSQL(
+                "ALTER TABLE coffee_station ADD COLUMN pendingMixersServiceDate INTEGER NOT NULL DEFAULT 0"
+            )
+            db.execSQL(
+                "ALTER TABLE coffee_station ADD COLUMN pendingLiquidWasteContainerServiceDate INTEGER NOT NULL DEFAULT 0"
+            )
         }
 
     }

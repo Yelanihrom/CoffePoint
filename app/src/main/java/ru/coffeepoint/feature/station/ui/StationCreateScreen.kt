@@ -406,7 +406,7 @@ fun StationCreateScreen(
 
                     SettingCounterRow(
 
-                        title = "Мусорные пакеты",
+                        title = "Пакеты",
 
                         value = viewModel.garbageBagsMax,
 

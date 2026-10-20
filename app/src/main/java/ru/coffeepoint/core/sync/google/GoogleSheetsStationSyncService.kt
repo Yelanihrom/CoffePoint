@@ -13,7 +13,7 @@ class GoogleSheetsStationSyncService(
     private val syncManager: GoogleSheetsSyncManager = GoogleSheetsSyncManager()
 ) {
 
-    suspend fun syncPendingStations() {
+    suspend fun syncPendingStations(): GoogleSheetsEntitySyncResult {
         val stationIds = pendingStationIds()
 
         if (stationIds.isEmpty()) {
@@ -21,7 +21,7 @@ class GoogleSheetsStationSyncService(
                 TAG,
                 "Google Sheets sync skipped: no pending changes"
             )
-            return
+            return GoogleSheetsEntitySyncResult.success()
         }
 
         Log.d(
@@ -32,6 +32,72 @@ class GoogleSheetsStationSyncService(
         stationIds.forEach { stationId ->
             syncStation(stationId)
         }
+
+        val remainingErrors = buildList {
+            addAll(stationDao.getUnsynced().map { it.syncErrorType })
+            addAll(inventoryDao.getUnsynced().map { it.syncErrorType })
+            addAll(settingsDao.getUnsynced().map { it.syncErrorType })
+        }
+
+        if (remainingErrors.isEmpty()) return GoogleSheetsEntitySyncResult.success()
+
+        val errorType = when {
+            remainingErrors.contains(GoogleSheetsSyncErrorType.CONNECTION.storageValue) ->
+                GoogleSheetsSyncErrorType.CONNECTION
+            remainingErrors.contains(GoogleSheetsSyncErrorType.CONFLICT.storageValue) ->
+                GoogleSheetsSyncErrorType.CONFLICT
+            else -> GoogleSheetsSyncErrorType.UNKNOWN
+        }
+
+        return GoogleSheetsEntitySyncResult.error(errorType)
+    }
+
+    suspend fun syncOperatorServiceFields(stationId: Int): Boolean {
+        val station = stationDao.getById(stationId) ?: return false
+        val serviceResult = syncManager.syncOperatorServiceFields(
+            toStationDetail(
+                station,
+                inventoryDao.getByStationId(stationId) ?: return false,
+                settingsDao.getByStationId(stationId) ?: return false
+            ).station
+        )
+
+        if (serviceResult.synced) {
+            stationDao.markServiceFieldsSynced(stationId)
+        } else {
+            stationDao.updateSyncStatus(
+                id = stationId,
+                isSynced = false,
+                syncError = true,
+                syncErrorType = serviceResult.errorType.storageValue
+            )
+        }
+
+        return serviceResult.synced
+    }
+
+    suspend fun syncSupplyServiceFields(stationId: Int): Boolean {
+        val station = stationDao.getById(stationId) ?: return false
+        val inventory = inventoryDao.getByStationId(stationId) ?: return false
+        val settings = settingsDao.getByStationId(stationId) ?: return false
+        val serviceResult = syncManager.syncSupplyServiceFields(
+            station = toStationDetail(station, inventory, settings).station,
+            updateMixers = station.pendingMixersServiceDate,
+            updateLiquidWasteContainer = station.pendingLiquidWasteContainerServiceDate
+        )
+
+        if (serviceResult.synced) {
+            stationDao.markSupplyServiceFieldsSynced(stationId)
+        } else {
+            stationDao.updateSyncStatus(
+                id = stationId,
+                isSynced = false,
+                syncError = true,
+                syncErrorType = serviceResult.errorType.storageValue
+            )
+        }
+
+        return serviceResult.synced
     }
 
     suspend fun syncStation(stationId: Int): Boolean {
@@ -56,12 +122,54 @@ class GoogleSheetsStationSyncService(
             "Google Sheets sync station=$stationId station=${!detail.station.isSynced} inventory=${!detail.inventory.isSynced} settings=${!detail.settings.isSynced}"
         )
 
-        val result = syncManager.syncStationDetail(
-            detail = detail,
-            includeStation = !detail.station.isSynced,
-            includeInventory = !detail.inventory.isSynced,
-            includeSettings = !detail.settings.isSynced
-        )
+        val hasPendingServiceFields = detail.station.pendingServiceOnly ||
+            detail.station.pendingSupplyServiceOnly
+        val result = if (!detail.station.isSynced && hasPendingServiceFields) {
+            var serviceResult = GoogleSheetsEntitySyncResult.success()
+
+            if (detail.station.pendingServiceOnly) {
+                serviceResult = syncManager.syncOperatorServiceFields(detail.station)
+                if (serviceResult.synced) {
+                    stationDao.markServiceFieldsSynced(stationId)
+                }
+            }
+
+            if (serviceResult.synced && detail.station.pendingSupplyServiceOnly) {
+                serviceResult = syncManager.syncSupplyServiceFields(
+                    station = detail.station,
+                    updateMixers = detail.station.pendingMixersServiceDate,
+                    updateLiquidWasteContainer = detail.station.pendingLiquidWasteContainerServiceDate
+                )
+                if (serviceResult.synced) {
+                    stationDao.markSupplyServiceFieldsSynced(stationId)
+                }
+            }
+
+            val stationResult = when {
+                !serviceResult.synced -> serviceResult
+                detail.station.pendingFullStationSync -> syncManager.syncStationDetail(
+                    detail = detail,
+                    includeStation = true,
+                    includeInventory = false,
+                    includeSettings = false
+                ).station
+                else -> serviceResult
+            }
+            val relatedResult = syncManager.syncStationDetail(
+                detail = detail,
+                includeStation = false,
+                includeInventory = !detail.inventory.isSynced,
+                includeSettings = !detail.settings.isSynced
+            )
+            relatedResult.copy(station = stationResult)
+        } else {
+            syncManager.syncStationDetail(
+                detail = detail,
+                includeStation = !detail.station.isSynced,
+                includeInventory = !detail.inventory.isSynced,
+                includeSettings = !detail.settings.isSynced
+            )
+        }
 
         updateStationSyncStatus(
             stationId = stationId,
@@ -113,6 +221,8 @@ class GoogleSheetsStationSyncService(
                 syncError = false,
                 syncErrorType = GoogleSheetsSyncErrorType.NONE.storageValue
             )
+            stationDao.clearPendingServiceOnly(stationId)
+            stationDao.clearPendingFullStationSync(stationId)
         } else if (isPending) {
             stationDao.updateSyncStatus(
                 id = stationId,

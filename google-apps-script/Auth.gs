@@ -1,11 +1,13 @@
 function assertAuthorized(e) {
   const token = getRequestToken(e);
+  const expectedToken = PropertiesService.getScriptProperties()
+    .getProperty(CONFIG.SCRIPT_PROPERTY_KEYS.SYNC_TOKEN);
 
-  if (!CONFIG.SYNC_TOKEN || CONFIG.SYNC_TOKEN === 'REPLACE_WITH_SYNC_TOKEN') {
-    throw createHttpError(500, 'SYNC_TOKEN is not configured');
+  if (!expectedToken) {
+    throw createHttpError(500, 'SYNC_TOKEN Script Property is not configured');
   }
 
-  if (token !== CONFIG.SYNC_TOKEN) {
+  if (token !== expectedToken) {
     throw createHttpError(401, 'Unauthorized');
   }
 }

@@ -85,7 +85,7 @@ fun SupplyServiceStep2Screen(
                         )
 
                         Text(
-                            text = "Шаг 2 из 2",
+                            text = "Шаг 3 из 3",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }

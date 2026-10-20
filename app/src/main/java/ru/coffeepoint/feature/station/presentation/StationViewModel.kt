@@ -8,6 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import ru.coffeepoint.core.data.local.entity.SupplyCatalogEntity
+import ru.coffeepoint.core.data.remote.repository.TerminalCommandRepository
 import ru.coffeepoint.core.data.repository.StationRepository
 import ru.coffeepoint.core.data.repository.SupplyCatalogRepository
 import ru.coffeepoint.feature.station.model.StationDetail
@@ -23,6 +24,7 @@ class StationViewModel(
 
     private val repository = StationRepository(application)
     private val supplyCatalogRepository = SupplyCatalogRepository(application)
+    private val commandRepository = TerminalCommandRepository()
 
     var station by mutableStateOf<StationDetail?>(null)
         private set
@@ -31,6 +33,12 @@ class StationViewModel(
         private set
 
     var isSaving by mutableStateOf(false)
+        private set
+
+    var isCommandSending by mutableStateOf(false)
+        private set
+
+    var commandMessage by mutableStateOf<String?>(null)
         private set
 
     var showSyncError by mutableStateOf(false)
@@ -186,6 +194,60 @@ class StationViewModel(
     fun dismissSyncError() {
         showSyncError = false
 
+    }
+
+    fun clearCommandMessage() {
+        commandMessage = null
+    }
+
+    fun rebootTerminal() {
+        sendTerminalCommand(
+            successMessage = "\u041a\u043e\u043c\u0430\u043d\u0434\u0430 \u043f\u0435\u0440\u0435\u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0438 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0430"
+        ) { terminalId ->
+            commandRepository.rebootTerminal(terminalId)
+        }
+    }
+
+    fun turnScreenOff() {
+        sendTerminalCommand(
+            successMessage = "\u041a\u043e\u043c\u0430\u043d\u0434\u0430 \u0432\u044b\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f \u044d\u043a\u0440\u0430\u043d\u0430 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0430"
+        ) { terminalId ->
+            commandRepository.turnScreenOff(terminalId)
+        }
+    }
+
+    fun turnScreenOn() {
+        sendTerminalCommand(
+            successMessage = "\u041a\u043e\u043c\u0430\u043d\u0434\u0430 \u0432\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f \u044d\u043a\u0440\u0430\u043d\u0430 \u043e\u0442\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0430"
+        ) { terminalId ->
+            commandRepository.turnScreenOn(terminalId)
+        }
+    }
+
+    private fun sendTerminalCommand(
+        successMessage: String,
+        action: suspend (Long) -> Unit
+    ) {
+        val terminalId = station?.station?.terminalId
+
+        if (terminalId == null) {
+            commandMessage = "\u0423 \u0441\u0442\u0430\u043d\u0446\u0438\u0438 \u043d\u0435 \u0443\u043a\u0430\u0437\u0430\u043d \u043d\u043e\u043c\u0435\u0440 \u0442\u0435\u0440\u043c\u0438\u043d\u0430\u043b\u0430"
+            return
+        }
+
+        viewModelScope.launch {
+            isCommandSending = true
+            commandMessage = "\u041e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u043c \u043a\u043e\u043c\u0430\u043d\u0434\u0443..."
+
+            try {
+                action(terminalId)
+                commandMessage = successMessage
+            } catch (_: Exception) {
+                commandMessage = "\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c \u043a\u043e\u043c\u0430\u043d\u0434\u0443"
+            } finally {
+                isCommandSending = false
+            }
+        }
     }
 
     private fun isTodayOrFuture(date: String): Boolean {

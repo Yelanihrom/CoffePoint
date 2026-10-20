@@ -52,25 +52,174 @@ function parseEntities(entities) {
 }
 
 function upsertEntity(entityName, data) {
-  const sheetConfig = findSheetConfig(entityName);
-  const sheet = getSheet(sheetConfig.name);
-  const headers = ensureHeaders(sheet, sheetConfig.headers);
-  const keyValue = data[sheetConfig.key];
+  upsertEntities(entityName, [data]);
+}
 
-  if (keyValue === undefined || keyValue === null || keyValue === '') {
-    throw createHttpError(400, 'Missing key field: ' + sheetConfig.key);
+function upsertEntities(entityName, dataItems) {
+  if (!Array.isArray(dataItems) || dataItems.length === 0) {
+    throw createHttpError(400, 'Missing batch items');
   }
 
-  const rowIndex = findRowByKey(sheet, headers, sheetConfig.key, keyValue);
-  assertIncomingRowHasTimestamp(sheet, headers, data);
-  const values = headers.map((header) => normalizeCellValue(data[header]));
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
 
-  if (rowIndex) {
-    assertIncomingRowIsNotOlder(sheet, headers, rowIndex, data);
-    sheet.getRange(rowIndex, 1, 1, values.length).setValues([values]);
-  } else {
-    sheet.appendRow(values);
+  try {
+    const sheetConfig = findSheetConfig(entityName);
+    const sheet = getSheet(sheetConfig.name);
+    const headers = ensureHeaders(sheet, sheetConfig.headers);
+    const seenKeys = new Set();
+    const preparedRows = dataItems.map((data) => {
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        throw createHttpError(400, 'Invalid batch item');
+      }
+
+      const keyValue = data[sheetConfig.key];
+      if (keyValue === undefined || keyValue === null || keyValue === '') {
+        throw createHttpError(400, 'Missing key field: ' + sheetConfig.key);
+      }
+
+      const normalizedKey = String(keyValue);
+      if (seenKeys.has(normalizedKey)) {
+        throw createHttpError(400, 'Duplicate key in batch: ' + normalizedKey);
+      }
+      seenKeys.add(normalizedKey);
+
+      assertIncomingRowHasTimestamp(sheet, headers, data);
+      const rowIndex = findRowByKey(sheet, headers, sheetConfig.key, keyValue);
+      if (rowIndex) {
+        assertIncomingRowIsNotOlder(sheet, headers, rowIndex, data);
+      }
+
+      const currentValues = rowIndex
+        ? sheet.getRange(rowIndex, 1, 1, headers.length).getValues()[0]
+        : headers.map(() => '');
+      const values = headers.map((header, index) => {
+        if (Object.prototype.hasOwnProperty.call(data, header)) {
+          return normalizeCellValue(data[header]);
+        }
+        if (!rowIndex && sheetConfig.name === SHEETS.COFFEE_STATION.name &&
+            header === 'salesAfterService') {
+          return 0;
+        }
+        return currentValues[index];
+      });
+
+      if (sheetConfig.name === SHEETS.COFFEE_STATION.name && rowIndex) {
+        preserveNewerServiceDates_(headers, currentValues, values);
+      }
+
+      return { rowIndex: rowIndex, values: values };
+    });
+
+    preparedRows.forEach((row) => {
+      if (row.rowIndex) {
+        sheet.getRange(row.rowIndex, 1, 1, row.values.length)
+          .setValues([row.values]);
+      } else {
+        sheet.appendRow(row.values);
+      }
+    });
+  } finally {
+    lock.releaseLock();
   }
+}
+
+function updateStationServiceFields(data) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+
+  try {
+    const payload = data && typeof data === 'object' ? data : {};
+    const sheetConfig = SHEETS.COFFEE_STATION;
+    const sheet = getSheet(sheetConfig.name);
+    const headers = readHeaders(sheet, sheetConfig.headers);
+    const stationId = payload.id;
+    const lastServiceDate = payload.lastServiceDate;
+    const salesUpdatedAt = payload.salesUpdatedAt;
+    const salesAfterService = payload.salesAfterService;
+    const hasOperatorFields = Object.prototype.hasOwnProperty.call(payload, 'lastServiceDate') ||
+      Object.prototype.hasOwnProperty.call(payload, 'salesAfterService') ||
+      Object.prototype.hasOwnProperty.call(payload, 'salesUpdatedAt');
+    const serviceFields = [
+      'mixersServiceDate',
+      'liquidWasteContainerServiceDate',
+    ].filter(function(field) {
+      return Object.prototype.hasOwnProperty.call(payload, field);
+    });
+
+    if (stationId === undefined || stationId === null || stationId === '') {
+      throw createHttpError(400, 'Missing key field: id');
+    }
+    if (hasOperatorFields &&
+        (!lastServiceDate || !salesUpdatedAt || salesAfterService === undefined)) {
+      throw createHttpError(400, 'Missing service fields');
+    }
+    if (!hasOperatorFields && serviceFields.length === 0) {
+      throw createHttpError(400, 'Missing service fields');
+    }
+
+    const rowIndex = findRowByKey(sheet, headers, 'id', stationId);
+    if (!rowIndex) {
+      throw createHttpError(404, 'Station not found: ' + stationId);
+    }
+
+    if (hasOperatorFields) {
+      assertServiceDateIsNotOlder_(sheet, headers, rowIndex, 'lastServiceDate', lastServiceDate);
+      const lastServiceDateColumn = headers.indexOf('lastServiceDate') + 1;
+      sheet.getRange(rowIndex, lastServiceDateColumn, 1, 3).setValues([[
+        lastServiceDate,
+        salesAfterService,
+        salesUpdatedAt,
+      ]]);
+    }
+
+    serviceFields.forEach(function(field) {
+      assertServiceDateIsNotOlder_(sheet, headers, rowIndex, field, payload[field]);
+      const column = headers.indexOf(field) + 1;
+      if (!column) {
+        throw createHttpError(500, 'Missing service column: ' + field);
+      }
+      sheet.getRange(rowIndex, column).setValue(normalizeCellValue(payload[field]));
+    });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function assertServiceDateIsNotOlder_(sheet, headers, rowIndex, field, incomingValue) {
+  const column = headers.indexOf(field) + 1;
+  if (!column) {
+    throw createHttpError(500, 'Missing service column: ' + field);
+  }
+
+  const currentTimestamp = parseSyncTimestamp(sheet.getRange(rowIndex, column).getValue());
+  const incomingTimestamp = parseSyncTimestamp(incomingValue);
+  if (currentTimestamp && incomingTimestamp &&
+      currentTimestamp.getTime() > incomingTimestamp.getTime()) {
+    throw createHttpError(409, 'Conflict: station has a newer ' + field);
+  }
+}
+
+function preserveNewerServiceDates_(headers, currentValues, incomingValues) {
+  [
+    'lastServiceDate',
+    'liquidWasteContainerServiceDate',
+    'brewUnitServiceDate',
+    'coffeeGrinderServiceDate',
+    'mixersServiceDate',
+    'expansionTankServiceDate',
+    'exhaustServiceDate',
+  ].forEach(function(field) {
+    const index = headers.indexOf(field);
+    if (index < 0) return;
+
+    const currentTimestamp = parseSyncTimestamp(currentValues[index]);
+    const incomingTimestamp = parseSyncTimestamp(incomingValues[index]);
+    if (currentTimestamp &&
+        (!incomingTimestamp || currentTimestamp.getTime() > incomingTimestamp.getTime())) {
+      incomingValues[index] = currentValues[index];
+    }
+  });
 }
 
 function assertIncomingRowHasTimestamp(sheet, headers, data) {

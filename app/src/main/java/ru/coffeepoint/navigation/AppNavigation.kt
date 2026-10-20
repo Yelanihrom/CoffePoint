@@ -17,15 +17,18 @@ import ru.coffeepoint.core.auth.UserRole
 import ru.coffeepoint.feature.auth.ui.RoleSelectionScreen
 import ru.coffeepoint.feature.camera.ui.CameraScreen
 import ru.coffeepoint.feature.dashboard.ui.DashboardScreen
+import ru.coffeepoint.feature.dashboard.ui.ManagerHomeScreen
 import ru.coffeepoint.feature.earnings.ui.MonthlyEarningsScreen
 import ru.coffeepoint.feature.service.ui.ServiceStep1Screen
 import ru.coffeepoint.feature.service.ui.ServiceStep2Screen
+import ru.coffeepoint.feature.service.ui.GrindControlScreen
 import ru.coffeepoint.feature.service.ui.SupplyServiceStep2Screen
 import ru.coffeepoint.feature.station.ui.StationCreateScreen
 import ru.coffeepoint.feature.station.ui.StationScreen
 import ru.coffeepoint.feature.station.ui.StationSettingsScreen
 import ru.coffeepoint.feature.supplycatalog.ui.SupplyCatalogEditScreen
 import ru.coffeepoint.feature.supplycatalog.ui.SupplyCatalogScreen
+import ru.coffeepoint.feature.warehouse.ui.WarehouseStockSettingsScreen
 import ru.coffeepoint.feature.warehouse.ui.WarehouseStockScreen
 
 @Composable
@@ -40,12 +43,16 @@ fun AppNavigation() {
     var selectedRole by remember {
         mutableStateOf(rolePreferences.getSelectedRole())
     }
+    var selectedManagerMode by remember {
+        mutableStateOf("operator")
+    }
 
     val startDestination = remember {
-        if (selectedRole != null) {
-            Routes.Dashboard.route
-        } else {
-            Routes.RoleSelection.route
+        when (selectedRole) {
+            UserRole.MANAGER -> Routes.ManagerHome.route
+            UserRole.SUPPLY_OPERATOR,
+            UserRole.OPERATOR -> Routes.Dashboard.route
+            null -> Routes.RoleSelection.route
         }
     }
 
@@ -61,7 +68,13 @@ fun AppNavigation() {
                     rolePreferences.saveSelectedRole(role)
                     selectedRole = role
 
-                    navController.navigate(Routes.Dashboard.route) {
+                    val destination = if (role == UserRole.MANAGER) {
+                        Routes.ManagerHome.route
+                    } else {
+                        Routes.Dashboard.route
+                    }
+
+                    navController.navigate(destination) {
                         popUpTo(Routes.RoleSelection.route) {
                             inclusive = true
                         }
@@ -77,6 +90,7 @@ fun AppNavigation() {
 
             DashboardScreen(
                 role = role,
+                initialManagerMode = selectedManagerMode,
                 onStationClick = { stationId ->
 
                     navController.navigate(
@@ -98,9 +112,10 @@ fun AppNavigation() {
                     selectedRole = null
 
                     navController.navigate(Routes.RoleSelection.route) {
-                        popUpTo(Routes.Dashboard.route) {
+                        popUpTo(navController.graph.startDestinationId) {
                             inclusive = true
                         }
+                        launchSingleTop = true
                     }
 
                 },
@@ -127,9 +142,41 @@ fun AppNavigation() {
                     ) {
                         navController.navigate(Routes.MonthlyEarnings.route)
                     }
+                },
+                onManagerHome = {
+                    navController.popBackStack(
+                        route = Routes.ManagerHome.route,
+                        inclusive = false
+                    )
                 }
             )
 
+        }
+
+        composable(Routes.ManagerHome.route) {
+            ManagerHomeScreen(
+                onOpenOperator = {
+                    selectedManagerMode = "operator"
+                    navController.navigate(Routes.Dashboard.route)
+                },
+                onOpenSupply = {
+                    selectedManagerMode = "supply"
+                    navController.navigate(Routes.Dashboard.route)
+                },
+                onChangeRole = {
+                    rolePreferences.clearSelectedRole()
+                    selectedRole = null
+                    navController.navigate(Routes.RoleSelection.route) {
+                        popUpTo(Routes.ManagerHome.route) {
+                            inclusive = true
+                        }
+                        launchSingleTop = true
+                    }
+                },
+                onCloseApp = {
+                    (context as? Activity)?.finish()
+                }
+            )
         }
 
         composable(Routes.MonthlyEarnings.route) {
@@ -164,7 +211,33 @@ fun AppNavigation() {
             }
 
             WarehouseStockScreen(
+                canEditSettings = role == UserRole.MANAGER,
                 onBack = {
+                    navController.popBackStack()
+                },
+                onSettings = {
+                    if (role == UserRole.MANAGER) {
+                        navController.navigate(Routes.WarehouseStockSettings.route)
+                    }
+                }
+            )
+
+        }
+
+        composable(Routes.WarehouseStockSettings.route) {
+
+            val role = selectedRole ?: UserRole.OPERATOR
+
+            if (role != UserRole.MANAGER) {
+                navController.popBackStack()
+                return@composable
+            }
+
+            WarehouseStockSettingsScreen(
+                onBack = {
+                    navController.popBackStack()
+                },
+                onSaved = {
                     navController.popBackStack()
                 }
             )
@@ -375,7 +448,7 @@ fun AppNavigation() {
                 onNext = {
                     if (isSupplyServiceFlow) {
                         navController.navigate(
-                            Routes.SupplyServiceStep2.createRoute(stationId)
+                            Routes.GrindControl.createRoute(stationId)
                         )
                     } else {
                         navController.navigate(Routes.Dashboard.route) {
@@ -385,15 +458,8 @@ fun AppNavigation() {
                         }
                     }
                 },
-                onFinish = {
-                    navController.navigate(Routes.Dashboard.route) {
-                        popUpTo(Routes.Dashboard.route) {
-                            inclusive = true
-                        }
-                    }
-                },
                 stepLabel = if (isSupplyServiceFlow) {
-                    "Шаг 1 из 2"
+                    "Шаг 1 из 3"
                 } else {
                     "Пополнение запасов"
                 },
@@ -405,6 +471,36 @@ fun AppNavigation() {
                 syncImmediatelyOnSave = true
             )
 
+        }
+
+        composable(
+            route = Routes.GrindControl.route,
+            arguments = listOf(
+                navArgument("stationId") {
+                    type = NavType.IntType
+                }
+            )
+        ) {
+            val stationId = it.arguments?.getInt("stationId") ?: 0
+
+            GrindControlScreen(
+                stationId = stationId,
+                onBack = {
+                    navController.popBackStack()
+                },
+                onContinue = {
+                    navController.navigate(
+                        Routes.SupplyServiceStep2.createRoute(stationId)
+                    )
+                },
+                onFinish = {
+                    navController.navigate(Routes.Dashboard.route) {
+                        popUpTo(Routes.Dashboard.route) {
+                            inclusive = true
+                        }
+                    }
+                }
+            )
         }
 
         composable(

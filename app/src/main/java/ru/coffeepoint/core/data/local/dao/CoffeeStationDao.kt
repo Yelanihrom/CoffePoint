@@ -41,7 +41,19 @@ interface CoffeeStationDao {
         syncErrorType: String
     )
 
-    @Query("UPDATE coffee_station SET isSynced = 1, syncError = 0, syncErrorType = '' WHERE isSynced = 0 AND syncErrorType = :conflictType")
+    @Query("UPDATE coffee_station SET pendingServiceOnly = 0, isSynced = CASE WHEN pendingFullStationSync = 1 OR pendingSupplyServiceOnly = 1 THEN 0 ELSE 1 END, syncError = 0, syncErrorType = '' WHERE id = :id")
+    suspend fun markServiceFieldsSynced(id: Int)
+
+    @Query("UPDATE coffee_station SET pendingSupplyServiceOnly = 0, pendingMixersServiceDate = 0, pendingLiquidWasteContainerServiceDate = 0, isSynced = CASE WHEN pendingFullStationSync = 1 OR pendingServiceOnly = 1 THEN 0 ELSE 1 END, syncError = 0, syncErrorType = '' WHERE id = :id")
+    suspend fun markSupplyServiceFieldsSynced(id: Int)
+
+    @Query("UPDATE coffee_station SET pendingServiceOnly = 0 WHERE id = :id")
+    suspend fun clearPendingServiceOnly(id: Int)
+
+    @Query("UPDATE coffee_station SET pendingFullStationSync = 0 WHERE id = :id")
+    suspend fun clearPendingFullStationSync(id: Int)
+
+    @Query("UPDATE coffee_station SET isSynced = 1, syncError = 0, syncErrorType = '', pendingServiceOnly = 0, pendingFullStationSync = 0, pendingSupplyServiceOnly = 0, pendingMixersServiceDate = 0, pendingLiquidWasteContainerServiceDate = 0 WHERE isSynced = 0 AND syncErrorType = :conflictType")
     suspend fun markConflictsAsResolvedForImport(conflictType: String)
 
 }

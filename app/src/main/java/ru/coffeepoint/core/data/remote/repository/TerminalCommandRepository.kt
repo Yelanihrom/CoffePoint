@@ -1,12 +1,14 @@
 package ru.coffeepoint.core.data.remote.repository
 
 import ru.coffeepoint.core.data.remote.VendistaCredentials
+import ru.coffeepoint.core.data.remote.api.TerminalCommandApi
 import ru.coffeepoint.core.data.remote.dto.TerminalCommandRequestDto
 import ru.coffeepoint.core.data.remote.network.ApiProvider
 
-class TerminalCommandRepository {
-
-    private val api = ApiProvider.terminalCommandApi
+class TerminalCommandRepository(
+    private val api: TerminalCommandApi = ApiProvider.terminalCommandApi,
+    private val token: String = VendistaCredentials.TOKEN
+) {
 
     suspend fun rebootTerminal(
         terminalId: Long
@@ -51,7 +53,7 @@ class TerminalCommandRepository {
 
         api.sendCommand(
             terminalId = terminalId,
-            token = VendistaCredentials.TOKEN,
+            token = token,
             command = TerminalCommandRequestDto(
                 commandId = commandId,
                 parameter1 = parameter1

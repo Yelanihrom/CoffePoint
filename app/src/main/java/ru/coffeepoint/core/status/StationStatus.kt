@@ -53,14 +53,14 @@ fun StationDetail.attentionIssues(): List<StationAttentionIssue> {
     when {
         daysAfterService >= 14 -> {
             issues += StationAttentionIssue(
-                description = "обслуживание $daysAfterService дн.",
+                description = "заправка $daysAfterService дн.",
                 severity = StationStatusSeverity.CRITICAL
             )
         }
 
         daysAfterService >= 10 -> {
             issues += StationAttentionIssue(
-                description = "обслуживание $daysAfterService дн.",
+                description = "заправка $daysAfterService дн.",
                 severity = StationStatusSeverity.WARNING
             )
         }

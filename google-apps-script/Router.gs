@@ -20,6 +20,24 @@ function handleRequest(e, method) {
       });
     }
 
+    if (method === 'POST' && action === 'upsert_batch') {
+      const items = request.data && request.data.items;
+      upsertEntities(request.entity, items);
+
+      return jsonResponse({
+        success: true,
+        data: {
+          updatedCount: items.length,
+        },
+      });
+    }
+
+    if (method === 'POST' && action === 'complete_service') {
+      updateStationServiceFields(request.data);
+
+      return jsonResponse({ success: true });
+    }
+
     if (method === 'POST' && action === 'upload_photos') {
       const photoUrls = uploadStationPhotos(request.data);
 

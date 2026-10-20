@@ -11,6 +11,10 @@ data class WarehouseStockEntity(
 
     val quantity: Int,
 
+    val minQuantity: Int = 0,
+
+    val maxQuantity: Int = 0,
+
     val updatedAt: String = "",
 
     val isSynced: Boolean = true,

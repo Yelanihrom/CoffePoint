@@ -9,6 +9,8 @@ import ru.coffeepoint.core.sync.google.GoogleSheetsSyncErrorType
 import ru.coffeepoint.core.sync.google.GoogleSheetsSyncManager
 import ru.coffeepoint.feature.warehouse.model.WarehouseItemType
 import ru.coffeepoint.feature.warehouse.model.WarehouseStockItem
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -27,10 +29,14 @@ class WarehouseStockRepository(
         val quantities = dao.getAll().associateBy { entity -> entity.itemType }
 
         return WarehouseItemType.entries.map { itemType ->
+            val entity = quantities[itemType.code]
+
             WarehouseStockItem(
                 itemType = itemType.code,
                 title = itemType.title,
-                quantity = quantities[itemType.code]?.quantity ?: 0,
+                quantity = entity?.quantity ?: 0,
+                minQuantity = entity?.minQuantity ?: 0,
+                maxQuantity = entity?.maxQuantity ?: 0,
                 iconRes = itemType.iconRes
             )
         }
@@ -51,6 +57,8 @@ class WarehouseStockRepository(
             WarehouseStockEntity(
                 itemType = itemType,
                 quantity = quantity.coerceAtLeast(0),
+                minQuantity = 0,
+                maxQuantity = 0,
                 updatedAt = currentTimestamp(),
                 isSynced = false,
                 syncError = false,
@@ -73,6 +81,8 @@ class WarehouseStockRepository(
             WarehouseStockEntity(
                 itemType = item.itemType,
                 quantity = item.quantity.coerceAtLeast(0),
+                minQuantity = item.minQuantity.coerceAtLeast(0),
+                maxQuantity = item.maxQuantity.coerceAtLeast(0),
                 updatedAt = updatedAt,
                 isSynced = false,
                 syncError = false,
@@ -170,17 +180,62 @@ class WarehouseStockRepository(
         return result
     }
 
-    suspend fun syncPendingGoogleSheets() {
+    suspend fun refreshFromGoogleSheetsNow(): GoogleSheetsEntitySyncResult {
         ensureDefaults()
 
         val unsyncedItems = dao.getUnsynced()
-        if (unsyncedItems.isEmpty()) return
+        if (unsyncedItems.isNotEmpty()) {
+            val pendingSyncResult = googleSheetsSyncManager.syncWarehouseStock(unsyncedItems)
+            updateSyncStatus(
+                items = unsyncedItems,
+                result = pendingSyncResult
+            )
+
+            if (!pendingSyncResult.synced) {
+                return pendingSyncResult
+            }
+        }
+
+        return runCatching {
+            googleSheetsSyncManager.loadFullSyncBundle(
+                includeStations = false,
+                includeSettings = false,
+                includeSupplyCatalog = false,
+                includeWarehouseStock = true,
+                includeEmployeeData = false
+            ).warehouseStock
+        }.fold(
+            onSuccess = { remoteItems ->
+                dao.insertAll(
+                    remoteItems.map { item ->
+                        item.copy(
+                            isSynced = true,
+                            syncError = false,
+                            syncErrorType = GoogleSheetsSyncErrorType.NONE.storageValue
+                        )
+                    }
+                )
+                ensureDefaults()
+                GoogleSheetsEntitySyncResult.success()
+            },
+            onFailure = { error ->
+                GoogleSheetsEntitySyncResult.error(error.toSyncErrorType())
+            }
+        )
+    }
+
+    suspend fun syncPendingGoogleSheets(): GoogleSheetsEntitySyncResult {
+        ensureDefaults()
+
+        val unsyncedItems = dao.getUnsynced()
+        if (unsyncedItems.isEmpty()) return GoogleSheetsEntitySyncResult.success()
 
         val result = googleSheetsSyncManager.syncWarehouseStock(unsyncedItems)
         updateSyncStatus(
             items = unsyncedItems,
             result = result
         )
+        return result
     }
 
     private suspend fun ensureDefaults() {
@@ -189,6 +244,8 @@ class WarehouseStockRepository(
                 WarehouseStockEntity(
                     itemType = itemType.code,
                     quantity = 0,
+                    minQuantity = 0,
+                    maxQuantity = 0,
                     updatedAt = "",
                     isSynced = true,
                     syncError = false,
@@ -228,6 +285,22 @@ class WarehouseStockRepository(
         ).apply {
             timeZone = TimeZone.getTimeZone("UTC")
         }.format(Date())
+    }
+
+    private fun Throwable.toSyncErrorType(): GoogleSheetsSyncErrorType {
+        val message = message.orEmpty()
+
+        return when {
+            this is UnknownHostException ||
+                this is SocketTimeoutException ||
+                message.contains("Unable to resolve host", ignoreCase = true) ->
+                GoogleSheetsSyncErrorType.CONNECTION
+
+            message.contains("Conflict:", ignoreCase = true) ->
+                GoogleSheetsSyncErrorType.CONFLICT
+
+            else -> GoogleSheetsSyncErrorType.UNKNOWN
+        }
     }
 }
 

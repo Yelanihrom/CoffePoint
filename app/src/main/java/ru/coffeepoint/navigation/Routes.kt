@@ -6,9 +6,13 @@ sealed class Routes(val route: String) {
 
     data object Dashboard : Routes("dashboard")
 
+    data object ManagerHome : Routes("manager_home")
+
     data object SupplyCatalog : Routes("supply_catalog")
 
     data object WarehouseStock : Routes("warehouse_stock")
+
+    data object WarehouseStockSettings : Routes("warehouse_stock_settings")
 
     data object MonthlyEarnings : Routes("monthly_earnings")
 
@@ -63,6 +67,13 @@ sealed class Routes(val route: String) {
 
         fun createRoute(stationId: Int): String {
             return "supply_service_step1/$stationId"
+        }
+    }
+
+    data object GrindControl : Routes("grind_control/{stationId}") {
+
+        fun createRoute(stationId: Int): String {
+            return "grind_control/$stationId"
         }
     }
 

@@ -427,6 +427,51 @@ class ServiceStep1ViewModel(
 
         return listOf(
             WarehouseWriteOffUiItem(
+                title = WarehouseItemType.Cups.title,
+                itemType = WarehouseItemType.Cups.code,
+                iconRes = WarehouseItemType.Cups.iconRes,
+                amount = positiveDelta(
+                    original.cups,
+                    current.cups
+                )
+            ),
+            WarehouseWriteOffUiItem(
+                title = WarehouseItemType.Lids.title,
+                itemType = WarehouseItemType.Lids.code,
+                iconRes = WarehouseItemType.Lids.iconRes,
+                amount = positiveDelta(
+                    original.lids,
+                    current.lids
+                )
+            ),
+            WarehouseWriteOffUiItem(
+                title = WarehouseItemType.Sugar.title,
+                itemType = WarehouseItemType.Sugar.code,
+                iconRes = WarehouseItemType.Sugar.iconRes,
+                amount = positiveDelta(
+                    original.sugar,
+                    current.sugar
+                )
+            ),
+            WarehouseWriteOffUiItem(
+                title = WarehouseItemType.Stirrers.title,
+                itemType = WarehouseItemType.Stirrers.code,
+                iconRes = WarehouseItemType.Stirrers.iconRes,
+                amount = positiveDelta(
+                    original.stirrers,
+                    current.stirrers
+                )
+            ),
+            WarehouseWriteOffUiItem(
+                title = WarehouseItemType.GarbageBags.title,
+                itemType = WarehouseItemType.GarbageBags.code,
+                iconRes = WarehouseItemType.GarbageBags.iconRes,
+                amount = positiveDelta(
+                    original.garbageBags,
+                    current.garbageBags
+                )
+            ),
+            WarehouseWriteOffUiItem(
                 title = WarehouseItemType.Coffee.title,
                 itemType = WarehouseItemType.Coffee.code,
                 iconRes = WarehouseItemType.Coffee.iconRes,

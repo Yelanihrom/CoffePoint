@@ -55,7 +55,6 @@ fun ServiceStep1Screen(
     role: UserRole,
     onBack: () -> Unit,
     onNext: () -> Unit,
-    onFinish: () -> Unit = onNext,
     stepLabel: String = "Шаг 1 из 2",
     actionText: String = "Далее",
     syncImmediatelyOnSave: Boolean = false
@@ -69,18 +68,15 @@ fun ServiceStep1Screen(
     val inventory = viewModel.inventory ?: return
     val showMaxValues = role != UserRole.OPERATOR
     val isSupplyServiceFlow = role == UserRole.SUPPLY_OPERATOR || role == UserRole.MANAGER
-    val hasSecondStep = isSupplyServiceFlow &&
+    val hasServiceNodes = isSupplyServiceFlow &&
         station.supplyOperatorTechServiceDashboardItems().isNotEmpty()
-    val continueAfterSave = if (isSupplyServiceFlow && !hasSecondStep) {
-        onFinish
+    val effectiveStepLabel = if (isSupplyServiceFlow) {
+        if (hasServiceNodes) "Шаг 1 из 3" else "Шаг 1 из 2"
     } else {
-        onNext
+        stepLabel
     }
-    val effectiveActionText = if (isSupplyServiceFlow && !hasSecondStep) {
-        "\u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c \u043e\u0431\u0441\u043b\u0443\u0436\u0438\u0432\u0430\u043d\u0438\u0435"
-    } else {
-        actionText
-    }
+    val continueAfterSave = onNext
+    val effectiveActionText = actionText
 
     if (viewModel.isSaving) {
         SyncSendingOverlay()
@@ -262,7 +258,7 @@ fun ServiceStep1Screen(
                         )
 
                         Text(
-                            text = stepLabel,
+                            text = effectiveStepLabel,
                             style = MaterialTheme.typography.bodyMedium
                         )
 
@@ -385,7 +381,7 @@ fun ServiceStep1Screen(
                 )
 
                 CounterRow(
-                    title = "Мусорные пакеты",
+                    title = "Пакеты",
                     value = inventory.garbageBags,
                     max = station.settings.garbageBagsMax,
                     showMax = showMaxValues,

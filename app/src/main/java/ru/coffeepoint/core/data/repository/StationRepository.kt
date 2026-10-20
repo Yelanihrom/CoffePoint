@@ -2,10 +2,12 @@ package ru.coffeepoint.core.data.repository
 
 import android.content.Context
 import ru.coffeepoint.core.data.local.DatabaseProvider
+import ru.coffeepoint.core.data.preferences.GoogleSheetsImportPreferences
 import ru.coffeepoint.core.data.mapper.toInventoryEntity
 import ru.coffeepoint.core.data.mapper.toSettingsEntity
 import ru.coffeepoint.core.data.mapper.toStationDetail
 import ru.coffeepoint.core.data.mapper.toStationEntity
+import ru.coffeepoint.core.sync.google.GoogleSheetsEntitySyncResult
 import ru.coffeepoint.core.sync.google.GoogleSheetsImportResult
 import ru.coffeepoint.core.sync.google.GoogleSheetsImportService
 import ru.coffeepoint.core.sync.google.GoogleSheetsSyncDefaults
@@ -27,6 +29,7 @@ class StationRepository(
 
     private val appContext = context.applicationContext
     private val db = DatabaseProvider.getDatabase(context)
+    private val googleSheetsImportPreferences = GoogleSheetsImportPreferences(appContext)
 
     private val stationDao = db.coffeeStationDao()
     private val inventoryDao = db.stationInventoryDao()
@@ -93,15 +96,27 @@ class StationRepository(
     }
 
     suspend fun importFromGoogleSheetsResult(): GoogleSheetsImportResult {
-        return googleSheetsImportService.importFullSync(
+        val result = googleSheetsImportService.importFullSync(
             includeSupplyCatalog = false,
             includeEmployeeData = false
         )
+
+        if (result == GoogleSheetsImportResult.Success) {
+            googleSheetsImportPreferences.saveLastImportTime(
+                System.currentTimeMillis()
+            )
+        }
+
+        return result
     }
 
     suspend fun saveStation(
         detail: StationDetail,
-        syncImmediately: Boolean = false
+        syncImmediately: Boolean = false,
+        serviceFieldsOnly: Boolean = false,
+        supplyServiceFieldsOnly: Boolean = false,
+        updateMixersServiceDate: Boolean = false,
+        updateLiquidWasteContainerServiceDate: Boolean = false
     ): Boolean {
 
         val current = getStation(detail.station.id)
@@ -109,13 +124,35 @@ class StationRepository(
         var hasChanges = false
 
         if (current == null || current.station.hasContentChanges(detail.station)) {
+            val pendingFullStationSync = when {
+                serviceFieldsOnly || supplyServiceFieldsOnly -> current?.station?.let {
+                    it.pendingFullStationSync ||
+                        (!it.isSynced && !it.pendingServiceOnly && !it.pendingSupplyServiceOnly)
+                } ?: false
+                else -> true
+            }
             stationDao.insert(
                 detail.copy(
                     station = detail.station.copy(
-                        updatedAt = updatedAt,
+                        updatedAt = if (serviceFieldsOnly || supplyServiceFieldsOnly) {
+                            current?.station?.updatedAt.orEmpty()
+                        } else {
+                            updatedAt
+                        },
                         isSynced = false,
                         syncError = false,
-                        syncErrorType = GoogleSheetsSyncDefaults.noErrorType
+                        syncErrorType = GoogleSheetsSyncDefaults.noErrorType,
+                        pendingServiceOnly = serviceFieldsOnly ||
+                            current?.station?.pendingServiceOnly == true,
+                        pendingFullStationSync = pendingFullStationSync,
+                        pendingSupplyServiceOnly = supplyServiceFieldsOnly ||
+                            current?.station?.pendingSupplyServiceOnly == true,
+                        pendingMixersServiceDate =
+                            (supplyServiceFieldsOnly && updateMixersServiceDate) ||
+                                current?.station?.pendingMixersServiceDate == true,
+                        pendingLiquidWasteContainerServiceDate =
+                            (supplyServiceFieldsOnly && updateLiquidWasteContainerServiceDate) ||
+                                current?.station?.pendingLiquidWasteContainerServiceDate == true
                     )
                 ).toStationEntity()
             )
@@ -150,7 +187,15 @@ class StationRepository(
             hasChanges = true
         }
 
-        if (hasChanges && syncImmediately) {
+        if (serviceFieldsOnly && syncImmediately) {
+            return googleSheetsStationSyncService.syncOperatorServiceFields(
+                detail.station.id
+            )
+        } else if (supplyServiceFieldsOnly && syncImmediately) {
+            return googleSheetsStationSyncService.syncSupplyServiceFields(
+                detail.station.id
+            )
+        } else if (hasChanges && syncImmediately) {
             return googleSheetsStationSyncService.syncStation(detail.station.id)
         } else if (!hasChanges && syncImmediately) {
             return googleSheetsStationSyncService.syncStation(detail.station.id)
@@ -162,8 +207,8 @@ class StationRepository(
 
     }
 
-    suspend fun syncPendingGoogleSheets() {
-        googleSheetsStationSyncService.syncPendingStations()
+    suspend fun syncPendingGoogleSheets(): GoogleSheetsEntitySyncResult {
+        return googleSheetsStationSyncService.syncPendingStations()
     }
 
     suspend fun resolveConflictBlocksForImport() {
@@ -240,12 +285,11 @@ class StationRepository(
             detail = detail.copy(
                 station = detail.station.copy(
                     lastServiceDate = lastServiceDate,
-                    salesAfterService = 0,
-                    machinePhotoPath = machinePhotoPath,
-                    overviewPhotoPath = overviewPhotoPath
+                    salesAfterService = 0
                 )
             ),
-            syncImmediately = true
+            syncImmediately = true,
+            serviceFieldsOnly = true
         )
 
     }
@@ -366,7 +410,10 @@ class StationRepository(
                     }
                 )
             ),
-            syncImmediately = true
+            syncImmediately = true,
+            supplyServiceFieldsOnly = true,
+            updateMixersServiceDate = updateMixers,
+            updateLiquidWasteContainerServiceDate = updateLiquidWasteContainer
         )
 
     }
@@ -386,12 +433,22 @@ private fun CoffeeStation.hasContentChanges(
         updatedAt = "",
         isSynced = true,
         syncError = false,
-        syncErrorType = ""
+        syncErrorType = "",
+        pendingServiceOnly = false,
+        pendingFullStationSync = false,
+        pendingSupplyServiceOnly = false,
+        pendingMixersServiceDate = false,
+        pendingLiquidWasteContainerServiceDate = false
     ) != other.copy(
         updatedAt = "",
         isSynced = true,
         syncError = false,
-        syncErrorType = ""
+        syncErrorType = "",
+        pendingServiceOnly = false,
+        pendingFullStationSync = false,
+        pendingSupplyServiceOnly = false,
+        pendingMixersServiceDate = false,
+        pendingLiquidWasteContainerServiceDate = false
     )
 }
 

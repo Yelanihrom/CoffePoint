@@ -8,6 +8,7 @@ import ru.coffeepoint.core.data.local.entity.SupplyCatalogEntity
 import ru.coffeepoint.core.data.local.entity.WarehouseStockEntity
 import ru.coffeepoint.core.util.normalizeTime
 import ru.coffeepoint.core.sync.google.dto.GoogleSheetsSyncRequestDto
+import ru.coffeepoint.core.sync.google.api.GoogleSheetsSyncApi
 import ru.coffeepoint.core.sync.google.network.GoogleSheetsApiProvider
 import ru.coffeepoint.feature.station.model.CoffeeStation
 import ru.coffeepoint.feature.station.model.StationDetail
@@ -20,10 +21,76 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import kotlinx.coroutines.CancellationException
 
-class GoogleSheetsRemoteDataSource {
+class GoogleSheetsRemoteDataSource(
+    private val api: GoogleSheetsSyncApi = GoogleSheetsApiProvider.syncApi,
+    private val webAppUrl: String = GoogleSheetsSyncConfig.WEB_APP_URL,
+    private val syncToken: String = GoogleSheetsSyncConfig.SYNC_TOKEN,
+    private val reportFailure: (String, Exception) -> Unit = { tag, error ->
+        Log.w("GoogleSheetsSync", "Google Sheets $tag sync failed", error)
+    }
+) {
 
-    private val api = GoogleSheetsApiProvider.syncApi
+    suspend fun syncOperatorServiceFields(
+        station: CoffeeStation
+    ): GoogleSheetsEntitySyncResult {
+        if (!GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) {
+            return GoogleSheetsEntitySyncResult.error(
+                GoogleSheetsSyncErrorType.CONNECTION
+            )
+        }
+
+        return syncEntity(
+            tag = "operator service fields",
+            block = {
+                request(
+                    action = "complete_service",
+                    entity = "coffee_station",
+                    data = mapOf(
+                        "id" to station.id,
+                        "lastServiceDate" to station.lastServiceDate,
+                        "salesAfterService" to station.salesAfterService,
+                        "salesUpdatedAt" to station.lastServiceDate
+                    )
+                )
+            }
+        )
+    }
+
+    suspend fun syncSupplyServiceFields(
+        station: CoffeeStation,
+        updateMixers: Boolean,
+        updateLiquidWasteContainer: Boolean
+    ): GoogleSheetsEntitySyncResult {
+        if (!GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) {
+            return GoogleSheetsEntitySyncResult.error(
+                GoogleSheetsSyncErrorType.CONNECTION
+            )
+        }
+        if (!updateMixers && !updateLiquidWasteContainer) {
+            return GoogleSheetsEntitySyncResult.skipped()
+        }
+
+        val data = buildMap<String, Any> {
+            put("id", station.id)
+            if (updateMixers) put("mixersServiceDate", station.mixersServiceDate)
+            if (updateLiquidWasteContainer) {
+                put("liquidWasteContainerServiceDate", station.liquidWasteContainerServiceDate)
+            }
+        }
+
+        return syncEntity(
+            tag = "supply service fields",
+            block = {
+                request(
+                    action = "complete_service",
+                    entity = "coffee_station",
+                    data = data
+                )
+            }
+        )
+    }
 
     suspend fun syncStationDetail(
         detail: StationDetail,
@@ -31,7 +98,7 @@ class GoogleSheetsRemoteDataSource {
         includeInventory: Boolean,
         includeSettings: Boolean
     ): GoogleSheetsSyncResult {
-        if (!GoogleSheetsSyncConfig.isEnabled()) {
+        if (!GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) {
             return GoogleSheetsSyncResult()
         }
 
@@ -107,14 +174,14 @@ class GoogleSheetsRemoteDataSource {
         includeWarehouseStock: Boolean = true,
         includeEmployeeData: Boolean = true
     ): GoogleSheetsFullSyncBundle {
-        if (!GoogleSheetsSyncConfig.isEnabled()) {
+        if (!GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) {
             return GoogleSheetsFullSyncBundle()
         }
 
         val response = api.fullSync(
-            url = GoogleSheetsSyncConfig.WEB_APP_URL,
+            url = webAppUrl,
             action = "full_sync",
-            token = GoogleSheetsSyncConfig.SYNC_TOKEN,
+            token = syncToken,
             entities = if (
                 includeStations &&
                 includeSettings &&
@@ -201,14 +268,14 @@ class GoogleSheetsRemoteDataSource {
     }
 
     suspend fun loadSupplyCatalog(): List<SupplyCatalogEntity> {
-        if (!GoogleSheetsSyncConfig.isEnabled()) {
+        if (!GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) {
             return emptyList()
         }
 
         val response = api.fullSync(
-            url = GoogleSheetsSyncConfig.WEB_APP_URL,
+            url = webAppUrl,
             action = "full_sync",
-            token = GoogleSheetsSyncConfig.SYNC_TOKEN,
+            token = syncToken,
             entities = "supply_catalog"
         )
 
@@ -224,7 +291,7 @@ class GoogleSheetsRemoteDataSource {
     suspend fun syncSupplyCatalogOption(
         option: SupplyCatalogEntity
     ): GoogleSheetsEntitySyncResult {
-        if (!GoogleSheetsSyncConfig.isEnabled()) {
+        if (!GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) {
             return GoogleSheetsEntitySyncResult.error(
                 GoogleSheetsSyncErrorType.CONNECTION
             )
@@ -245,7 +312,7 @@ class GoogleSheetsRemoteDataSource {
         option: SupplyCatalogEntity,
         updatedAt: String
     ): GoogleSheetsEntitySyncResult {
-        if (!GoogleSheetsSyncConfig.isEnabled()) {
+        if (!GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) {
             return GoogleSheetsEntitySyncResult.error(
                 GoogleSheetsSyncErrorType.CONNECTION
             )
@@ -265,7 +332,7 @@ class GoogleSheetsRemoteDataSource {
     suspend fun deleteSupplyCatalogOption(
         optionId: Int
     ): GoogleSheetsEntitySyncResult {
-        if (!GoogleSheetsSyncConfig.isEnabled()) {
+        if (!GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) {
             return GoogleSheetsEntitySyncResult.error(
                 GoogleSheetsSyncErrorType.CONNECTION
             )
@@ -288,7 +355,7 @@ class GoogleSheetsRemoteDataSource {
     suspend fun syncWarehouseStock(
         items: List<WarehouseStockEntity>
     ): GoogleSheetsEntitySyncResult {
-        if (!GoogleSheetsSyncConfig.isEnabled()) {
+        if (!GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) {
             return GoogleSheetsEntitySyncResult.error(
                 GoogleSheetsSyncErrorType.CONNECTION
             )
@@ -297,10 +364,15 @@ class GoogleSheetsRemoteDataSource {
         return syncEntity(
             tag = "warehouse stock",
             block = {
-                items.forEach { item ->
-                    upsert(
+                if (items.isNotEmpty()) {
+                    request(
+                        action = "upsert_batch",
                         entity = "warehouse_stock",
-                        data = item.toWarehouseStockData()
+                        data = mapOf(
+                            "items" to items.map { item ->
+                                item.toWarehouseStockData()
+                            }
+                        )
                     )
                 }
             }
@@ -311,7 +383,7 @@ class GoogleSheetsRemoteDataSource {
         employees: List<EmployeeEntity>,
         assignments: List<EmployeeStationAssignmentEntity>
     ): GoogleSheetsEntitySyncResult {
-        if (!GoogleSheetsSyncConfig.isEnabled()) {
+        if (!GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) {
             return GoogleSheetsEntitySyncResult.error(
                 GoogleSheetsSyncErrorType.CONNECTION
             )
@@ -339,7 +411,7 @@ class GoogleSheetsRemoteDataSource {
     suspend fun syncEmployeeTransactions(
         transactions: List<EmployeeTransactionEntity>
     ): GoogleSheetsEntitySyncResult {
-        if (!GoogleSheetsSyncConfig.isEnabled()) {
+        if (!GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) {
             return GoogleSheetsEntitySyncResult.error(
                 GoogleSheetsSyncErrorType.CONNECTION
             )
@@ -362,17 +434,15 @@ class GoogleSheetsRemoteDataSource {
         tag: String,
         block: suspend () -> Unit
     ): GoogleSheetsEntitySyncResult {
-        return runCatching {
+        return try {
             block()
-        }.fold(
-            onSuccess = {
-                GoogleSheetsEntitySyncResult.success()
-            },
-            onFailure = { error ->
-                Log.w(TAG, "Google Sheets $tag sync failed", error)
-                GoogleSheetsEntitySyncResult.error(error.toSyncErrorType())
-            }
-        )
+            GoogleSheetsEntitySyncResult.success()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (error: Exception) {
+            reportFailure(tag, error)
+            GoogleSheetsEntitySyncResult.error(error.toSyncErrorType())
+        }
     }
 
     private suspend fun upsert(
@@ -392,10 +462,10 @@ class GoogleSheetsRemoteDataSource {
         data: Map<String, Any?>
     ) {
         val response = api.upsert(
-            url = GoogleSheetsSyncConfig.WEB_APP_URL,
+            url = webAppUrl,
             request = GoogleSheetsSyncRequestDto(
                 action = action,
-                token = GoogleSheetsSyncConfig.SYNC_TOKEN,
+                token = syncToken,
                 entity = entity,
                 data = data
             )
@@ -453,14 +523,23 @@ class GoogleSheetsRemoteDataSource {
     private fun StationDetail.toSettingsData(): Map<String, Any?> {
         return mapOf(
             "stationId" to station.id,
+            "cupsMin" to settings.cupsMin,
             "cupsMax" to settings.cupsMax,
+            "lidsMin" to settings.lidsMin,
             "lidsMax" to settings.lidsMax,
+            "coffeeMin" to settings.coffeeMin,
             "coffeeMax" to settings.coffeeMax,
+            "milkMin" to settings.milkMin,
             "milkMax" to settings.milkMax,
+            "chocolateMin" to settings.chocolateMin,
             "chocolateMax" to settings.chocolateMax,
+            "toppingMin" to settings.toppingMin,
             "toppingMax" to settings.toppingMax,
+            "sugarMin" to settings.sugarMin,
             "sugarMax" to settings.sugarMax,
+            "stirrersMin" to settings.stirrersMin,
             "stirrersMax" to settings.stirrersMax,
+            "garbageBagsMin" to settings.garbageBagsMin,
             "garbageBagsMax" to settings.garbageBagsMax,
             "updatedAt" to settings.updatedAt.requireSyncTimestamp("station_settings")
         )
@@ -496,6 +575,8 @@ class GoogleSheetsRemoteDataSource {
         return mapOf(
             "itemType" to itemType,
             "quantity" to quantity,
+            "minQuantity" to minQuantity,
+            "maxQuantity" to maxQuantity,
             "updatedAt" to updatedAt.requireSyncTimestamp("warehouse_stock")
         )
     }
@@ -557,7 +638,7 @@ class GoogleSheetsRemoteDataSource {
             visitTimeFrom = timeValue("visitTimeFrom").ifBlank { "09:00" },
             visitTimeTo = timeValue("visitTimeTo").ifBlank { "18:00" },
             lastServiceDate = dateTimeValue("lastServiceDate"),
-            salesAfterService = 0,
+            salesAfterService = intValue("salesAfterService"),
             rentPaidUntil = dateValue("rentPaidUntil"),
             excludeFromSupplyPlanning = booleanValue("excludeFromSupplyPlanning"),
             excludeFromOperatorEarnings =
@@ -605,16 +686,45 @@ class GoogleSheetsRemoteDataSource {
     }
 
     private fun Map<String, Any?>.toSettings(): StationSettings {
+        val cupsMax = intValue("cupsMax")
+        val lidsMax = intValue("lidsMax")
+        val coffeeMax = intValue("coffeeMax")
+        val milkMax = intValue("milkMax")
+        val chocolateMax = intValue("chocolateMax")
+        val toppingMax = intValue("toppingMax")
+        val sugarMax = intValue("sugarMax", defaultValue = 2)
+        val stirrersMax = intValue("stirrersMax", defaultValue = 4)
+        val garbageBagsMax = intValue("garbageBagsMax", defaultValue = 2)
+        val cupsMin = intValue("cupsMin", defaultValue = minOf(3, cupsMax)).coerceAtMost(cupsMax)
+        val lidsMin = intValue("lidsMin", defaultValue = minOf(3, lidsMax)).coerceAtMost(lidsMax)
+        val coffeeMin = intValue("coffeeMin", defaultValue = minOf(3, coffeeMax)).coerceAtMost(coffeeMax)
+        val milkMin = intValue("milkMin", defaultValue = minOf(3, milkMax)).coerceAtMost(milkMax)
+        val chocolateMin = intValue("chocolateMin", defaultValue = minOf(3, chocolateMax)).coerceAtMost(chocolateMax)
+        val toppingMin = intValue("toppingMin", defaultValue = minOf(3, toppingMax)).coerceAtMost(toppingMax)
+        val sugarMin = intValue("sugarMin", defaultValue = minOf(1, sugarMax)).coerceAtMost(sugarMax)
+        val stirrersMin = intValue("stirrersMin", defaultValue = minOf(1, stirrersMax)).coerceAtMost(stirrersMax)
+        val garbageBagsMin = intValue("garbageBagsMin", defaultValue = minOf(1, garbageBagsMax))
+            .coerceAtMost(garbageBagsMax)
+
         return StationSettings(
-            cupsMax = intValue("cupsMax"),
-            lidsMax = intValue("lidsMax"),
-            coffeeMax = intValue("coffeeMax"),
-            milkMax = intValue("milkMax"),
-            chocolateMax = intValue("chocolateMax"),
-            toppingMax = intValue("toppingMax"),
-            sugarMax = intValue("sugarMax", defaultValue = 2),
-            stirrersMax = intValue("stirrersMax", defaultValue = 4),
-            garbageBagsMax = intValue("garbageBagsMax", defaultValue = 2),
+            cupsMin = cupsMin,
+            cupsMax = cupsMax,
+            lidsMin = lidsMin,
+            lidsMax = lidsMax,
+            coffeeMin = coffeeMin,
+            coffeeMax = coffeeMax,
+            milkMin = milkMin,
+            milkMax = milkMax,
+            chocolateMin = chocolateMin,
+            chocolateMax = chocolateMax,
+            toppingMin = toppingMin,
+            toppingMax = toppingMax,
+            sugarMin = sugarMin,
+            sugarMax = sugarMax,
+            stirrersMin = stirrersMin,
+            stirrersMax = stirrersMax,
+            garbageBagsMin = garbageBagsMin,
+            garbageBagsMax = garbageBagsMax,
             updatedAt = timestampValue("updatedAt"),
             isSynced = true
         )
@@ -642,6 +752,8 @@ class GoogleSheetsRemoteDataSource {
         return WarehouseStockEntity(
             itemType = stringValue("itemType"),
             quantity = intValue("quantity"),
+            minQuantity = intValue("minQuantity"),
+            maxQuantity = intValue("maxQuantity"),
             updatedAt = timestampValue("updatedAt")
         )
     }
@@ -886,7 +998,6 @@ class GoogleSheetsRemoteDataSource {
     }
 
     private companion object {
-        const val TAG = "GoogleSheetsSync"
         val GOOGLE_SHEETS_TIME_ZONE: TimeZone = TimeZone.getTimeZone("Europe/Moscow")
     }
 

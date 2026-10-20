@@ -24,7 +24,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
@@ -133,6 +135,22 @@ fun StationScreen(
 
     var quickCatalogItemType by remember { mutableStateOf<String?>(null) }
     var quickCatalogQuantityText by remember { mutableStateOf<String?>(null) }
+    var showTerminalDialog by remember { mutableStateOf(false) }
+
+    if (showTerminalDialog && isManager) {
+        TerminalCommandDialog(
+            terminalId = detail.station.terminalId,
+            isSending = viewModel.isCommandSending,
+            message = viewModel.commandMessage,
+            onDismiss = {
+                showTerminalDialog = false
+                viewModel.clearCommandMessage()
+            },
+            onReboot = viewModel::rebootTerminal,
+            onTurnScreenOff = viewModel::turnScreenOff,
+            onTurnScreenOn = viewModel::turnScreenOn
+        )
+    }
 
     if (showRentDialog && isManager) {
         RentDateDialog(
@@ -235,6 +253,17 @@ fun StationScreen(
                             Icon(
                                 Icons.Default.Settings,
                                 contentDescription = "Настройки станции"
+                            )
+                        }
+
+                        IconButton(
+                            onClick = {
+                                showTerminalDialog = true
+                            }
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_terminal),
+                                contentDescription = "Терминал"
                             )
                         }
                     }
@@ -831,6 +860,77 @@ private fun syncDescriptionText(
         else ->
             "Не удалось сохранить изменения. Обратитесь к управляющему."
     }
+}
+
+@Composable
+private fun TerminalCommandDialog(
+    terminalId: Long?,
+    isSending: Boolean,
+    message: String?,
+    onDismiss: () -> Unit,
+    onReboot: () -> Unit,
+    onTurnScreenOff: () -> Unit,
+    onTurnScreenOn: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Терминал")
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = terminalId
+                        ?.let { "Номер терминала: $it" }
+                        ?: "Номер терминала не указан",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Button(
+                    onClick = onReboot,
+                    enabled = terminalId != null && !isSending,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Перезагрузить терминал".asActionButtonText())
+                }
+
+                OutlinedButton(
+                    onClick = onTurnScreenOff,
+                    enabled = terminalId != null && !isSending,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Выключить экран".asActionButtonText())
+                }
+
+                OutlinedButton(
+                    onClick = onTurnScreenOn,
+                    enabled = terminalId != null && !isSending,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Включить экран".asActionButtonText())
+                }
+
+                message?.let { commandMessage ->
+                    Text(
+                        text = commandMessage,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isSending
+            ) {
+                Text("Закрыть".asActionButtonText())
+            }
+        }
+    )
 }
 
 @Composable

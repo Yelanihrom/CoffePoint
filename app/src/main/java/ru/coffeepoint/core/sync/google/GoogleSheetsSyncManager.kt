@@ -7,6 +7,7 @@ import ru.coffeepoint.core.data.local.entity.EmployeeTransactionEntity
 import ru.coffeepoint.core.data.local.entity.SupplyCatalogEntity
 import ru.coffeepoint.core.data.local.entity.WarehouseStockEntity
 import ru.coffeepoint.core.sync.google.worker.GoogleSheetsSyncScheduler
+import ru.coffeepoint.feature.station.model.CoffeeStation
 import ru.coffeepoint.feature.station.model.StationDetail
 import ru.coffeepoint.feature.warehouse.model.WarehouseStockItem
 import java.text.SimpleDateFormat
@@ -17,6 +18,24 @@ class GoogleSheetsSyncManager(
     private val remoteDataSource: GoogleSheetsRemoteDataSource =
         GoogleSheetsRemoteDataSource()
 ) {
+
+    suspend fun syncOperatorServiceFields(
+        station: CoffeeStation
+    ): GoogleSheetsEntitySyncResult {
+        return remoteDataSource.syncOperatorServiceFields(station)
+    }
+
+    suspend fun syncSupplyServiceFields(
+        station: CoffeeStation,
+        updateMixers: Boolean,
+        updateLiquidWasteContainer: Boolean
+    ): GoogleSheetsEntitySyncResult {
+        return remoteDataSource.syncSupplyServiceFields(
+            station = station,
+            updateMixers = updateMixers,
+            updateLiquidWasteContainer = updateLiquidWasteContainer
+        )
+    }
 
     suspend fun syncStationDetail(
         detail: StationDetail,
@@ -122,6 +141,8 @@ class GoogleSheetsSyncManager(
             WarehouseStockEntity(
                 itemType = item.itemType,
                 quantity = item.quantity.coerceAtLeast(0),
+                minQuantity = item.minQuantity.coerceAtLeast(0),
+                maxQuantity = item.maxQuantity.coerceAtLeast(0),
                 updatedAt = updatedAt
             )
         }

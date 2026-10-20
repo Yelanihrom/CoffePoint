@@ -9,7 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import ru.coffeepoint.core.sync.google.worker.GoogleSheetsSyncScheduler
-import ru.coffeepoint.core.worker.SalesRefreshScheduler
+import ru.coffeepoint.core.worker.StationAttentionScheduler
 import ru.coffeepoint.navigation.AppNavigation
 import ru.coffeepoint.ui.theme.CoffeePointTheme
 
@@ -20,7 +20,7 @@ class MainActivity : ComponentActivity() {
 
         requestNotificationPermission()
 
-        SalesRefreshScheduler.schedule(this)
+        StationAttentionScheduler.schedule(this)
         GoogleSheetsSyncScheduler.schedule(this)
 
         setContent {

@@ -23,17 +23,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -78,13 +80,15 @@ import ru.coffeepoint.shared.component.asActionButtonText
 @Composable
 fun DashboardScreen(
     role: UserRole,
+    initialManagerMode: String?,
     onStationClick: (Int) -> Unit,
     onAddStation: () -> Unit,
     onChangeRole: () -> Unit,
     onCloseApp: () -> Unit,
     onSupplyCatalog: () -> Unit,
     onWarehouseStock: () -> Unit,
-    onMonthlyEarnings: () -> Unit
+    onMonthlyEarnings: () -> Unit,
+    onManagerHome: () -> Unit
 ) {
 
     val viewModel: DashboardViewModel = viewModel()
@@ -100,8 +104,15 @@ fun DashboardScreen(
         role == UserRole.MANAGER || role == UserRole.OPERATOR
     val canViewSupplyCatalog =
         role == UserRole.MANAGER || role == UserRole.SUPPLY_OPERATOR
-    var menuExpanded by remember { mutableStateOf(false) }
-    var selectedMode by remember { mutableStateOf(DashboardMode.ALL_STATIONS) }
+    var selectedMode by remember(initialManagerMode) {
+        mutableStateOf(
+            if (initialManagerMode == "supply") {
+                DashboardMode.SUPPLY
+            } else {
+                DashboardMode.ALL_STATIONS
+            }
+        )
+    }
     var selectedSupplyFilter by remember { mutableStateOf(SupplyStockFilter.ALL) }
     var warehouseStockExpanded by remember { mutableStateOf(false) }
     var supplySummaryExpanded by remember { mutableStateOf(false) }
@@ -173,98 +184,29 @@ fun DashboardScreen(
         label = ""
     )
 
-    LaunchedEffect(viewModel.showSalesRefreshSuccess) {
-        if (viewModel.showSalesRefreshSuccess) {
+    LaunchedEffect(viewModel.showImportSuccess) {
+        if (viewModel.showImportSuccess) {
             delay(5000)
-            viewModel.dismissSalesRefreshSuccess()
+            viewModel.dismissImportSuccess()
         }
     }
 
-    if (viewModel.showConnectionError) {
-
-        AlertDialog(
-            onDismissRequest = {
-                viewModel.dismissConnectionError()
-            },
-            title = {
-                Text("\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f")
-            },
-            text = {
-                Text("\u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 \u043a \u0438\u043d\u0442\u0435\u0440\u043d\u0435\u0442\u0443 \u0438 \u043e\u0442\u043a\u043b\u044e\u0447\u0438\u0442\u0435 VPN")
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.dismissConnectionError()
-                    }
-                ) {
-                    Text("\u0417\u0430\u043a\u0440\u044b\u0442\u044c".asActionButtonText())
-                }
-            }
-        )
-
-    } else if (viewModel.showGoogleSheetsSyncError) {
+    if (viewModel.showGoogleSheetsSyncError) {
 
         AlertDialog(
             onDismissRequest = {
                 viewModel.dismissGoogleSheetsSyncError()
             },
             title = {
-                Text("\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u0432\u0441\u0435 \u0434\u0430\u043d\u043d\u044b\u0435")
+                Text("\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435")
             },
             text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Text("\u041c\u043e\u0436\u043d\u043e \u043e\u0431\u043d\u043e\u0432\u0438\u0442\u044c \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0443 \u043f\u0440\u043e\u0434\u0430\u0436 \u0431\u0435\u0437 \u0437\u0430\u0433\u0440\u0443\u0437\u043a\u0438 \u0434\u0440\u0443\u0433\u0438\u0445 \u0434\u0430\u043d\u043d\u044b\u0445")
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Button(
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError
-                            ),
-                            onClick = {
-                                viewModel.dismissGoogleSheetsSyncError()
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("\u041e\u0442\u043c\u0435\u043d\u0430".asActionButtonText())
-                        }
-
-                        Button(
-                            onClick = {
-                                viewModel.refreshSalesWithoutGoogleSheets()
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("\u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c".asActionButtonText())
-                        }
-                    }
-                }
-            },
-            confirmButton = {}
-        )
-
-    } else if (viewModel.missingTerminalErrorText != null) {
-
-        AlertDialog(
-            onDismissRequest = {
-                viewModel.dismissMissingTerminalError()
-            },
-            title = {
-                Text("\u041d\u0435 \u0432\u0441\u0435 \u0434\u0430\u043d\u043d\u044b\u0435 \u043f\u043e\u043b\u0443\u0447\u0435\u043d\u044b")
-            },
-            text = {
-                Text(viewModel.missingTerminalErrorText ?: "")
+                Text("\u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 \u043a \u0438\u043d\u0442\u0435\u0440\u043d\u0435\u0442\u0443 \u0438 \u043f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435 \u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435")
             },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.dismissMissingTerminalError()
+                        viewModel.dismissGoogleSheetsSyncError()
                     }
                 ) {
                     Text("\u0417\u0430\u043a\u0440\u044b\u0442\u044c".asActionButtonText())
@@ -274,7 +216,7 @@ fun DashboardScreen(
 
     }
 
-    if (viewModel.isRefreshingSales) {
+    if (viewModel.isRefreshingData) {
         SyncSendingOverlay()
     }
 
@@ -313,13 +255,27 @@ fun DashboardScreen(
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
-                                onClick = onChangeRole
+                                onClick = {
+                                    if (isManager) {
+                                        onManagerHome()
+                                    } else {
+                                        onChangeRole()
+                                    }
+                                }
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "\u0421\u043c\u0435\u043d\u0438\u0442\u044c \u0440\u043e\u043b\u044c"
+                            imageVector = if (isManager) {
+                                Icons.AutoMirrored.Filled.ArrowBack
+                            } else {
+                                Icons.Default.Person
+                            },
+                            contentDescription = if (isManager) {
+                                "\u041d\u0430\u0437\u0430\u0434 \u0432 \u0433\u043b\u0430\u0432\u043d\u043e\u0435 \u043c\u0435\u043d\u044e"
+                            } else {
+                                "\u0421\u043c\u0435\u043d\u0438\u0442\u044c \u0440\u043e\u043b\u044c"
+                            }
                         )
                     }
 
@@ -328,7 +284,7 @@ fun DashboardScreen(
                     ) {
 
                         Text(
-                            text = "\u0421\u043f\u0438\u0441\u043e\u043a \u043a\u043e\u0444\u0435-\u0441\u0442\u0430\u043d\u0446\u0438\u0439",
+                            text = "\u041a\u043e\u0444\u0435-\u0441\u0442\u0430\u043d\u0446\u0438\u0438",
                             style = MaterialTheme.typography.headlineSmall.copy(
                                 fontSize = MaterialTheme.typography.headlineSmall.fontSize * 0.8f
                             ),
@@ -337,7 +293,7 @@ fun DashboardScreen(
                         )
 
                         Text(
-                            text = viewModel.lastSalesRefreshText
+                            text = viewModel.lastGoogleSheetsImportText
                                 ?.let { "\u041e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u043e: $it" }
                                 ?: "\u041e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u043e: \u043d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445",
                             style = MaterialTheme.typography.bodySmall,
@@ -348,10 +304,32 @@ fun DashboardScreen(
 
                     Row {
 
+                        if (canViewSupplyCatalog && isSupplyView) {
+                            IconButton(
+                                onClick = onSupplyCatalog
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Inventory2,
+                                    contentDescription = "\u041a\u0430\u0442\u0430\u043b\u043e\u0433 \u0437\u0430\u043a\u0443\u043f\u043e\u043a"
+                                )
+                            }
+                        }
+
+                        if (canViewMonthlyEarnings && !isSupplyView) {
+                            IconButton(
+                                onClick = onMonthlyEarnings
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AccountBalanceWallet,
+                                    contentDescription = "\u0417\u0430\u0440\u0430\u0431\u043e\u0442\u043e\u043a"
+                                )
+                            }
+                        }
+
                         IconButton(
-                            enabled = !viewModel.isRefreshingSales,
+                            enabled = !viewModel.isRefreshingData,
                             onClick = {
-                                viewModel.refreshSales()
+                                viewModel.refreshData()
                             }
                         ) {
 
@@ -359,123 +337,25 @@ fun DashboardScreen(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = "\u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c",
                                 modifier = Modifier.rotate(
-                                    if (viewModel.isRefreshingSales) rotation else 0f
+                                    if (viewModel.isRefreshingData) rotation else 0f
                                 )
                             )
 
                         }
 
                         IconButton(
-                            onClick = {
-                                menuExpanded = true
-                            }
+                            onClick = onCloseApp
                         ) {
 
                             Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = "\u041c\u0435\u043d\u044e"
-                            )
-
-                        }
-
-                        DropdownMenu(
-                            expanded = menuExpanded,
-                            onDismissRequest = {
-                                menuExpanded = false
-                            }
-                        ) {
-
-                            if (canViewMonthlyEarnings) {
-
-                                DropdownMenuItem(
-                                    text = {
-                                        Text("\u0417\u0430\u0440\u0430\u0431\u043e\u0442\u043e\u043a")
-                                    },
-                                    onClick = {
-                                        menuExpanded = false
-                                        onMonthlyEarnings()
-                                    }
-                                )
-
-                            }
-
-                            if (isManager) {
-
-                                DropdownMenuItem(
-                                    text = {
-                                        Text("\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0441\u0442\u0430\u043d\u0446\u0438\u044e")
-                                    },
-                                    onClick = {
-                                        menuExpanded = false
-                                        onAddStation()
-                                    }
-                                )
-
-                            }
-
-                            if (canViewSupplyCatalog) {
-
-                                DropdownMenuItem(
-                                    text = {
-                                        Text("\u041a\u0430\u0442\u0430\u043b\u043e\u0433 \u0437\u0430\u043a\u0443\u043f\u043a\u0438")
-                                    },
-                                    onClick = {
-                                        menuExpanded = false
-                                        onSupplyCatalog()
-                                    }
-                                )
-
-                            }
-
-                            DropdownMenuItem(
-                                text = {
-                                    Text("\u0412\u044b\u0439\u0442\u0438 \u0438\u0437 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f")
-                                },
-                                onClick = {
-                                    menuExpanded = false
-                                    onCloseApp()
-                                }
-                            )
-                        }
-
-                    }
-
-                }
-
-                if (isManager) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-
-
-                        FilterChip(
-                            selected = currentMode == DashboardMode.ALL_STATIONS,
-                            onClick = {
-                                selectedMode = DashboardMode.ALL_STATIONS
-                            },
-                            label = {
-                                Text("\u041e\u043f\u0435\u0440\u0430\u0442\u043e\u0440")
-                            }
-                        )
-
-                        if (isManager) {
-
-                            FilterChip(
-                                selected = currentMode == DashboardMode.SUPPLY,
-                                onClick = {
-                                    selectedMode = DashboardMode.SUPPLY
-                                },
-                                label = {
-                                    Text("\u0421\u043d\u0430\u0431\u0436\u0435\u043d\u0435\u0446")
-                                }
+                                imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                                contentDescription = "\u0412\u044b\u0439\u0442\u0438 \u0438\u0437 \u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u044f"
                             )
 
                         }
 
                     }
+
                 }
 
                 if (isSupplyView) {
@@ -515,12 +395,12 @@ fun DashboardScreen(
 
         },
         snackbarHost = {
-            if (viewModel.showSalesRefreshSuccess) {
+            if (viewModel.showImportSuccess) {
                 Snackbar(
                     action = {
                         IconButton(
                             onClick = {
-                                viewModel.dismissSalesRefreshSuccess()
+                                viewModel.dismissImportSuccess()
                             }
                         ) {
                             Icon(
@@ -531,6 +411,19 @@ fun DashboardScreen(
                     }
                 ) {
                     Text("\u0423\u0441\u043f\u0435\u0448\u043d\u043e \u043e\u0431\u043d\u043e\u0432\u0438\u043b\u0438 \u0432\u0441\u0435 \u0434\u0430\u043d\u043d\u044b\u0435")
+                }
+            }
+        },
+        floatingActionButtonPosition = FabPosition.End,
+        floatingActionButton = {
+            if (isManager) {
+                FloatingActionButton(
+                    onClick = onAddStation
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0441\u0442\u0430\u043d\u0446\u0438\u044e"
+                    )
                 }
             }
         }

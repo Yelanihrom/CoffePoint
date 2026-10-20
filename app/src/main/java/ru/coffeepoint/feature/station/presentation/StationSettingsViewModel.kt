@@ -93,6 +93,33 @@ class StationSettingsViewModel(
     var garbageBagsMax by mutableStateOf(2)
         private set
 
+    var cupsMin by mutableStateOf(3)
+        private set
+
+    var lidsMin by mutableStateOf(3)
+        private set
+
+    var coffeeMin by mutableStateOf(3)
+        private set
+
+    var milkMin by mutableStateOf(3)
+        private set
+
+    var chocolateMin by mutableStateOf(3)
+        private set
+
+    var toppingMin by mutableStateOf(3)
+        private set
+
+    var sugarMin by mutableStateOf(1)
+        private set
+
+    var stirrersMin by mutableStateOf(1)
+        private set
+
+    var garbageBagsMin by mutableStateOf(1)
+        private set
+
     var employees by mutableStateOf<List<EmployeeEntity>>(emptyList())
         private set
 
@@ -156,6 +183,15 @@ class StationSettingsViewModel(
             sugarMax = detail.settings.sugarMax
             stirrersMax = detail.settings.stirrersMax
             garbageBagsMax = detail.settings.garbageBagsMax
+            cupsMin = detail.settings.cupsMin
+            lidsMin = detail.settings.lidsMin
+            coffeeMin = detail.settings.coffeeMin
+            milkMin = detail.settings.milkMin
+            chocolateMin = detail.settings.chocolateMin
+            toppingMin = detail.settings.toppingMin
+            sugarMin = detail.settings.sugarMin
+            stirrersMin = detail.settings.stirrersMin
+            garbageBagsMin = detail.settings.garbageBagsMin
 
         }
 
@@ -232,12 +268,20 @@ class StationSettingsViewModel(
         cupsMax = decrement(cupsMax)
     }
 
+    fun onCupsMaxChanged(value: String) {
+        cupsMax = value.toLimitValue()
+    }
+
     fun plusLids() {
         lidsMax = increment(lidsMax)
     }
 
     fun minusLids() {
         lidsMax = decrement(lidsMax)
+    }
+
+    fun onLidsMaxChanged(value: String) {
+        lidsMax = value.toLimitValue()
     }
 
     fun plusCoffee() {
@@ -248,12 +292,20 @@ class StationSettingsViewModel(
         coffeeMax = decrement(coffeeMax)
     }
 
+    fun onCoffeeMaxChanged(value: String) {
+        coffeeMax = value.toLimitValue()
+    }
+
     fun plusMilk() {
         milkMax = increment(milkMax)
     }
 
     fun minusMilk() {
         milkMax = decrement(milkMax)
+    }
+
+    fun onMilkMaxChanged(value: String) {
+        milkMax = value.toLimitValue()
     }
 
     fun plusChocolate() {
@@ -264,12 +316,20 @@ class StationSettingsViewModel(
         chocolateMax = decrement(chocolateMax)
     }
 
+    fun onChocolateMaxChanged(value: String) {
+        chocolateMax = value.toLimitValue()
+    }
+
     fun plusTopping() {
         toppingMax = increment(toppingMax)
     }
 
     fun minusTopping() {
         toppingMax = decrement(toppingMax)
+    }
+
+    fun onToppingMaxChanged(value: String) {
+        toppingMax = value.toLimitValue()
     }
 
     fun plusSugar() {
@@ -280,6 +340,10 @@ class StationSettingsViewModel(
         sugarMax = decrement(sugarMax)
     }
 
+    fun onSugarMaxChanged(value: String) {
+        sugarMax = value.toLimitValue()
+    }
+
     fun plusStirrers() {
         stirrersMax = increment(stirrersMax)
     }
@@ -288,12 +352,56 @@ class StationSettingsViewModel(
         stirrersMax = decrement(stirrersMax)
     }
 
+    fun onStirrersMaxChanged(value: String) {
+        stirrersMax = value.toLimitValue()
+    }
+
     fun plusGarbageBags() {
         garbageBagsMax = increment(garbageBagsMax)
     }
 
     fun minusGarbageBags() {
         garbageBagsMax = decrement(garbageBagsMax)
+    }
+
+    fun onGarbageBagsMaxChanged(value: String) {
+        garbageBagsMax = value.toLimitValue()
+    }
+
+    fun onCupsMinChanged(value: String) {
+        cupsMin = value.toLimitValue()
+    }
+
+    fun onLidsMinChanged(value: String) {
+        lidsMin = value.toLimitValue()
+    }
+
+    fun onCoffeeMinChanged(value: String) {
+        coffeeMin = value.toLimitValue()
+    }
+
+    fun onMilkMinChanged(value: String) {
+        milkMin = value.toLimitValue()
+    }
+
+    fun onChocolateMinChanged(value: String) {
+        chocolateMin = value.toLimitValue()
+    }
+
+    fun onToppingMinChanged(value: String) {
+        toppingMin = value.toLimitValue()
+    }
+
+    fun onSugarMinChanged(value: String) {
+        sugarMin = value.toLimitValue()
+    }
+
+    fun onStirrersMinChanged(value: String) {
+        stirrersMin = value.toLimitValue()
+    }
+
+    fun onGarbageBagsMinChanged(value: String) {
+        garbageBagsMin = value.toLimitValue()
     }
 
     fun saveStation(
@@ -307,6 +415,16 @@ class StationSettingsViewModel(
         if (stationNameError) return
 
         val current = station ?: return
+
+        cupsMin = cupsMin.coerceAtMost(cupsMax)
+        lidsMin = lidsMin.coerceAtMost(lidsMax)
+        coffeeMin = coffeeMin.coerceAtMost(coffeeMax)
+        milkMin = milkMin.coerceAtMost(milkMax)
+        chocolateMin = chocolateMin.coerceAtMost(chocolateMax)
+        toppingMin = toppingMin.coerceAtMost(toppingMax)
+        sugarMin = sugarMin.coerceAtMost(sugarMax)
+        stirrersMin = stirrersMin.coerceAtMost(stirrersMax)
+        garbageBagsMin = garbageBagsMin.coerceAtMost(garbageBagsMax)
 
         val updated = current.copy(
             station = current.station.copy(
@@ -328,7 +446,16 @@ class StationSettingsViewModel(
                 toppingMax = toppingMax,
                 sugarMax = sugarMax,
                 stirrersMax = stirrersMax,
-                garbageBagsMax = garbageBagsMax
+                garbageBagsMax = garbageBagsMax,
+                cupsMin = cupsMin.coerceAtMost(cupsMax),
+                lidsMin = lidsMin.coerceAtMost(lidsMax),
+                coffeeMin = coffeeMin.coerceAtMost(coffeeMax),
+                milkMin = milkMin.coerceAtMost(milkMax),
+                chocolateMin = chocolateMin.coerceAtMost(chocolateMax),
+                toppingMin = toppingMin.coerceAtMost(toppingMax),
+                sugarMin = sugarMin.coerceAtMost(sugarMax),
+                stirrersMin = stirrersMin.coerceAtMost(stirrersMax),
+                garbageBagsMin = garbageBagsMin.coerceAtMost(garbageBagsMax)
             )
         )
 
@@ -590,6 +717,15 @@ class StationSettingsViewModel(
     ): Int {
 
         return (current - 1).coerceAtLeast(1)
+
+    }
+
+    private fun String.toLimitValue(): Int {
+
+        return filter { char -> char.isDigit() }
+            .toIntOrNull()
+            ?.coerceIn(0, 99)
+            ?: 0
 
     }
 

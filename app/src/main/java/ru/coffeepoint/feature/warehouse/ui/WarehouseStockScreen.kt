@@ -9,10 +9,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -27,9 +31,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.coffeepoint.feature.warehouse.model.WarehouseStockItem
@@ -43,7 +49,9 @@ import ru.coffeepoint.shared.component.SyncSendingOverlay
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WarehouseStockScreen(
-    onBack: () -> Unit
+    canEditSettings: Boolean,
+    onBack: () -> Unit,
+    onSettings: () -> Unit
 ) {
     val viewModel: WarehouseStockViewModel = viewModel()
     val selectedCatalogItemType = remember { mutableStateOf<String?>(null) }
@@ -83,13 +91,7 @@ fun WarehouseStockScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("\u0421\u043a\u043b\u0430\u0434")
-                        Text(
-                            text = "\u0418\u043d\u0433\u0440\u0435\u0434\u0438\u0435\u043d\u0442\u044b",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
+                    Text("\u0421\u043a\u043b\u0430\u0434")
                 },
                 navigationIcon = {
                     IconButton(
@@ -102,6 +104,29 @@ fun WarehouseStockScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = null
+                        )
+                    }
+                },
+                actions = {
+                    if (canEditSettings) {
+                        IconButton(
+                            onClick = onSettings,
+                            enabled = !viewModel.isEditing && !viewModel.isSending
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438"
+                            )
+                        }
+                    }
+
+                    IconButton(
+                        onClick = viewModel::refreshWarehouseStock,
+                        enabled = !viewModel.isEditing && !viewModel.isSending
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "\u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c"
                         )
                     }
                 }
@@ -124,11 +149,13 @@ fun WarehouseStockScreen(
             )
         }
     ) { padding ->
-        LazyColumn(
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(
@@ -138,7 +165,7 @@ fun WarehouseStockScreen(
                     viewModel.items
                 }
             ) { item ->
-                WarehouseStockRow(
+                WarehouseStockCard(
                     item = item,
                     isEditing = viewModel.isEditing,
                     onMinus = {
@@ -158,7 +185,7 @@ fun WarehouseStockScreen(
 }
 
 @Composable
-private fun WarehouseStockRow(
+private fun WarehouseStockCard(
     item: WarehouseStockItem,
     isEditing: Boolean,
     onMinus: () -> Unit,
@@ -166,36 +193,38 @@ private fun WarehouseStockRow(
     onClick: () -> Unit
 ) {
     Card {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onClick() }
                 .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Image(
                     painter = painterResource(id = item.iconRes),
                     contentDescription = item.title,
-                    modifier = Modifier
-                        .padding(end = 12.dp)
-                        .size(34.dp)
+                    modifier = Modifier.size(34.dp)
                 )
 
                 Text(
                     text = item.title,
+                    modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
             if (isEditing) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
                     CounterButton(
                         text = "-",
@@ -204,7 +233,7 @@ private fun WarehouseStockRow(
 
                     Text(
                         text = item.quantity.toString(),
-                        modifier = Modifier.padding(horizontal = 18.dp),
+                        modifier = Modifier.width(44.dp),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
@@ -216,12 +245,71 @@ private fun WarehouseStockRow(
                     )
                 }
             } else {
-                Text(
-                    text = item.quantity.toString(),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = item.quantityText(),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = item.quantityColor(),
+                        textAlign = TextAlign.Start
+                    )
+
+                    item.limitsText().takeIf { text -> text.isNotBlank() }
+                        ?.let { limits ->
+                            Text(
+                                text = limits,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Start,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                }
             }
         }
     }
 }
+
+private fun WarehouseStockItem.quantityText(): String {
+    return if (maxQuantity > 0) {
+        "$quantity / $maxQuantity"
+    } else {
+        quantity.toString()
+    }
+}
+
+private fun WarehouseStockItem.limitsText(): String {
+    return when {
+        minQuantity > 0 && maxQuantity > 0 -> "\u041c\u0438\u043d. $minQuantity / \u041c\u0430\u043a\u0441. $maxQuantity"
+        minQuantity > 0 -> "\u041c\u0438\u043d. $minQuantity"
+        maxQuantity > 0 -> "\u041c\u0430\u043a\u0441. $maxQuantity"
+        else -> ""
+    }
+}
+
+@Composable
+private fun WarehouseStockItem.quantityColor(): Color {
+    if (minQuantity > 0 && quantity < minQuantity) {
+        return WarehouseCriticalRed
+    }
+
+    if (minQuantity > 0 && maxQuantity > 0) {
+        val warningThreshold = (minQuantity + maxQuantity) / 2.0
+
+        return if (quantity < warningThreshold) {
+            WarehouseWarningOrange
+        } else {
+            WarehouseOkGreen
+        }
+    }
+
+    return MaterialTheme.colorScheme.onSurface
+}
+
+private val WarehouseCriticalRed = Color(0xFFE53935)
+private val WarehouseWarningOrange = Color(0xFFF57C00)
+private val WarehouseOkGreen = Color(0xFF2E7D32)

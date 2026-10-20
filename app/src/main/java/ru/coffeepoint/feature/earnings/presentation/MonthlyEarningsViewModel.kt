@@ -7,10 +7,8 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
-import ru.coffeepoint.core.data.repository.MonthlyEarningsAccrualResult
-import ru.coffeepoint.core.data.repository.MonthlyEarningsPayment
+import ru.coffeepoint.core.data.repository.MonthlyEarningsOperation
 import ru.coffeepoint.core.data.repository.MonthlyEarningsRepository
-import ru.coffeepoint.core.data.repository.MonthlyEarningsResult
 
 class MonthlyEarningsViewModel(
     application: Application
@@ -21,7 +19,7 @@ class MonthlyEarningsViewModel(
     var state by mutableStateOf(repository.getState())
         private set
 
-    var payments by mutableStateOf<List<MonthlyEarningsPayment>>(emptyList())
+    var operations by mutableStateOf<List<MonthlyEarningsOperation>>(emptyList())
         private set
 
     var loading by mutableStateOf(false)
@@ -30,53 +28,46 @@ class MonthlyEarningsViewModel(
     var showConnectionError by mutableStateOf(false)
         private set
 
-    var accrualMessage by mutableStateOf<String?>(null)
-        private set
-
-    fun refreshPayments(
+    fun refreshOperations(
         startDate: String,
         endDate: String
     ) {
-        viewModelScope.launch {
-            repository.refreshPaymentsForPeriod(
-                startDate = startDate,
-                endDate = endDate
-            )
-            state = repository.getState()
-            payments = repository.getPaymentsForPeriod(
-                startDate = startDate,
-                endDate = endDate
-            )
-        }
-    }
+        if (loading) return
 
-    fun refresh(
-        startDate: String,
-        endDate: String
-    ) {
         viewModelScope.launch {
             loading = true
 
-            when (
-                repository.refresh(
+            try {
+                operations = repository.getOperationsForPeriod(
                     startDate = startDate,
                     endDate = endDate
                 )
-            ) {
-                is MonthlyEarningsResult.Success -> {
-                    state = repository.getState()
-                    payments = repository.getPaymentsForPeriod(
-                        startDate = startDate,
-                        endDate = endDate
-                    )
-                }
 
-                MonthlyEarningsResult.ConnectionError -> {
+                val refreshed = repository.refreshEmployeeTransactions()
+                if (!refreshed) {
                     showConnectionError = true
+                    return@launch
                 }
+                state = repository.getState()
+                operations = repository.getOperationsForPeriod(
+                    startDate = startDate,
+                    endDate = endDate
+                )
+            } finally {
+                loading = false
             }
+        }
+    }
 
-            loading = false
+    fun loadOperationsForPeriod(
+        startDate: String,
+        endDate: String
+    ) {
+        viewModelScope.launch {
+            operations = repository.getOperationsForPeriod(
+                startDate = startDate,
+                endDate = endDate
+            )
         }
     }
 
@@ -85,57 +76,31 @@ class MonthlyEarningsViewModel(
         startDate: String,
         endDate: String
     ) {
-        viewModelScope.launch {
-            repository.addPayment(
-                amount = amount,
-                startDate = startDate,
-                endDate = endDate
-            )
-            state = repository.getState()
-            payments = repository.getPaymentsForPeriod(
-                startDate = startDate,
-                endDate = endDate
-            )
-        }
-    }
+        if (loading) return
 
-    fun accrueEarnings(
-        startDate: String,
-        endDate: String
-    ) {
         viewModelScope.launch {
             loading = true
 
-            accrualMessage = when (
-                repository.accrueEarnings(
+            try {
+                repository.addPayment(
+                    amount = amount
+                )
+                state = repository.getState()
+                operations = repository.getOperationsForPeriod(
                     startDate = startDate,
                     endDate = endDate
                 )
-            ) {
-                MonthlyEarningsAccrualResult.Success -> {
-                    state = repository.getState()
-                    "\u0417\u0430\u0440\u0430\u0431\u043e\u0442\u043e\u043a \u043d\u0430\u0447\u0438\u0441\u043b\u0435\u043d"
+                viewModelScope.launch {
+                    repository.syncPendingData()
                 }
-
-                MonthlyEarningsAccrualResult.AlreadyExists -> {
-                    "\u0417\u0430 \u044d\u0442\u043e\u0442 \u043f\u0435\u0440\u0438\u043e\u0434 \u0443\u0436\u0435 \u0435\u0441\u0442\u044c \u043d\u0430\u0447\u0438\u0441\u043b\u0435\u043d\u0438\u0435"
-                }
-
-                MonthlyEarningsAccrualResult.NeedRefresh -> {
-                    "\u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u043e\u0431\u043d\u043e\u0432\u0438\u0442\u0435 \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0443 \u0437\u0430 \u0432\u044b\u0431\u0440\u0430\u043d\u043d\u044b\u0439 \u043f\u0435\u0440\u0438\u043e\u0434"
-                }
+            } finally {
+                loading = false
             }
-
-            loading = false
         }
     }
 
     fun dismissConnectionError() {
         showConnectionError = false
-    }
-
-    fun dismissAccrualMessage() {
-        accrualMessage = null
     }
 
 }

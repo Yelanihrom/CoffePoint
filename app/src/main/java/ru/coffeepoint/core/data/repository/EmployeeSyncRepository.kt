@@ -1,6 +1,7 @@
 package ru.coffeepoint.core.data.repository
 
 import android.content.Context
+import androidx.room.withTransaction
 import ru.coffeepoint.core.data.local.DatabaseProvider
 import ru.coffeepoint.core.data.local.entity.EmployeeEntity
 import ru.coffeepoint.core.data.local.entity.EmployeeStationAssignmentEntity
@@ -13,6 +14,10 @@ class EmployeeSyncRepository(
     context: Context
 ) {
 
+    private val syncStatePreferences = context.applicationContext.getSharedPreferences(
+        "google_sheets_sync_state",
+        Context.MODE_PRIVATE
+    )
     private val db = DatabaseProvider.getDatabase(context)
     private val employeeDao = db.employeeDao()
     private val assignmentDao = db.employeeStationAssignmentDao()
@@ -67,14 +72,29 @@ class EmployeeSyncRepository(
         val employeesResult = syncEmployeesAndAssignments()
         val transactionsResult = syncEmployeeTransactions()
 
-        return when {
-            !employeesResult.synced -> employeesResult
-            !transactionsResult.synced -> transactionsResult
-            else -> GoogleSheetsEntitySyncResult.success()
+        val failedResults = listOf(employeesResult, transactionsResult)
+            .filterNot { result -> result.synced }
+
+        if (failedResults.isEmpty()) return GoogleSheetsEntitySyncResult.success()
+
+        val errorType = when {
+            failedResults.any { result ->
+                result.errorType == GoogleSheetsSyncErrorType.CONNECTION
+            } -> GoogleSheetsSyncErrorType.CONNECTION
+            failedResults.any { result ->
+                result.errorType == GoogleSheetsSyncErrorType.CONFLICT
+            } -> GoogleSheetsSyncErrorType.CONFLICT
+            else -> failedResults.first().errorType
         }
+
+        return GoogleSheetsEntitySyncResult.error(errorType)
     }
 
     suspend fun refreshEmployeeDataFromGoogleSheets(): Boolean {
+        val shouldReconcileTransactions = !syncStatePreferences.getBoolean(
+            TRANSACTIONS_RECONCILED_KEY,
+            false
+        )
         val remoteData = runCatching {
             syncManager.loadFullSyncBundle(
                 includeStations = false,
@@ -87,9 +107,38 @@ class EmployeeSyncRepository(
             return false
         }
 
-        employeeDao.insertAll(remoteData.employees)
-        assignmentDao.insertAll(remoteData.employeeStationAssignments)
-        transactionDao.insertAll(remoteData.employeeTransactions)
+        val imported = runCatching {
+            db.withTransaction {
+                if (shouldReconcileTransactions) {
+                    if (transactionDao.getUnsynced().isNotEmpty()) return@withTransaction false
+                    if (
+                        transactionDao.getAll().isNotEmpty() &&
+                        remoteData.employeeTransactions.isEmpty()
+                    ) {
+                        return@withTransaction false
+                    }
+                }
+
+                employeeDao.insertAll(remoteData.employees)
+                assignmentDao.insertAll(remoteData.employeeStationAssignments)
+
+                if (shouldReconcileTransactions) {
+                    transactionDao.deleteAll()
+                }
+                transactionDao.insertAll(remoteData.employeeTransactions)
+                true
+            }
+        }.getOrElse {
+            return false
+        }
+
+        if (!imported) return false
+
+        if (shouldReconcileTransactions) {
+            syncStatePreferences.edit()
+                .putBoolean(TRANSACTIONS_RECONCILED_KEY, true)
+                .apply()
+        }
 
         return true
     }
@@ -146,6 +195,10 @@ class EmployeeSyncRepository(
                 }
             )
         }
+    }
+
+    private companion object {
+        const val TRANSACTIONS_RECONCILED_KEY = "employees_transactions_reconciled_v1"
     }
 
 }

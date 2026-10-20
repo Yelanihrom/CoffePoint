@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "data": {
+    "stations": [{"id":7,"name":"Test Station","terminalId":258576,"lastServiceDate":"2026-10-18T10:07:00","salesAfterService":54,"salesUpdatedAt":"2026-10-19T15:36:16","updatedAt":"2026-10-18T10:07:00"}],
+    "inventories": [{"stationId":7,"cups":6,"lids":4,"coffee":3,"milk":2,"chocolate":1,"topping":0,"sugar":1,"stirrers":2,"garbageBags":1,"updatedAt":"2026-10-18T10:07:00"}],
+    "settings": [{"stationId":7,"cupsMin":3,"cupsMax":12,"lidsMin":2,"lidsMax":6,"coffeeMin":2,"coffeeMax":6,"milkMin":2,"milkMax":10,"chocolateMin":2,"chocolateMax":10,"toppingMin":2,"toppingMax":10,"updatedAt":"2026-10-18T10:07:00"}],
+    "supplyCatalog": [{"id":10,"itemType":"cups","title":"Paper cups","supplier":"Supplier","article":1747490839,"maxPrice":200,"isActive":true,"priority":1,"updatedAt":"2026-10-18T10:07:00"}],
+    "warehouseStock": [{"itemType":"milk","quantity":36,"minQuantity":24,"maxQuantity":48,"updatedAt":"2026-10-18T10:07:00"}],
+    "employees": [{"id":1,"name":"Test Operator","role":"OPERATOR","workStartDate":"2026-09-13","isActive":true,"createdAt":"2026-09-13T00:00:00","updatedAt":"2026-10-18T10:07:00"}],
+    "employeeStationAssignments": [{"id":"assignment-1","employeeId":1,"stationId":7,"validFrom":"2026-09-13","validTo":"","createdAt":"2026-09-13T00:00:00","updatedAt":"2026-10-18T10:07:00"}],
+    "employeeTransactions": [{"id":"auto-earning-1-2026-10-18","employeeId":1,"type":"EARNING","operationDate":"2026-10-18T00:00:00","periodFrom":"2026-10-18","periodTo":"2026-10-18","salesCount":12,"amount":180,"comment":"","createdAt":"2026-10-19T02:00:00","updatedAt":"2026-10-19T02:00:00"}]
+  }
+}

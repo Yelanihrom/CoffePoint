@@ -9,7 +9,7 @@ enum class SupplyCatalogItemType(
     Lids("lids", "Крышки", 2),
     Sugar("sugar", "Сахар", 3),
     Stirrers("stirrers", "Мешалки", 4),
-    GarbageBags("garbageBags", "Мусорные пакеты", 5),
+    GarbageBags("garbageBags", "Пакеты", 5),
     Coffee("coffee", "Кофе", 6),
     Milk("milk", "Молоко", 7),
     Chocolate("chocolate", "Шоколад", 8),

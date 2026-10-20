@@ -8,8 +8,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import ru.coffeepoint.core.data.local.entity.SupplyCatalogEntity
-import ru.coffeepoint.core.data.repository.SalesRefreshRepository
-import ru.coffeepoint.core.data.repository.SalesRefreshResult
+import ru.coffeepoint.core.data.preferences.GoogleSheetsImportPreferences
 import ru.coffeepoint.core.data.repository.StationRepository
 import ru.coffeepoint.core.data.repository.SupplyCatalogRepository
 import ru.coffeepoint.core.data.repository.WarehouseStockRepository
@@ -22,7 +21,7 @@ class DashboardViewModel(
 ) : AndroidViewModel(application) {
 
     private val repository = StationRepository(application)
-    private val salesRefreshRepository = SalesRefreshRepository(application)
+    private val googleSheetsImportPreferences = GoogleSheetsImportPreferences(application)
     private val warehouseStockRepository = WarehouseStockRepository(application)
     private val supplyCatalogRepository = SupplyCatalogRepository(application)
 
@@ -35,22 +34,16 @@ class DashboardViewModel(
     var supplyCatalogItems by mutableStateOf<List<SupplyCatalogEntity>>(emptyList())
         private set
 
-    var showConnectionError by mutableStateOf(false)
-        private set
-
     var showGoogleSheetsSyncError by mutableStateOf(false)
         private set
 
-    var showSalesRefreshSuccess by mutableStateOf(false)
+    var showImportSuccess by mutableStateOf(false)
         private set
 
-    var isRefreshingSales by mutableStateOf(false)
+    var isRefreshingData by mutableStateOf(false)
         private set
 
-    var missingTerminalErrorText by mutableStateOf<String?>(null)
-        private set
-
-    var lastSalesRefreshText by mutableStateOf<String?>(null)
+    var lastGoogleSheetsImportText by mutableStateOf<String?>(null)
         private set
 
     fun loadStations() {
@@ -60,8 +53,8 @@ class DashboardViewModel(
             stations = repository.getStations()
             warehouseStock = warehouseStockRepository.getItems()
             supplyCatalogItems = supplyCatalogRepository.getItems()
-            lastSalesRefreshText =
-                salesRefreshRepository.getLastRefreshText()
+            lastGoogleSheetsImportText =
+                googleSheetsImportPreferences.getLastImportText()
 
             val imported = repository.importFromGoogleSheets()
 
@@ -69,21 +62,23 @@ class DashboardViewModel(
                 stations = repository.getStations()
                 warehouseStock = warehouseStockRepository.getItems()
                 supplyCatalogItems = supplyCatalogRepository.getItems()
+                lastGoogleSheetsImportText =
+                    googleSheetsImportPreferences.getLastImportText()
             }
 
         }
 
     }
 
-    fun refreshSales() {
+    fun refreshData() {
 
-        if (isRefreshingSales) return
+        if (isRefreshingData) return
 
         viewModelScope.launch {
 
-            isRefreshingSales = true
-            missingTerminalErrorText = null
-            showSalesRefreshSuccess = false
+            isRefreshingData = true
+            showGoogleSheetsSyncError = false
+            showImportSuccess = false
 
             try {
 
@@ -93,23 +88,22 @@ class DashboardViewModel(
                         stations = repository.getStations()
                         warehouseStock = warehouseStockRepository.getItems()
                         supplyCatalogItems = supplyCatalogRepository.getItems()
+                        lastGoogleSheetsImportText =
+                            googleSheetsImportPreferences.getLastImportText()
+                        showImportSuccess = true
                     }
 
                     GoogleSheetsImportResult.SkippedPendingChanges,
                     GoogleSheetsImportResult.Empty,
-                    GoogleSheetsImportResult.Error -> {
+                    is GoogleSheetsImportResult.Error -> {
                         showGoogleSheetsSyncError = true
                         return@launch
                     }
 
                 }
 
-                refreshVendistaSales(
-                    showSuccess = true
-                )
-
             } finally {
-                isRefreshingSales = false
+                isRefreshingData = false
             }
 
         }
@@ -133,84 +127,15 @@ class DashboardViewModel(
 
     }
 
-    fun refreshSalesWithoutGoogleSheets() {
-
-        if (isRefreshingSales) return
-
-        viewModelScope.launch {
-
-            isRefreshingSales = true
-            showGoogleSheetsSyncError = false
-            missingTerminalErrorText = null
-            showSalesRefreshSuccess = false
-
-            try {
-                refreshVendistaSales(
-                    showSuccess = false
-                )
-            } finally {
-                isRefreshingSales = false
-            }
-
-        }
-
-    }
-
-    private suspend fun refreshVendistaSales(
-        showSuccess: Boolean
-    ) {
-
-        when (val result = salesRefreshRepository.refreshSales()) {
-
-            is SalesRefreshResult.Success -> {
-
-                if (result.missingTerminalNames.isNotEmpty()) {
-
-                    missingTerminalErrorText =
-                        "У станций ${result.missingTerminalNames.joinToString(", ")} — не указан номер терминала"
-
-                }
-
-                stations = repository.getStations()
-                lastSalesRefreshText =
-                    salesRefreshRepository.getLastRefreshText()
-                showSalesRefreshSuccess =
-                    showSuccess && result.missingTerminalNames.isEmpty()
-
-            }
-
-            SalesRefreshResult.NoInternet,
-            SalesRefreshResult.ConnectionError -> {
-
-                showConnectionError = true
-
-            }
-
-        }
-
-    }
-
     fun dismissGoogleSheetsSyncError() {
 
         showGoogleSheetsSyncError = false
 
     }
 
-    fun dismissSalesRefreshSuccess() {
+    fun dismissImportSuccess() {
 
-        showSalesRefreshSuccess = false
-
-    }
-
-    fun dismissConnectionError() {
-
-        showConnectionError = false
-
-    }
-
-    fun dismissMissingTerminalError() {
-
-        missingTerminalErrorText = null
+        showImportSuccess = false
 
     }
 
