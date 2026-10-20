@@ -5,4 +5,5 @@
         name="photos"
         path="photos/" />
 
+    <cache-path name="app_updates" path="updates/" />
 </paths>

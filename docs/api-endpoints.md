@@ -12,6 +12,7 @@
 | Google Sheets / Apps Script | `WEB_APP_URL` из `GoogleSheetsSyncConfig.kt`, путь `/macros/s/{deploymentId}/exec` | GET: query `token`; POST: поле JSON `token`. Сервер читает `SYNC_TOKEN` из Script Properties |
 | Команды Vendista из Android | `https://api.vendista.ru:99/` | Query `token`, источник `VendistaCredentials` |
 | Продажи Vendista из Apps Script | `https://api.vendista.ru:99/reports/common` | Query `token`, сервер читает `VENDISTA_TOKEN` из Script Properties |
+| Обновление Android | `https://api.github.com/repos/Yelanihrom/CoffePoint/releases/latest`, затем `update.json` и APK из assets | Без авторизации; только публичный канал, см. [обновления](app-updates.md) |
 
 Токены в этой документации и тестовых данных заменены фиктивными значениями.
 Смена `WEB_APP_URL` требует переустановки собранной версии приложения.

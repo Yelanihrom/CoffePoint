@@ -24,6 +24,7 @@
 | Сервер и триггеры | [Apps Script](google-apps-script/README.md) |
 | Тестовый сервер, CLI и доступы | [Тестовый стенд](docs/test-environment.md), [несекретная конфигурация](config/environments/test.json) |
 | Версия, сборка и подпись | [Выпуски](docs/releases.md), `app/build.gradle.kts` |
+| Проверка версии и установка APK | [Обновления](docs/app-updates.md), `core/update`, `shared/component/AppUpdateHost.kt` |
 | Незакрытые проблемы | [Ограничения](docs/known-limitations.md), [план автоматизации](docs/automation-roadmap.md) |
 
 Android-код находится в `app/src/main/java/ru/coffeepoint`. В проекте один
