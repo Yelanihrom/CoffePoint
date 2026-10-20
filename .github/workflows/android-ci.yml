@@ -1,0 +1,97 @@
+name: Android CI
+
+on:
+  push:
+    branches: [test]
+  pull_request:
+    branches: [master, test]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: Apps Script contract tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test server contracts without live requests
+        run: node --test google-apps-script/tests/http-contract.test.cjs
+
+  android:
+    name: Android unit tests and test APK
+    needs: contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-37 build-tools;36.0.0'
+      - name: Run Android unit tests and build isolated debug APK
+        run: bash ./gradlew :app:testDebugUnitTest :app:assembleDebug -PciBuild=true --no-daemon --console=plain
+      - name: Record source revision and APK checksum
+        env:
+          SOURCE_REF: ${{ github.ref }}
+          SOURCE_SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          output = Path('app/build/outputs/apk/debug')
+          metadata = json.loads((output / 'output-metadata.json').read_text())
+          element, = metadata['elements']
+          apk = output / element['outputFile']
+          if metadata['applicationId'] != 'ru.coffeepoint.ci':
+              raise SystemExit('Expected isolated CI application ID')
+          info = {
+              'applicationId': metadata['applicationId'],
+              'versionCode': element['versionCode'],
+              'versionName': element['versionName'],
+              'commit': os.environ['SOURCE_SHA'],
+              'ref': os.environ['SOURCE_REF'],
+              'workflowRun': os.environ['RUN_URL'],
+              'apk': apk.name,
+              'sha256': hashlib.sha256(apk.read_bytes()).hexdigest(),
+              'signing': 'ephemeral-debug-not-for-production',
+          }
+          (output / 'build-info.json').write_text(json.dumps(info, indent=2) + '\n')
+          PY
+      - name: Upload test APK and build information
+        uses: actions/upload-artifact@v4
+        with:
+          name: CoffeePoint-ci-${{ github.run_number }}-${{ github.sha }}
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/debug/build-info.json
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+      - name: Upload Android test reports
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-test-reports-${{ github.run_number }}-${{ github.sha }}
+          path: |
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
+          retention-days: 14

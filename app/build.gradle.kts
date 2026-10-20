@@ -39,6 +39,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            if (providers.gradleProperty("ciBuild").orNull == "true") {
+                applicationIdSuffix = ".ci"
+                versionNameSuffix = "-ci"
+            }
+        }
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("release")
