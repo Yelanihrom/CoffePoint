@@ -13,6 +13,12 @@ val releaseSigningProperties = Properties().apply {
     }
 }
 
+fun quotedBuildConfig(value: String): String = "\"" + value
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
+    .replace("\r", "\\r")
+    .replace("\n", "\\n") + "\""
+
 android {
     namespace = "ru.coffeepoint"
     compileSdk = 37
@@ -23,6 +29,10 @@ android {
         targetSdk = 37
         versionCode = 15
         versionName = "1.0.15"
+
+        buildConfigField("boolean", "IS_TEST_ENVIRONMENT", "false")
+        buildConfigField("String", "TEST_SHEETS_WEB_APP_URL", "\"\"")
+        buildConfigField("String", "TEST_SHEETS_SYNC_TOKEN", "\"\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -43,6 +53,13 @@ android {
             if (providers.gradleProperty("ciBuild").orNull == "true") {
                 applicationIdSuffix = ".ci"
                 versionNameSuffix = "-ci"
+                buildConfigField("boolean", "IS_TEST_ENVIRONMENT", "true")
+                buildConfigField("String", "TEST_SHEETS_WEB_APP_URL", quotedBuildConfig(
+                    providers.environmentVariable("COFFEEPOINT_TEST_WEB_APP_URL").orNull.orEmpty().trim()
+                ))
+                buildConfigField("String", "TEST_SHEETS_SYNC_TOKEN", quotedBuildConfig(
+                    providers.environmentVariable("COFFEEPOINT_TEST_SYNC_TOKEN").orNull.orEmpty().trim()
+                ))
             }
         }
         release {
@@ -57,6 +74,7 @@ android {
     }
 
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 }
