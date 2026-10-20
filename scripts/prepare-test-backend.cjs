@@ -25,6 +25,9 @@ function buildTestFiles(sourceRoot, environment) {
     .filter((name) => name.endsWith('.gs') || name === 'appsscript.json')
     .map((name) => [name, fs.readFileSync(path.join(sourceRoot, name), 'utf8')]));
   files['Config.gs'] = `const CONFIG = ${JSON.stringify(config, null, 2)};\n\nconst SHEETS = ${JSON.stringify(SHEETS, null, 2)};\n`;
+  const manifest = JSON.parse(files['appsscript.json']);
+  manifest.webapp = { executeAs: 'USER_DEPLOYING', access: 'ANYONE_ANONYMOUS' };
+  files['appsscript.json'] = JSON.stringify(manifest, null, 2) + '\n';
   files['.claspignore'] = '**/**\n!*.gs\n!appsscript.json\n';
   return files;
 }

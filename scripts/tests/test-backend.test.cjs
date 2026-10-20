@@ -19,6 +19,7 @@ test('test backend targets the copy and does not include production storage IDs'
   assert.equal(config.ENVIRONMENT, 'test');
   assert.ok(files['Router.gs']);
   assert.ok(files['appsscript.json']);
+  assert.equal(JSON.parse(files['appsscript.json']).webapp.access, 'ANYONE_ANONYMOUS');
   assert.ok(!Object.keys(files).some((name) => name.includes('tests/')));
   const production = vm.createContext({});
   vm.runInContext(fs.readFileSync(path.join(source, 'Config.gs'), 'utf8'), production);
