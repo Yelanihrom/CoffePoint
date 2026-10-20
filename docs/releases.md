@@ -108,7 +108,7 @@ GitHub Actions проверяет актуальность версии в до�
 3. Сборку debug APK с параметром `-PciBuild=true`.
 4. Загрузку APK, `build-info.json` и отчётов Android-тестов в artifacts на 14 дней.
 
-Окружение CI: Ubuntu 24.04, JDK 21, Node.js 22, Android SDK 37, Build Tools
+Окружение CI: Ubuntu 24.04, JDK 21, Node.js 22, пакет SDK `platforms;android-37.0`, Build Tools
 36.0.0 и Gradle Wrapper проекта. Локальные `local.properties`, ключ release
 и `release-signing.properties` не требуются. Workflow имеет только доступ
 на чтение репозитория; сервер, Google Sheets, GitHub Releases и теги не меняет.
