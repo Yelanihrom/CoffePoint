@@ -68,7 +68,7 @@ Room-схему и номер версии проверяй в исходник�
 Из корня проекта, Node.js 22+:
 
 ```powershell
-node --test scripts/tests/docs.test.cjs scripts/tests/test-backend.test.cjs google-apps-script/tests/http-contract.test.cjs
+node --test scripts/tests/docs.test.cjs scripts/tests/test-backend.test.cjs scripts/tests/release.test.cjs google-apps-script/tests/http-contract.test.cjs
 node scripts/docs.cjs --check
 
 $env:JAVA_HOME = 'D:\Android Studio\jbr'
@@ -101,3 +101,6 @@ $env:JAVA_HOME = 'D:\Android Studio\jbr'
   только если это помогает следующему агенту найти нужный контекст.
 - Источники документации и исходники публикуются через `test`. Публикация Git
   не обновляет APK на устройствах или сервер Apps Script автоматически.
+- Рабочие APK выпускаются через `Production release` по отдельному подтверждению
+  и новому тегу `master`. Не заменяй ключ совместимости из
+  `config/release-signing.json` другим локальным ключом и не перезаписывай релизы.

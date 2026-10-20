@@ -13,6 +13,9 @@ val releaseSigningProperties = Properties().apply {
     }
 }
 
+fun signingValue(property: String, environment: String): String? =
+    providers.environmentVariable(environment).orNull ?: releaseSigningProperties.getProperty(property)
+
 fun quotedBuildConfig(value: String): String = "\"" + value
     .replace("\\", "\\\\")
     .replace("\"", "\\\"")
@@ -39,11 +42,12 @@ android {
 
     signingConfigs {
         create("release") {
-            if (releaseSigningProperties.isNotEmpty()) {
-                storeFile = rootProject.file(releaseSigningProperties["storeFile"] as String)
-                storePassword = releaseSigningProperties["storePassword"] as String
-                keyAlias = releaseSigningProperties["keyAlias"] as String
-                keyPassword = releaseSigningProperties["keyPassword"] as String
+            val configuredStore = signingValue("storeFile", "COFFEEPOINT_SIGNING_STORE_FILE")
+            if (!configuredStore.isNullOrBlank()) {
+                storeFile = rootProject.file(configuredStore)
+                storePassword = signingValue("storePassword", "COFFEEPOINT_SIGNING_STORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "COFFEEPOINT_SIGNING_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "COFFEEPOINT_SIGNING_KEY_PASSWORD")
             }
         }
     }
