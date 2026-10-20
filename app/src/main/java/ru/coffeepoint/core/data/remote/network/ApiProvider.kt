@@ -4,6 +4,8 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import ru.coffeepoint.BuildConfig
+import java.io.IOException
 import ru.coffeepoint.core.data.remote.api.TerminalCommandApi
 
 object ApiProvider {
@@ -15,6 +17,12 @@ object ApiProvider {
     }
 
     private val okHttpClient = OkHttpClient.Builder()
+        .addInterceptor { chain ->
+            if (BuildConfig.IS_TEST_ENVIRONMENT) {
+                throw IOException("Vendista terminal commands are disabled in the test environment")
+            }
+            chain.proceed(chain.request())
+        }
         .addInterceptor(loggingInterceptor)
         .build()
 

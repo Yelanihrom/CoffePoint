@@ -17,8 +17,10 @@ if ($JavaHome) {
 
 Push-Location $repoRoot
 try {
-    & $NodePath --test google-apps-script/tests/http-contract.test.cjs
-    if ($LASTEXITCODE -ne 0) { throw 'Apps Script contract tests failed.' }
+    & $NodePath --test google-apps-script/tests/http-contract.test.cjs scripts/tests/docs.test.cjs scripts/tests/test-backend.test.cjs scripts/tests/release.test.cjs
+    if ($LASTEXITCODE -ne 0) { throw 'Node regression tests failed.' }
+    & $NodePath scripts/docs.cjs --check
+    if ($LASTEXITCODE -ne 0) { throw 'Documentation checks failed.' }
     & .\gradlew.bat :app:testDebugUnitTest --console=plain
     if ($LASTEXITCODE -ne 0) { throw 'Android API tests failed.' }
 } finally {

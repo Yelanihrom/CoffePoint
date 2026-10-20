@@ -13,6 +13,15 @@ val releaseSigningProperties = Properties().apply {
     }
 }
 
+fun signingValue(property: String, environment: String): String? =
+    providers.environmentVariable(environment).orNull ?: releaseSigningProperties.getProperty(property)
+
+fun quotedBuildConfig(value: String): String = "\"" + value
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
+    .replace("\r", "\\r")
+    .replace("\n", "\\n") + "\""
+
 android {
     namespace = "ru.coffeepoint"
     compileSdk = 37
@@ -21,24 +30,42 @@ android {
         applicationId = "ru.coffeepoint"
         minSdk = 26
         targetSdk = 37
-        versionCode = 14
-        versionName = "1.0.14"
+        versionCode = 15
+        versionName = "1.0.15"
+
+        buildConfigField("boolean", "IS_TEST_ENVIRONMENT", "false")
+        buildConfigField("String", "TEST_SHEETS_WEB_APP_URL", "\"\"")
+        buildConfigField("String", "TEST_SHEETS_SYNC_TOKEN", "\"\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
         create("release") {
-            if (releaseSigningProperties.isNotEmpty()) {
-                storeFile = rootProject.file(releaseSigningProperties["storeFile"] as String)
-                storePassword = releaseSigningProperties["storePassword"] as String
-                keyAlias = releaseSigningProperties["keyAlias"] as String
-                keyPassword = releaseSigningProperties["keyPassword"] as String
+            val configuredStore = signingValue("storeFile", "COFFEEPOINT_SIGNING_STORE_FILE")
+            if (!configuredStore.isNullOrBlank()) {
+                storeFile = rootProject.file(configuredStore)
+                storePassword = signingValue("storePassword", "COFFEEPOINT_SIGNING_STORE_PASSWORD")
+                keyAlias = signingValue("keyAlias", "COFFEEPOINT_SIGNING_KEY_ALIAS")
+                keyPassword = signingValue("keyPassword", "COFFEEPOINT_SIGNING_KEY_PASSWORD")
             }
         }
     }
 
     buildTypes {
+        debug {
+            if (providers.gradleProperty("ciBuild").orNull == "true") {
+                applicationIdSuffix = ".ci"
+                versionNameSuffix = "-ci"
+                buildConfigField("boolean", "IS_TEST_ENVIRONMENT", "true")
+                buildConfigField("String", "TEST_SHEETS_WEB_APP_URL", quotedBuildConfig(
+                    providers.environmentVariable("COFFEEPOINT_TEST_WEB_APP_URL").orNull.orEmpty().trim()
+                ))
+                buildConfigField("String", "TEST_SHEETS_SYNC_TOKEN", quotedBuildConfig(
+                    providers.environmentVariable("COFFEEPOINT_TEST_SYNC_TOKEN").orNull.orEmpty().trim()
+                ))
+            }
+        }
         release {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("release")
@@ -51,6 +78,7 @@ android {
     }
 
     buildFeatures {
+        buildConfig = true
         compose = true
     }
 }

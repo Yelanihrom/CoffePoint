@@ -20,5 +20,7 @@ local.properties
 /keystores/
 /release-signing.properties
 /local-jdk/
+.clasprc*.json
+.clasp.json
 /.codex/
 /CoffePoint-*.png

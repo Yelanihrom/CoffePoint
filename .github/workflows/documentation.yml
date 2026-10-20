@@ -1,0 +1,26 @@
+name: Documentation
+
+on:
+  pull_request:
+    branches: [master, test]
+  push:
+    branches: [master, test]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Version and local links
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test documentation tooling
+        run: node --test scripts/tests/docs.test.cjs
+      - name: Check generated version and local file links
+        run: node scripts/docs.cjs --check
