@@ -6,6 +6,9 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.lifecycle.ViewModelProvider
+import ru.coffeepoint.core.update.AppUpdateViewModel
+import ru.coffeepoint.shared.component.AppUpdateHost
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import ru.coffeepoint.core.sync.google.worker.GoogleSheetsSyncScheduler
@@ -17,6 +20,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val updateViewModel = ViewModelProvider(this)[AppUpdateViewModel::class.java]
+        updateViewModel.checkOnLaunch()
 
         requestNotificationPermission()
 
@@ -28,6 +33,7 @@ class MainActivity : ComponentActivity() {
             CoffeePointTheme {
 
                 AppNavigation()
+                AppUpdateHost(updateViewModel)
 
             }
 
