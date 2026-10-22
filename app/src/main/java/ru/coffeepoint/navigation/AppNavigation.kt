@@ -463,6 +463,7 @@ fun AppNavigation() {
                 } else {
                     "Пополнение запасов"
                 },
+                isSupplyServiceFlow = isSupplyServiceFlow,
                 actionText = if (isSupplyServiceFlow) {
                     "Далее"
                 } else {

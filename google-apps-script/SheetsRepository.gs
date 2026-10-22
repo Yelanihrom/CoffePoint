@@ -1,16 +1,21 @@
-function getFullSyncData(entities) {
+function getFullSyncData(entities, stationId) {
   const requestedEntities = parseEntities(entities);
+  const hasStationFilter = stationId !== undefined && stationId !== null && stationId !== '';
+  if (hasStationFilter && !/^[1-9]\d*$/.test(String(stationId))) {
+    throw createHttpError(400, 'Invalid stationId');
+  }
+  const readRequested = (config, key) => {
+    if (!requestedEntities.has(config.name)) return [];
+    const rows = readSheet(config);
+    return hasStationFilter && key
+      ? rows.filter((row) => String(row[key]) === String(stationId))
+      : rows;
+  };
 
   return {
-    stations: requestedEntities.has(SHEETS.COFFEE_STATION.name)
-      ? readSheet(SHEETS.COFFEE_STATION)
-      : [],
-    inventories: requestedEntities.has(SHEETS.STATION_INVENTORY.name)
-      ? readSheet(SHEETS.STATION_INVENTORY)
-      : [],
-    settings: requestedEntities.has(SHEETS.STATION_SETTINGS.name)
-      ? readSheet(SHEETS.STATION_SETTINGS)
-      : [],
+    stations: readRequested(SHEETS.COFFEE_STATION, 'id'),
+    inventories: readRequested(SHEETS.STATION_INVENTORY, 'stationId'),
+    settings: readRequested(SHEETS.STATION_SETTINGS, 'stationId'),
     supplyCatalog: requestedEntities.has(SHEETS.SUPPLY_CATALOG.name)
       ? readSheet(SHEETS.SUPPLY_CATALOG)
       : [],
@@ -95,6 +100,9 @@ function upsertEntities(entityName, dataItems) {
         : headers.map(() => '');
       const values = headers.map((header, index) => {
         if (Object.prototype.hasOwnProperty.call(data, header)) {
+          if (sheetConfig.name === SHEETS.WAREHOUSE_STOCK.name && header === 'updatedAt') {
+            return normalizeWarehouseTimestamp_(data[header]);
+          }
           return normalizeCellValue(data[header]);
         }
         if (!rowIndex && sheetConfig.name === SHEETS.COFFEE_STATION.name &&
@@ -119,6 +127,10 @@ function upsertEntities(entityName, dataItems) {
         sheet.appendRow(row.values);
       }
     });
+    if (sheetConfig.name === SHEETS.WAREHOUSE_STOCK.name && sheet.getLastRow() > 1) {
+      sheet.getRange(2, headers.indexOf('updatedAt') + 1, sheet.getLastRow() - 1, 1)
+        .setNumberFormat('dd.MM.yyyy HH:mm');
+    }
   } finally {
     lock.releaseLock();
   }
@@ -390,6 +402,14 @@ function rowToObject(headers, row) {
     result[header] = row[index];
     return result;
   }, {});
+}
+
+function normalizeWarehouseTimestamp_(value) {
+  // Preserve the instant and explicit offset used by conflict checks and Android.
+  if (typeof value !== 'string' || !/(?:Z|[+-]\d{2}:\d{2})$/i.test(value)) return value;
+  const timestamp = parseSyncTimestamp(value);
+  if (!timestamp) return value;
+  return timestamp;
 }
 
 function normalizeCellValue(value) {

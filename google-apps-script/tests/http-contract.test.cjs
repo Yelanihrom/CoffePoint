@@ -59,6 +59,40 @@ test('selective full_sync does not access unrelated sheets', () => {
   assert.equal(result.data.stations.length, 0);
 });
 
+test('service start filters one station and does not read settings or warehouse for operator', () => {
+  const app = createHarness();
+  const station = app.sheets.coffee_station.object();
+  const inventory = app.sheets.station_inventory.object();
+  app.sheets.coffee_station.seed([station, {...station, id: 99}]);
+  app.sheets.station_inventory.seed([inventory, {...inventory, stationId: 99}]);
+  delete app.sheets.station_settings;
+  delete app.sheets.warehouse_stock;
+  const result = app.call('GET', {action: 'full_sync', stationId: String(station.id),
+    entities: 'coffee_station,station_inventory'});
+  assert.equal(result.success, true);
+  assert.deepEqual(result.data.stations.map(row => row.id), [station.id]);
+  assert.deepEqual(result.data.inventories.map(row => row.stationId), [station.id]);
+  assert.deepEqual(result.data.settings, []);
+  assert.deepEqual(result.data.warehouseStock, []);
+});
+
+test('supplier service start includes warehouse independently of station filter', () => {
+  const app = createHarness();
+  delete app.sheets.station_settings;
+  const result = app.call('GET', {action: 'full_sync', stationId: '7',
+    entities: 'coffee_station,station_inventory,warehouse_stock'});
+  assert.equal(result.success, true);
+  assert.equal(result.data.warehouseStock.length, 1);
+  assert.deepEqual(result.data.settings, []);
+});
+
+test('invalid station filter fails instead of returning all stations', () => {
+  for (const stationId of ['0', '-1', 'abc', '7,8']) {
+    const result = createHarness().call('GET', {action: 'full_sync', stationId});
+    assert.equal(result.error.status, 400);
+  }
+});
+
 test('warehouse header mismatch is reported without rewriting headers', () => {
   const app = createHarness();
   app.sheets.warehouse_stock.rows[0][2] = 'outdatedMinimum';
@@ -75,6 +109,35 @@ test('upsert preserves unrelated fields and uses the incoming local timestamp', 
   assert.equal(result.success, true);
   assert.deepEqual(app.sheets.warehouse_stock.object(),
     {itemType: 'milk', quantity: 40, minQuantity: 24, maxQuantity: 48, updatedAt: newTimestamp});
+});
+
+test('warehouse UTC timestamp is displayed in Moscow without changing the instant', () => {
+  const app = createHarness();
+  const utc = '2026-10-22T06:38:06.664Z';
+  const result = app.call('POST', {action: 'upsert', entity: 'warehouse_stock',
+    data: {itemType: 'milk', quantity: 40, updatedAt: utc}});
+  assert.equal(result.success, true);
+  const saved = app.sheets.warehouse_stock.object();
+  assert.equal(saved.updatedAt.toISOString(), utc);
+  assert.equal(saved.updatedAt.getTime(), Date.parse(utc));
+  assert.deepEqual(app.sheets.warehouse_stock.formats,
+    [{row: 2, column: 5, height: 1, width: 1, pattern: 'dd.MM.yyyy HH:mm'}]);
+  assert.equal(saved.minQuantity, 24);
+  assert.equal(saved.maxQuantity, 48);
+  const sync = app.call('GET', {action: 'full_sync', entities: 'warehouse_stock'});
+  assert.equal(sync.data.warehouseStock[0].updatedAt, utc);
+  const stale = app.call('POST', {action: 'upsert', entity: 'warehouse_stock',
+    data: {itemType: 'milk', quantity: 1, updatedAt: '2026-10-22T06:38:05.664Z'}});
+  assert.equal(stale.error.status, 409);
+  assert.equal(app.sheets.warehouse_stock.object().quantity, 40);
+});
+
+test('warehouse Moscow offset is not shifted a second time', () => {
+  const app = createHarness();
+  const moscow = '2026-10-22T09:38:06.664+03:00';
+  assert.equal(app.call('POST', {action: 'upsert', entity: 'warehouse_stock',
+    data: warehouse('milk', 40, moscow)}).success, true);
+  assert.equal(app.sheets.warehouse_stock.object().updatedAt.toISOString(), '2026-10-22T06:38:06.664Z');
 });
 
 test('an older upsert returns 409 and leaves the row intact', () => {

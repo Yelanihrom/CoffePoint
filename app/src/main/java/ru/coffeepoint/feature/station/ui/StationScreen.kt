@@ -46,9 +46,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -107,11 +109,44 @@ fun StationScreen(
 
     val viewModel: StationViewModel = viewModel()
 
-    viewModel.loadStation(stationId)
+    LaunchedEffect(stationId) { viewModel.loadStation(stationId) }
 
     val detail = viewModel.station ?: return
     val isManager = role == UserRole.MANAGER
     val isSupplyOperator = role == UserRole.SUPPLY_OPERATOR
+    var pendingSupplyService by rememberSaveable { mutableStateOf<Boolean?>(null) }
+    fun openService(supply: Boolean) {
+        pendingSupplyService = null
+        viewModel.dismissServicePreparation()
+        if (supply) onStartSupplyService() else onStartService()
+    }
+    fun prepareService(supply: Boolean) {
+        pendingSupplyService = supply
+        viewModel.prepareService(includeWarehouse = supply) { openService(supply) }
+    }
+    if (viewModel.isPreparingService) SyncSendingOverlay()
+    viewModel.servicePreparationError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { pendingSupplyService = null; viewModel.dismissServicePreparation() },
+            title = { Text("Не удалось обновить данные") },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { pendingSupplyService?.let { prepareService(it) } }) {
+                    Text("Повторить".asActionButtonText())
+                }
+            },
+            dismissButton = {
+                Column {
+                    TextButton(onClick = { pendingSupplyService?.let { openService(it) } }) {
+                        Text("Продолжить локально".asActionButtonText())
+                    }
+                    TextButton(onClick = { pendingSupplyService = null; viewModel.dismissServicePreparation() }) {
+                        Text("Отмена".asActionButtonText())
+                    }
+                }
+            }
+        )
+    }
 
     var showRentDialog by remember {
         mutableStateOf(false)
@@ -291,13 +326,13 @@ fun StationScreen(
                     ) {
                         PrimaryActionButton(
                             text = "Начать\nзаправку",
-                            onClick = onStartService,
+                            onClick = { prepareService(false) },
                             modifier = Modifier.weight(1f)
                         )
 
                         PrimaryActionButton(
                             text = "Начать\nобслуживание",
-                            onClick = onStartSupplyService,
+                            onClick = { prepareService(true) },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -308,11 +343,7 @@ fun StationScreen(
                         } else {
                             "Начать заправку"
                         },
-                        onClick = if (isSupplyOperator) {
-                            onStartSupplyService
-                        } else {
-                            onStartService
-                        },
+                        onClick = { prepareService(isSupplyOperator) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(76.dp)

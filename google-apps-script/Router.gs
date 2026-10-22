@@ -8,7 +8,7 @@ function handleRequest(e, method) {
     if (method === 'GET' && action === 'full_sync') {
       return jsonResponse({
         success: true,
-        data: getFullSyncData(request.entities),
+        data: getFullSyncData(request.entities, request.stationId),
       });
     }
 
@@ -59,6 +59,7 @@ function buildRequest(e, method) {
       action: e.parameter.action,
       entity: e.parameter.entity,
       entities: e.parameter.entities,
+      stationId: e.parameter.stationId,
       data: {},
     };
   }

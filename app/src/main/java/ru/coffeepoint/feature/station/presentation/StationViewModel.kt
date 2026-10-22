@@ -11,6 +11,8 @@ import ru.coffeepoint.core.data.local.entity.SupplyCatalogEntity
 import ru.coffeepoint.core.data.remote.repository.TerminalCommandRepository
 import ru.coffeepoint.core.data.repository.StationRepository
 import ru.coffeepoint.core.data.repository.SupplyCatalogRepository
+import ru.coffeepoint.core.data.preferences.GoogleSheetsImportPreferences
+import ru.coffeepoint.core.sync.google.GoogleSheetsImportResult
 import ru.coffeepoint.feature.station.model.StationDetail
 import ru.coffeepoint.feature.station.model.TechServiceNode
 import ru.coffeepoint.feature.station.model.syncErrorDialogMessage
@@ -34,6 +36,37 @@ class StationViewModel(
 
     var isSaving by mutableStateOf(false)
         private set
+
+    var isPreparingService by mutableStateOf(false)
+        private set
+    var servicePreparationError by mutableStateOf<String?>(null)
+        private set
+
+    fun prepareService(includeWarehouse: Boolean, onReady: () -> Unit) {
+        val current = station ?: return
+        if (isPreparingService || isSaving || isCommandSending) return
+        viewModelScope.launch {
+            isPreparingService = true
+            servicePreparationError = null
+            try {
+                val result = repository.refreshBeforeService(current.station.id, includeWarehouse)
+                if (result == GoogleSheetsImportResult.Success) {
+                    station = repository.getStation(current.station.id)
+                    onReady()
+                } else {
+                    val reason = if (result == GoogleSheetsImportResult.SkippedPendingChanges)
+                        "Есть локальные изменения. Они сохранены и не заменены данными сервера."
+                    else "Не удалось получить актуальные данные станции."
+                    val lastImport = GoogleSheetsImportPreferences(getApplication()).getLastImportText() ?: "неизвестно"
+                    servicePreparationError = "$reason\nПоследний общий импорт: $lastImport.\nМожно повторить запрос или продолжить с локальными данными; они могут быть устаревшими."
+                }
+            } finally {
+                isPreparingService = false
+            }
+        }
+    }
+
+    fun dismissServicePreparation() { servicePreparationError = null }
 
     var isCommandSending by mutableStateOf(false)
         private set

@@ -26,6 +26,7 @@
 | --- | --- | --- | --- | --- |
 | GET | `full_sync` | `entities` отсутствует | Все восемь коллекций | Полная синхронизация |
 | GET | `full_sync` | `coffee_station,station_inventory,station_settings,warehouse_stock` | Станции, серверные продажи, остатки, настройки, склад | Обновление списка станций и фоновый импорт без каталога/сотрудников |
+| GET | `full_sync` | `stationId`, entities=`coffee_station,station_inventory`; для снабжения дополнительно `warehouse_stock` | Только выбранная станция и её остатки; склад целиком только для снабжения | Перед входом в первый шаг, включая оба сценария управляющего; настройки не запрашиваются |
 | GET | `full_sync` | `warehouse_stock` | Только склад и его минимум/максимум | Кнопка обновления склада |
 | GET | `full_sync` | `supply_catalog` | Только каталог | Обновление каталога |
 | GET | `full_sync` | `employees,employee_station_assignments,employees_transactions` | Сотрудники, привязки, начисления/выплаты | Экран заработка и синхронизация сотрудников |

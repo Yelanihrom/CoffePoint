@@ -16,7 +16,8 @@ interface GoogleSheetsSyncApi {
         @Url url: String,
         @Query("action") action: String,
         @Query("token") token: String,
-        @Query("entities") entities: String? = null
+        @Query("entities") entities: String? = null,
+        @Query("stationId") stationId: Int? = null
     ): GoogleSheetsFullSyncResponseDto
 
     @POST
