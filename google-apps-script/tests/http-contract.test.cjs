@@ -118,12 +118,14 @@ test('warehouse UTC timestamp is displayed in Moscow without changing the instan
     data: {itemType: 'milk', quantity: 40, updatedAt: utc}});
   assert.equal(result.success, true);
   const saved = app.sheets.warehouse_stock.object();
-  assert.equal(saved.updatedAt, '2026-10-22T09:38:06.664+03:00');
-  assert.equal(Date.parse(saved.updatedAt), Date.parse(utc));
+  assert.equal(saved.updatedAt.toISOString(), utc);
+  assert.equal(saved.updatedAt.getTime(), Date.parse(utc));
+  assert.deepEqual(app.sheets.warehouse_stock.formats,
+    [{row: 2, column: 5, height: 1, width: 1, pattern: 'dd.MM.yyyy HH:mm'}]);
   assert.equal(saved.minQuantity, 24);
   assert.equal(saved.maxQuantity, 48);
   const sync = app.call('GET', {action: 'full_sync', entities: 'warehouse_stock'});
-  assert.equal(sync.data.warehouseStock[0].updatedAt, saved.updatedAt);
+  assert.equal(sync.data.warehouseStock[0].updatedAt, utc);
   const stale = app.call('POST', {action: 'upsert', entity: 'warehouse_stock',
     data: {itemType: 'milk', quantity: 1, updatedAt: '2026-10-22T06:38:05.664Z'}});
   assert.equal(stale.error.status, 409);
@@ -135,7 +137,7 @@ test('warehouse Moscow offset is not shifted a second time', () => {
   const moscow = '2026-10-22T09:38:06.664+03:00';
   assert.equal(app.call('POST', {action: 'upsert', entity: 'warehouse_stock',
     data: warehouse('milk', 40, moscow)}).success, true);
-  assert.equal(app.sheets.warehouse_stock.object().updatedAt, moscow);
+  assert.equal(app.sheets.warehouse_stock.object().updatedAt.toISOString(), '2026-10-22T06:38:06.664Z');
 });
 
 test('an older upsert returns 409 and leaves the row intact', () => {

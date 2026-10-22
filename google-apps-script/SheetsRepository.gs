@@ -127,6 +127,10 @@ function upsertEntities(entityName, dataItems) {
         sheet.appendRow(row.values);
       }
     });
+    if (sheetConfig.name === SHEETS.WAREHOUSE_STOCK.name && sheet.getLastRow() > 1) {
+      sheet.getRange(2, headers.indexOf('updatedAt') + 1, sheet.getLastRow() - 1, 1)
+        .setNumberFormat('dd.MM.yyyy HH:mm');
+    }
   } finally {
     lock.releaseLock();
   }
@@ -405,7 +409,7 @@ function normalizeWarehouseTimestamp_(value) {
   if (typeof value !== 'string' || !/(?:Z|[+-]\d{2}:\d{2})$/i.test(value)) return value;
   const timestamp = parseSyncTimestamp(value);
   if (!timestamp) return value;
-  return Utilities.formatDate(timestamp, 'Europe/Moscow', "yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
+  return timestamp;
 }
 
 function normalizeCellValue(value) {
