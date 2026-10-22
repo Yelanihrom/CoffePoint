@@ -158,6 +158,27 @@ class GoogleSheetsRemoteDataSource(
         )
     }
 
+    suspend fun loadServiceStart(stationId: Int, includeWarehouse: Boolean): ServiceStartSnapshot {
+        check(GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) { "Google Sheets unavailable" }
+        val response = api.fullSync(
+            url = webAppUrl,
+            action = "full_sync",
+            token = syncToken,
+            entities = if (includeWarehouse) "coffee_station,station_inventory,warehouse_stock"
+                else "coffee_station,station_inventory",
+            stationId = stationId
+        )
+        check(response.success) { response.error?.message ?: "Service start refresh failed" }
+        val data = checkNotNull(response.data) { "Missing service start data" }
+        val station = data.stations.single { it.intValue("id") == stationId }.toStation()
+        val inventoryRow = data.inventories.single { it.intValue("stationId") == stationId }
+        check(listOf("cups", "lids", "coffee", "milk", "chocolate", "topping", "sugar", "stirrers", "garbageBags")
+            .all { inventoryRow[it] != null }) { "Incomplete station inventory" }
+        val inventory = inventoryRow.toInventory()
+        return ServiceStartSnapshot(station, inventory,
+            if (includeWarehouse) data.warehouseStock.map { it.toWarehouseStockEntity() } else emptyList())
+    }
+
     suspend fun loadFullSync(
         includeSettings: Boolean = true
     ): List<StationDetail> {

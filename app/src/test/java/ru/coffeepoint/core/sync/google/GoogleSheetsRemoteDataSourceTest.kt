@@ -39,6 +39,40 @@ class GoogleSheetsRemoteDataSourceTest {
             reportFailure = { _, _ -> }
         )
 
+    @Test fun `operator service start excludes warehouse and settings`() = runBlocking {
+        http.enqueue(fixture("full-sync.json"))
+        val snapshot = remote.loadServiceStart(7, includeWarehouse = false)
+        val request = http.takeRequest().requestUrl!!
+        assertEquals("full_sync", request.queryParameter("action"))
+        assertEquals("7", request.queryParameter("stationId"))
+        assertEquals("coffee_station,station_inventory", request.queryParameter("entities"))
+        assertEquals(7, snapshot.station.id)
+        assertEquals(6, snapshot.inventory.cups)
+        assertTrue(snapshot.warehouse.isEmpty())
+    }
+
+    @Test fun `supplier service start includes warehouse but not settings`() = runBlocking {
+        http.enqueue(fixture("full-sync.json"))
+        val snapshot = remote.loadServiceStart(7, includeWarehouse = true)
+        val request = http.takeRequest().requestUrl!!
+        assertEquals("coffee_station,station_inventory,warehouse_stock", request.queryParameter("entities"))
+        assertEquals("7", request.queryParameter("stationId"))
+        assertEquals(36, snapshot.warehouse.single().quantity)
+    }
+
+    @Test fun `service start rejects missing station or inventory`() = runBlocking {
+        for (response in listOf(
+            """{"success":true,"data":{"stations":[],"inventories":[]}}""",
+            """{"success":false,"error":{"status":500,"message":"Unavailable"}}""",
+            fixture("full-sync.json").replace("\"cups\":6,", "")
+        )) {
+            http.enqueue(response)
+            try { remote.loadServiceStart(7, false); fail("Incomplete data accepted") }
+            catch (_: IllegalStateException) { }
+            catch (_: NoSuchElementException) { }
+        }
+    }
+
     @Test fun `full import requests all entities and maps the server contract`() = runBlocking {
         http.enqueue(fixture("full-sync.json"))
         val bundle = remote.loadFullSyncBundle()

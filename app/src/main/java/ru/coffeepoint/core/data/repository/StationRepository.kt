@@ -14,6 +14,7 @@ import ru.coffeepoint.core.sync.google.GoogleSheetsSyncDefaults
 import ru.coffeepoint.core.sync.google.GoogleSheetsSyncErrorType
 import ru.coffeepoint.core.sync.google.GoogleSheetsSyncManager
 import ru.coffeepoint.core.sync.google.GoogleSheetsStationSyncService
+import ru.coffeepoint.core.sync.google.GoogleSheetsServiceStartImporter
 import ru.coffeepoint.feature.station.model.CoffeeStation
 import ru.coffeepoint.feature.station.model.StationDetail
 import ru.coffeepoint.feature.station.model.StationInventory
@@ -50,6 +51,9 @@ class StationRepository(
         inventoryDao = inventoryDao,
         settingsDao = settingsDao
     )
+
+    suspend fun refreshBeforeService(stationId: Int, includeWarehouse: Boolean): GoogleSheetsImportResult =
+        GoogleSheetsServiceStartImporter(db).refresh(stationId, includeWarehouse)
 
     suspend fun getStation(id: Int): StationDetail? {
 

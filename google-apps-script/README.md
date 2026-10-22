@@ -6,6 +6,12 @@
 
 ## Карта файлов
 
+`full_sync` поддерживает необязательный `stationId`: строки `coffee_station`,
+`station_inventory` и `station_settings` фильтруются по станции. Другие коллекции
+не фильтруются и читаются только при выборе в `entities`. Для загрузки перед
+обслуживанием обновить `Router.gs` и `SheetsRepository.gs`, затем развернуть
+новую версию HTTP API; без `stationId` прежнее поведение сохранено.
+
 | Файл | Ответственность |
 | --- | --- |
 | [Code.gs](Code.gs) | Входы `doGet` / `doPost` |

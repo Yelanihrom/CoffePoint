@@ -57,7 +57,8 @@ fun ServiceStep1Screen(
     onNext: () -> Unit,
     stepLabel: String = "Шаг 1 из 2",
     actionText: String = "Далее",
-    syncImmediatelyOnSave: Boolean = false
+    syncImmediatelyOnSave: Boolean = false,
+    isSupplyServiceFlow: Boolean = false
 ) {
 
     val viewModel: ServiceStep1ViewModel = viewModel()
@@ -67,7 +68,6 @@ fun ServiceStep1Screen(
     val station = viewModel.station ?: return
     val inventory = viewModel.inventory ?: return
     val showMaxValues = role != UserRole.OPERATOR
-    val isSupplyServiceFlow = role == UserRole.SUPPLY_OPERATOR || role == UserRole.MANAGER
     val hasServiceNodes = isSupplyServiceFlow &&
         station.supplyOperatorTechServiceDashboardItems().isNotEmpty()
     val effectiveStepLabel = if (isSupplyServiceFlow) {

@@ -1,16 +1,21 @@
-function getFullSyncData(entities) {
+function getFullSyncData(entities, stationId) {
   const requestedEntities = parseEntities(entities);
+  const hasStationFilter = stationId !== undefined && stationId !== null && stationId !== '';
+  if (hasStationFilter && !/^[1-9]\d*$/.test(String(stationId))) {
+    throw createHttpError(400, 'Invalid stationId');
+  }
+  const readRequested = (config, key) => {
+    if (!requestedEntities.has(config.name)) return [];
+    const rows = readSheet(config);
+    return hasStationFilter && key
+      ? rows.filter((row) => String(row[key]) === String(stationId))
+      : rows;
+  };
 
   return {
-    stations: requestedEntities.has(SHEETS.COFFEE_STATION.name)
-      ? readSheet(SHEETS.COFFEE_STATION)
-      : [],
-    inventories: requestedEntities.has(SHEETS.STATION_INVENTORY.name)
-      ? readSheet(SHEETS.STATION_INVENTORY)
-      : [],
-    settings: requestedEntities.has(SHEETS.STATION_SETTINGS.name)
-      ? readSheet(SHEETS.STATION_SETTINGS)
-      : [],
+    stations: readRequested(SHEETS.COFFEE_STATION, 'id'),
+    inventories: readRequested(SHEETS.STATION_INVENTORY, 'stationId'),
+    settings: readRequested(SHEETS.STATION_SETTINGS, 'stationId'),
     supplyCatalog: requestedEntities.has(SHEETS.SUPPLY_CATALOG.name)
       ? readSheet(SHEETS.SUPPLY_CATALOG)
       : [],
