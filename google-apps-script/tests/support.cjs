@@ -71,7 +71,15 @@ function createHarness(properties = {SYNC_TOKEN: 'test-token', VENDISTA_TOKEN: '
     SpreadsheetApp: {openById: () => ({getSheetByName: name => sheets[name] ?? null})},
     LockService: {getScriptLock: () => lock},
     Logger: {log() {}},
-    Utilities: {sleep: delay => sleeps.push(delay)},
+    Utilities: {
+      sleep: delay => sleeps.push(delay),
+      formatDate(date, zone, pattern) {
+        if (zone !== 'Europe/Moscow' || pattern !== "yyyy-MM-dd'T'HH:mm:ss.SSSXXX") {
+          throw new Error('Unexpected date formatting in test');
+        }
+        return new Date(date.getTime() + 3 * 60 * 60 * 1000).toISOString().replace('Z', '+03:00');
+      },
+    },
     UrlFetchApp: {fetch: (url, options) => {
       requests.push({url, options});
       const next = responses.shift();

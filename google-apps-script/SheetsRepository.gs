@@ -95,6 +95,9 @@ function upsertEntities(entityName, dataItems) {
         : headers.map(() => '');
       const values = headers.map((header, index) => {
         if (Object.prototype.hasOwnProperty.call(data, header)) {
+          if (sheetConfig.name === SHEETS.WAREHOUSE_STOCK.name && header === 'updatedAt') {
+            return normalizeWarehouseTimestamp_(data[header]);
+          }
           return normalizeCellValue(data[header]);
         }
         if (!rowIndex && sheetConfig.name === SHEETS.COFFEE_STATION.name &&
@@ -390,6 +393,14 @@ function rowToObject(headers, row) {
     result[header] = row[index];
     return result;
   }, {});
+}
+
+function normalizeWarehouseTimestamp_(value) {
+  // Preserve the instant and explicit offset used by conflict checks and Android.
+  if (typeof value !== 'string' || !/(?:Z|[+-]\d{2}:\d{2})$/i.test(value)) return value;
+  const timestamp = parseSyncTimestamp(value);
+  if (!timestamp) return value;
+  return Utilities.formatDate(timestamp, 'Europe/Moscow', "yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
 }
 
 function normalizeCellValue(value) {

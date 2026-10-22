@@ -77,6 +77,33 @@ test('upsert preserves unrelated fields and uses the incoming local timestamp', 
     {itemType: 'milk', quantity: 40, minQuantity: 24, maxQuantity: 48, updatedAt: newTimestamp});
 });
 
+test('warehouse UTC timestamp is displayed in Moscow without changing the instant', () => {
+  const app = createHarness();
+  const utc = '2026-10-22T06:38:06.664Z';
+  const result = app.call('POST', {action: 'upsert', entity: 'warehouse_stock',
+    data: {itemType: 'milk', quantity: 40, updatedAt: utc}});
+  assert.equal(result.success, true);
+  const saved = app.sheets.warehouse_stock.object();
+  assert.equal(saved.updatedAt, '2026-10-22T09:38:06.664+03:00');
+  assert.equal(Date.parse(saved.updatedAt), Date.parse(utc));
+  assert.equal(saved.minQuantity, 24);
+  assert.equal(saved.maxQuantity, 48);
+  const sync = app.call('GET', {action: 'full_sync', entities: 'warehouse_stock'});
+  assert.equal(sync.data.warehouseStock[0].updatedAt, saved.updatedAt);
+  const stale = app.call('POST', {action: 'upsert', entity: 'warehouse_stock',
+    data: {itemType: 'milk', quantity: 1, updatedAt: '2026-10-22T06:38:05.664Z'}});
+  assert.equal(stale.error.status, 409);
+  assert.equal(app.sheets.warehouse_stock.object().quantity, 40);
+});
+
+test('warehouse Moscow offset is not shifted a second time', () => {
+  const app = createHarness();
+  const moscow = '2026-10-22T09:38:06.664+03:00';
+  assert.equal(app.call('POST', {action: 'upsert', entity: 'warehouse_stock',
+    data: warehouse('milk', 40, moscow)}).success, true);
+  assert.equal(app.sheets.warehouse_stock.object().updatedAt, moscow);
+});
+
 test('an older upsert returns 409 and leaves the row intact', () => {
   const app = createHarness();
   const before = structuredClone(app.sheets.warehouse_stock.rows);
