@@ -30,8 +30,8 @@ android {
         applicationId = "ru.coffeepoint"
         minSdk = 26
         targetSdk = 37
-        versionCode = 17
-        versionName = "1.0.17"
+        versionCode = 18
+        versionName = "1.0.18"
 
         buildConfigField("boolean", "IS_TEST_ENVIRONMENT", "false")
         buildConfigField("String", "TEST_SHEETS_WEB_APP_URL", "\"\"")
