@@ -52,7 +52,6 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.coffeepoint.R
-import ru.coffeepoint.feature.dashboard.model.supplyOperatorTechServiceDashboardItems
 import ru.coffeepoint.feature.service.presentation.ServiceStep1ViewModel
 import ru.coffeepoint.shared.component.BottomActionBar
 
@@ -61,13 +60,11 @@ import ru.coffeepoint.shared.component.BottomActionBar
 fun GrindControlScreen(
     stationId: Int,
     onBack: () -> Unit,
-    onContinue: () -> Unit,
-    onFinish: () -> Unit
+    onContinue: () -> Unit
 ) {
     val stationViewModel: ServiceStep1ViewModel = viewModel()
     stationViewModel.loadStation(stationId)
     val station = stationViewModel.station ?: return
-    val hasServiceNodes = station.supplyOperatorTechServiceDashboardItems().isNotEmpty()
     var completed by remember(stationId) { mutableStateOf(false) }
     val showKeypadHelp = remember { mutableStateOf(false) }
 
@@ -103,7 +100,7 @@ fun GrindControlScreen(
                             style = MaterialTheme.typography.titleLarge
                         )
                         Text(
-                            text = if (hasServiceNodes) "Шаг 2 из 3" else "Шаг 2 из 2",
+                            text = "Шаг 2 из 3",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
@@ -128,9 +125,9 @@ fun GrindControlScreen(
         },
         bottomBar = {
             BottomActionBar(
-                text = if (hasServiceNodes) "К обслуживанию узлов" else "Завершить обслуживание",
+                text = "К обслуживанию узлов",
                 enabled = completed,
-                onClick = if (hasServiceNodes) onContinue else onFinish
+                onClick = onContinue
             )
         }
     ) { padding ->

@@ -493,13 +493,6 @@ fun AppNavigation() {
                     navController.navigate(
                         Routes.SupplyServiceStep2.createRoute(stationId)
                     )
-                },
-                onFinish = {
-                    navController.navigate(Routes.Dashboard.route) {
-                        popUpTo(Routes.Dashboard.route) {
-                            inclusive = true
-                        }
-                    }
                 }
             )
         }

@@ -37,7 +37,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import ru.coffeepoint.R
 import ru.coffeepoint.core.auth.UserRole
-import ru.coffeepoint.feature.dashboard.model.supplyOperatorTechServiceDashboardItems
 import ru.coffeepoint.shared.component.CounterRow
 import ru.coffeepoint.feature.service.presentation.ServiceStep1ViewModel
 import ru.coffeepoint.feature.service.presentation.WarehouseWriteOffSource
@@ -68,10 +67,8 @@ fun ServiceStep1Screen(
     val station = viewModel.station ?: return
     val inventory = viewModel.inventory ?: return
     val showMaxValues = role != UserRole.OPERATOR
-    val hasServiceNodes = isSupplyServiceFlow &&
-        station.supplyOperatorTechServiceDashboardItems().isNotEmpty()
     val effectiveStepLabel = if (isSupplyServiceFlow) {
-        if (hasServiceNodes) "Шаг 1 из 3" else "Шаг 1 из 2"
+        "Шаг 1 из 3"
     } else {
         stepLabel
     }

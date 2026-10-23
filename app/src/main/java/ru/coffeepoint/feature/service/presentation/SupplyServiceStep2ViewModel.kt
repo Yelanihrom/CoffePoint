@@ -8,15 +8,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import ru.coffeepoint.core.data.repository.StationRepository
-import ru.coffeepoint.feature.service.model.ServiceChecklistItem
+import ru.coffeepoint.feature.service.model.SupplyServiceChecklistItem
+import ru.coffeepoint.feature.service.model.buildSupplyServiceChecklist
+import ru.coffeepoint.feature.service.model.canFinishSupplyService
 import ru.coffeepoint.feature.station.model.TechServiceNode
 import ru.coffeepoint.feature.station.model.syncErrorDialogMessage
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
-import java.util.concurrent.TimeUnit
 
 class SupplyServiceStep2ViewModel(
     application: Application
@@ -27,8 +26,8 @@ class SupplyServiceStep2ViewModel(
     var checklist by mutableStateOf<List<SupplyServiceChecklistItem>>(emptyList())
         private set
 
-    var isLoaded by mutableStateOf(false)
-        private set
+    private var isLoaded = false
+    private var isLoading = false
 
     var isSaving by mutableStateOf(false)
         private set
@@ -41,50 +40,17 @@ class SupplyServiceStep2ViewModel(
 
     fun loadStation(stationId: Int) {
 
-        if (isLoaded) return
+        if (isLoaded || isLoading) return
+        isLoading = true
 
         viewModelScope.launch {
-            val detail = repository.getStation(stationId)
-
-            checklist = buildList {
-                if (
-                    detail != null &&
-                    isTechServiceOverdue(
-                        date = detail.station.mixersServiceDate,
-                        serviceIntervalDays = MIXERS_SERVICE_INTERVAL_DAYS
-                    )
-                ) {
-                    add(
-                        SupplyServiceChecklistItem(
-                            node = TechServiceNode.MIXERS,
-                            checklistItem = ServiceChecklistItem(
-                                title = "Обслужить миксеры",
-                                description = "1. Снять миксеры\n2. Промыть в горячей воде убрав наросты\n3. Остатки воды убрать тряпкой\n4. Установить в обратном порядке"
-                            )
-                        )
-                    )
-                }
-
-                if (
-                    detail != null &&
-                    isTechServiceOverdue(
-                        date = detail.station.liquidWasteContainerServiceDate,
-                        serviceIntervalDays = LIQUID_WASTE_CONTAINER_SERVICE_INTERVAL_DAYS
-                    )
-                ) {
-                    add(
-                        SupplyServiceChecklistItem(
-                            node = TechServiceNode.LIQUID_WASTE_CONTAINER,
-                            checklistItem = ServiceChecklistItem(
-                                title = "Обслужить контейнер для жидких отходов",
-                                description = "1. Открутить силиконовый шланг\n2. Слив закрыть пробкой.\n3. Промыть горячей водой убрав шлак\n4. Установить в обратном порядке"
-                            )
-                        )
-                    )
-                }
+            try {
+                val detail = repository.getStation(stationId) ?: return@launch
+                checklist = buildSupplyServiceChecklist(detail.station)
+                isLoaded = true
+            } finally {
+                isLoading = false
             }
-
-            isLoaded = true
         }
 
     }
@@ -101,8 +67,7 @@ class SupplyServiceStep2ViewModel(
     }
 
     fun canFinish(): Boolean {
-        return checklist.isNotEmpty() &&
-            checklist.all { item -> item.checklistItem.checked }
+        return checklist.canFinishSupplyService()
     }
 
     fun finishSupplyService(
@@ -110,7 +75,7 @@ class SupplyServiceStep2ViewModel(
         onFinished: () -> Unit
     ) {
 
-        if (isSaving) return
+        if (isSaving || !canFinish()) return
 
         viewModelScope.launch {
             isSaving = true
@@ -177,55 +142,4 @@ class SupplyServiceStep2ViewModel(
         showSyncError = false
     }
 
-    private fun isTechServiceOverdue(
-        date: String,
-        serviceIntervalDays: Int
-    ): Boolean {
-
-        val serviceDate = parseDateToMillis(date) ?: return false
-        val dueDate = serviceDate + TimeUnit.DAYS.toMillis(
-            serviceIntervalDays.toLong()
-        )
-
-        return dueDate <= todayStartMillis()
-
-    }
-
-    private fun parseDateToMillis(
-        date: String
-    ): Long? {
-
-        if (date.isBlank()) return null
-
-        return SimpleDateFormat(
-            "dd.MM.yyyy",
-            Locale.getDefault()
-        ).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-            isLenient = false
-        }.parse(date)?.time
-
-    }
-
-    private fun todayStartMillis(): Long {
-
-        return Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
-
-    }
-
-    companion object {
-        private const val MIXERS_SERVICE_INTERVAL_DAYS = 30
-        private const val LIQUID_WASTE_CONTAINER_SERVICE_INTERVAL_DAYS = 60
-    }
-
 }
-
-data class SupplyServiceChecklistItem(
-    val node: TechServiceNode,
-    val checklistItem: ServiceChecklistItem
-)

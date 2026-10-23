@@ -17,7 +17,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -45,13 +44,6 @@ fun SupplyServiceStep2Screen(
 
     val viewModel: SupplyServiceStep2ViewModel = viewModel()
     viewModel.loadStation(stationId)
-
-    if (viewModel.isLoaded && viewModel.checklist.isEmpty()) {
-        LaunchedEffect(stationId) {
-            onFinish()
-        }
-        return
-    }
 
     if (viewModel.isSaving) {
         SyncSendingOverlay()
