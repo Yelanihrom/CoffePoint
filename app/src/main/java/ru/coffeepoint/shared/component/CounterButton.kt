@@ -12,12 +12,14 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun CounterButton(
     text: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    enabled: Boolean = true
 ) {
 
     FilledIconButton(
 
         onClick = onClick,
+        enabled = enabled,
 
         modifier = Modifier.size(30.dp),
 
