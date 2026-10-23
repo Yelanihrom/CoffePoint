@@ -17,7 +17,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -25,7 +24,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.coffeepoint.feature.service.component.ChecklistRow
 import ru.coffeepoint.feature.service.presentation.ServiceStep1ViewModel
 import ru.coffeepoint.feature.service.presentation.SupplyServiceStep2ViewModel
-import ru.coffeepoint.feature.station.model.TechServiceNode
 import ru.coffeepoint.shared.component.BottomActionBar
 import ru.coffeepoint.shared.component.SyncSendingErrorDialog
 import ru.coffeepoint.shared.component.SyncSendingOverlay
@@ -45,13 +43,6 @@ fun SupplyServiceStep2Screen(
 
     val viewModel: SupplyServiceStep2ViewModel = viewModel()
     viewModel.loadStation(stationId)
-
-    if (viewModel.isLoaded && viewModel.checklist.isEmpty()) {
-        LaunchedEffect(stationId) {
-            onFinish()
-        }
-        return
-    }
 
     if (viewModel.isSaving) {
         SyncSendingOverlay()
@@ -138,7 +129,7 @@ fun SupplyServiceStep2Screen(
                             checked = item.checklistItem.checked,
                             title = item.checklistItem.title,
                             hint = item.checklistItem.description,
-                            warningText = supplyServiceWarningText(item.node),
+                            warningText = "Не забыть одеть силиконовые шланги",
                             onCheckedChange = { checked ->
                                 viewModel.toggleChecklist(index, checked)
                             }
@@ -149,16 +140,4 @@ fun SupplyServiceStep2Screen(
         }
     }
 
-}
-
-private fun supplyServiceWarningText(
-    node: TechServiceNode
-): String {
-    return when (node) {
-        TechServiceNode.MIXERS ->
-            "Не забыть одеть силиконовые шланги"
-
-        else ->
-            "Дождаться проверки аппаратом, чтобы он не выдал ошибку"
-    }
 }

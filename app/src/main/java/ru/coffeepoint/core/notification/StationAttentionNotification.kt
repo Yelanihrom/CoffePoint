@@ -15,7 +15,7 @@ import ru.coffeepoint.core.auth.UserRole
 import ru.coffeepoint.core.status.attentionIssues
 import ru.coffeepoint.feature.dashboard.model.isCritical
 import ru.coffeepoint.feature.dashboard.model.supplyItems
-import ru.coffeepoint.feature.dashboard.model.supplyOperatorTechServiceDashboardItems
+import ru.coffeepoint.feature.dashboard.model.supplyAttentionTechServiceDashboardItems
 import ru.coffeepoint.feature.station.model.StationDetail
 import ru.coffeepoint.feature.warehouse.model.WarehouseStockItem
 
@@ -66,7 +66,9 @@ class StationAttentionNotification(
             val criticalSupplyItems = detail.supplyItems()
                 .filter { item -> item.isCritical }
 
-            val techServiceItems = detail.supplyOperatorTechServiceDashboardItems()
+            val techServiceItems = detail.supplyAttentionTechServiceDashboardItems(
+                RolePreferences(context).getSelectedRole()
+            )
 
             if (criticalSupplyItems.isEmpty() && techServiceItems.isEmpty()) {
                 return@mapNotNull null
