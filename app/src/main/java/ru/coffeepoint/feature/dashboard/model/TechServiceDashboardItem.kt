@@ -1,6 +1,7 @@
 ﻿package ru.coffeepoint.feature.dashboard.model
 
 import ru.coffeepoint.feature.station.model.StationDetail
+import ru.coffeepoint.core.auth.UserRole
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -40,9 +41,16 @@ fun StationDetail.techServiceDashboardItems(): List<TechServiceDashboardItem> {
 fun StationDetail.supplyOperatorTechServiceDashboardItems(): List<TechServiceDashboardItem> {
     return techServiceDashboardItems()
         .filter { item ->
-            item.title == "Миксеры" ||
-                item.title == "Контейнер жидких отходов"
+            item.title == "Миксеры"
         }
+}
+
+fun StationDetail.supplyAttentionTechServiceDashboardItems(role: UserRole?): List<TechServiceDashboardItem> {
+    return if (role == UserRole.MANAGER) {
+        techServiceDashboardItems().filter { it.title == "Миксеры" || it.title == "Контейнер жидких отходов" }
+    } else {
+        supplyOperatorTechServiceDashboardItems()
+    }
 }
 
 private fun StationDetail.allTechServiceDashboardItems(): List<TechServiceDashboardSourceItem> {

@@ -11,7 +11,6 @@ import ru.coffeepoint.core.data.repository.StationRepository
 import ru.coffeepoint.feature.service.model.SupplyServiceChecklistItem
 import ru.coffeepoint.feature.service.model.buildSupplyServiceChecklist
 import ru.coffeepoint.feature.service.model.canFinishSupplyService
-import ru.coffeepoint.feature.station.model.TechServiceNode
 import ru.coffeepoint.feature.station.model.syncErrorDialogMessage
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -45,8 +44,8 @@ class SupplyServiceStep2ViewModel(
 
         viewModelScope.launch {
             try {
-                val detail = repository.getStation(stationId) ?: return@launch
-                checklist = buildSupplyServiceChecklist(detail.station)
+                repository.getStation(stationId) ?: return@launch
+                checklist = buildSupplyServiceChecklist()
                 isLoaded = true
             } finally {
                 isLoading = false
@@ -89,12 +88,8 @@ class SupplyServiceStep2ViewModel(
             val synced = repository.updateSupplyOperatorServiceDates(
                 stationId = stationId,
                 serviceDate = serviceDate,
-                updateMixers = checklist.any { item ->
-                    item.node == TechServiceNode.MIXERS
-                },
-                updateLiquidWasteContainer = checklist.any { item ->
-                    item.node == TechServiceNode.LIQUID_WASTE_CONTAINER
-                }
+                updateMixers = true,
+                updateLiquidWasteContainer = false
             )
 
             isSaving = false
