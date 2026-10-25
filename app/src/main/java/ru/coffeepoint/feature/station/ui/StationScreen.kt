@@ -24,13 +24,14 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
+import ru.coffeepoint.shared.component.AppDialog
+import ru.coffeepoint.shared.component.AppDialogButton
+import ru.coffeepoint.shared.component.AppDatePickerDialog
+import ru.coffeepoint.shared.component.DialogButtonStyle
 import androidx.compose.material3.BottomAppBar
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -68,6 +69,7 @@ import ru.coffeepoint.core.status.statusSeverity
 import ru.coffeepoint.feature.dashboard.model.TechServiceDashboardItem
 import ru.coffeepoint.feature.dashboard.model.supplyOperatorTechServiceDashboardItems
 import ru.coffeepoint.feature.station.component.StockCard
+import ru.coffeepoint.feature.station.component.ServicePreparationErrorDialog
 import ru.coffeepoint.feature.station.model.StationDetail
 import ru.coffeepoint.feature.station.model.TechServiceNode
 import ru.coffeepoint.feature.station.model.hasConnectionSyncError
@@ -125,26 +127,13 @@ fun StationScreen(
         viewModel.prepareService(includeWarehouse = supply) { openService(supply) }
     }
     if (viewModel.isPreparingService) SyncSendingOverlay()
-    viewModel.servicePreparationError?.let { message ->
-        AlertDialog(
-            onDismissRequest = { pendingSupplyService = null; viewModel.dismissServicePreparation() },
-            title = { Text("Не удалось обновить данные") },
-            text = { Text(message) },
-            confirmButton = {
-                TextButton(onClick = { pendingSupplyService?.let { prepareService(it) } }) {
-                    Text("Повторить".asActionButtonText())
-                }
-            },
-            dismissButton = {
-                Column {
-                    TextButton(onClick = { pendingSupplyService?.let { openService(it) } }) {
-                        Text("Продолжить локально".asActionButtonText())
-                    }
-                    TextButton(onClick = { pendingSupplyService = null; viewModel.dismissServicePreparation() }) {
-                        Text("Отмена".asActionButtonText())
-                    }
-                }
-            }
+    viewModel.servicePreparationError?.let { error ->
+        ServicePreparationErrorDialog(
+            lastUpdated = error.lastUpdated,
+            hasPendingChanges = error.hasPendingChanges,
+            onRetry = { pendingSupplyService?.let { prepareService(it) } },
+            onContinueLocally = { pendingSupplyService?.let { openService(it) } },
+            onCancel = { pendingSupplyService = null; viewModel.dismissServicePreparation() }
         )
     }
 
@@ -903,7 +892,7 @@ private fun TerminalCommandDialog(
     onTurnScreenOff: () -> Unit,
     onTurnScreenOn: () -> Unit
 ) {
-    AlertDialog(
+    AppDialog(
         onDismissRequest = onDismiss,
         title = {
             Text("Терминал")
@@ -920,29 +909,26 @@ private fun TerminalCommandDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                Button(
+                AppDialogButton(
+                    text = "Перезагрузить терминал",
                     onClick = onReboot,
                     enabled = terminalId != null && !isSending,
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Перезагрузить терминал".asActionButtonText())
-                }
+                )
 
-                OutlinedButton(
+                AppDialogButton(
+                    text = "Выключить экран", style = DialogButtonStyle.Secondary,
                     onClick = onTurnScreenOff,
                     enabled = terminalId != null && !isSending,
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Выключить экран".asActionButtonText())
-                }
+                )
 
-                OutlinedButton(
+                AppDialogButton(
+                    text = "Включить экран", style = DialogButtonStyle.Secondary,
                     onClick = onTurnScreenOn,
                     enabled = terminalId != null && !isSending,
                     modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("Включить экран".asActionButtonText())
-                }
+                )
 
                 message?.let { commandMessage ->
                     Text(
@@ -954,12 +940,11 @@ private fun TerminalCommandDialog(
             }
         },
         confirmButton = {
-            TextButton(
+            AppDialogButton(
+                text = "Закрыть",
                 onClick = onDismiss,
                 enabled = !isSending
-            ) {
-                Text("Закрыть".asActionButtonText())
-            }
+            )
         }
     )
 }
@@ -1145,10 +1130,11 @@ private fun RentDateDialog(
         }
     )
 
-    DatePickerDialog(
+    AppDatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(
+            AppDialogButton(
+                text = "Сохранить",
                 enabled = datePickerState.selectedDateMillis != null &&
                     datePickerState.selectedDateMillis!! >= todayMillis,
                 onClick = {
@@ -1156,20 +1142,17 @@ private fun RentDateDialog(
                         ?.let { millis ->
                             formatRentDate(millis)
                         }
-                        ?: return@TextButton
+                        ?: return@AppDialogButton
 
                     onSave(selectedDate)
                 }
-            ) {
-                Text("Сохранить".asActionButtonText())
-            }
+            )
         },
         dismissButton = {
-            TextButton(
+            AppDialogButton(
+                text = "Отменить", style = DialogButtonStyle.Secondary,
                 onClick = onDismiss
-            ) {
-                Text("Отмена".asActionButtonText())
-            }
+            )
         }
     ) {
         Column {
@@ -1213,10 +1196,11 @@ private fun TechServiceDateDialog(
         }
     )
 
-    DatePickerDialog(
+    AppDatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(
+            AppDialogButton(
+                text = "Сохранить",
                 enabled = datePickerState.selectedDateMillis != null &&
                     datePickerState.selectedDateMillis!! <= todayMillis,
                 onClick = {
@@ -1224,20 +1208,17 @@ private fun TechServiceDateDialog(
                         ?.let { millis ->
                             formatRentDate(millis)
                         }
-                        ?: return@TextButton
+                        ?: return@AppDialogButton
 
                     onSave(selectedDate)
                 }
-            ) {
-                Text("Сохранить".asActionButtonText())
-            }
+            )
         },
         dismissButton = {
-            TextButton(
+            AppDialogButton(
+                text = "Отменить", style = DialogButtonStyle.Secondary,
                 onClick = onDismiss
-            ) {
-                Text("Отмена".asActionButtonText())
-            }
+            )
         }
     ) {
         Column {

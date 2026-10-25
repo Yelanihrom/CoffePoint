@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -49,7 +50,7 @@ fun ServiceStep1Screen(
     val showAvailability = isAdding && viewModel.selectedSource == RefillSource.Warehouse
     val locked = isSupplyServiceFlow && viewModel.hasSavedLocally
     val effectiveLabel = if (isSupplyServiceFlow) {
-        if (viewModel.isReview) "Шаг 1 из 3 · Проверка остатков" else "Шаг 1 из 3 · Пополнение"
+        if (viewModel.isReview) "Шаг 2 из 4 · Проверка остатков" else "Шаг 1 из 4 · Пополнение"
     } else stepLabel
     val goBack = {
         if (isSupplyServiceFlow && viewModel.isReview && !locked) viewModel.backToRefill() else onBack()
@@ -62,8 +63,8 @@ fun ServiceStep1Screen(
         SyncSendingErrorDialog(
             title = if (viewModel.hasSavedLocally) "Изменения сохранены на устройстве" else "Не удалось сохранить изменения",
             message = if (viewModel.hasSavedLocally) savedLocallySyncMessage(viewModel.syncErrorMessage) else viewModel.syncErrorMessage,
-            dismissText = if (viewModel.hasSavedLocally) "Готово" else "Закрыть",
-            retryText = "Повторить сейчас",
+            dismissText = if (viewModel.hasSavedLocally) "Продолжить" else "Закрыть",
+            retryText = "Повторить",
             onDismiss = {
                 viewModel.dismissSyncError()
                 if (viewModel.hasSavedLocally) onNext()
@@ -122,10 +123,21 @@ fun ServiceStep1Screen(
                                 }
                             }
                         }
-                        Text(if (showAvailability) "Добавлено / На складе" else "Добавлено",
+                        Text("Добавлено",
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
-                        Text("Источник: ${viewModel.selectedSource.title}", style = MaterialTheme.typography.bodyMedium)
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        ) {
+                            Text(
+                                text = "Проверить и указать фактические остатки после пополнения",
+                                modifier = Modifier.padding(16.dp),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                        }
                     }
                     if (viewModel.shortages.isNotEmpty() || viewModel.warehouseError != null) {
                         Text(viewModel.warehouseError ?: "Не хватает остатков на складе", color = MaterialTheme.colorScheme.error)
@@ -146,8 +158,8 @@ fun ServiceStep1Screen(
                         }
                         CounterRow(
                             title = type.title, value = inventory.quantity(type),
-                            max = if (showAvailability) available else station.settings.maximum(type),
-                            showMax = if (isSupplyServiceFlow) showAvailability else role != UserRole.OPERATOR,
+                            max = station.settings.maximum(type),
+                            showMax = !isSupplyServiceFlow && role != UserRole.OPERATOR,
                             iconRes = type.iconRes,
                             valueColor = valueColor,
                             enabled = !locked,
@@ -157,12 +169,22 @@ fun ServiceStep1Screen(
                         )
                         if (isSupplyServiceFlow && viewModel.isReview && line != null) {
                             val difference = line.actual.toLong() - line.expected
-                            Text(
-                                text = "Добавлено: ${line.added} · Ожидалось: ${line.expected}" +
-                                    if (difference != 0L) " · Корректировка: ${if (difference > 0) "+" else ""}$difference" else "",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (difference != 0L) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                if (line.added > 0) {
+                                    Text(
+                                        text = "Пополнено: ${line.added}",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color(0xFF43A86B)
+                                    )
+                                }
+                                if (difference != 0L) {
+                                    Text(
+                                        text = "Корректировка: ${if (difference > 0) "+" else ""}$difference",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.tertiary
+                                    )
+                                }
+                            }
                         }
                     }
                 }

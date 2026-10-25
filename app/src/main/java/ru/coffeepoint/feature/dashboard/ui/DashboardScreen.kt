@@ -31,7 +31,8 @@ import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.AlertDialog
+import ru.coffeepoint.shared.component.AppDialog
+import ru.coffeepoint.shared.component.AppDialogButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FabPosition
@@ -43,7 +44,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -75,7 +75,6 @@ import ru.coffeepoint.feature.dashboard.model.supplyOperatorTechServiceDashboard
 import ru.coffeepoint.feature.dashboard.presentation.DashboardViewModel
 import ru.coffeepoint.feature.supplycatalog.component.SupplyCatalogQuickInfoDialog
 import ru.coffeepoint.shared.component.SyncSendingOverlay
-import ru.coffeepoint.shared.component.asActionButtonText
 
 @Composable
 fun DashboardScreen(
@@ -193,7 +192,7 @@ fun DashboardScreen(
 
     if (viewModel.showGoogleSheetsSyncError) {
 
-        AlertDialog(
+        AppDialog(
             onDismissRequest = {
                 viewModel.dismissGoogleSheetsSyncError()
             },
@@ -204,13 +203,7 @@ fun DashboardScreen(
                 Text("\u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 \u043a \u0438\u043d\u0442\u0435\u0440\u043d\u0435\u0442\u0443 \u0438 \u043f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435 \u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435")
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.dismissGoogleSheetsSyncError()
-                    }
-                ) {
-                    Text("\u0417\u0430\u043a\u0440\u044b\u0442\u044c".asActionButtonText())
-                }
+                AppDialogButton("Закрыть", onClick = viewModel::dismissGoogleSheetsSyncError)
             }
         )
 

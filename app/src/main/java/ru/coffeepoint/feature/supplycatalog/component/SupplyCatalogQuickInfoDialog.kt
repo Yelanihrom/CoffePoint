@@ -4,20 +4,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.AlertDialog
+import androidx.compose.foundation.shape.RoundedCornerShape
+import ru.coffeepoint.shared.component.AppDialog
+import ru.coffeepoint.shared.component.AppDialogButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import ru.coffeepoint.core.data.local.entity.SupplyCatalogEntity
 import ru.coffeepoint.feature.supplycatalog.model.SupplyCatalogItemType
-import ru.coffeepoint.shared.component.asActionButtonText
 
 @Composable
 fun SupplyCatalogQuickInfoDialog(
@@ -36,8 +34,7 @@ fun SupplyCatalogQuickInfoDialog(
                 .thenBy { item -> item.id }
         )
 
-    AlertDialog(
-        modifier = Modifier.widthIn(min = 320.dp),
+    AppDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(title)
@@ -68,16 +65,7 @@ fun SupplyCatalogQuickInfoDialog(
             }
         },
         confirmButton = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                TextButton(
-                    onClick = onDismiss
-                ) {
-                    Text("\u0417\u0430\u043a\u0440\u044b\u0442\u044c".asActionButtonText())
-                }
-            }
+            AppDialogButton("Закрыть", onClick = onDismiss)
         }
     )
 }
@@ -87,7 +75,8 @@ private fun QuickInfoOptionCard(
     item: SupplyCatalogEntity
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp)
     ) {
         Column(
             modifier = Modifier.padding(12.dp),

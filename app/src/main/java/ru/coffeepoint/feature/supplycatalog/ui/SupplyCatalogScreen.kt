@@ -35,7 +35,8 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
+import ru.coffeepoint.shared.component.AppDialog
+import ru.coffeepoint.shared.component.AppDialogButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -44,7 +45,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -108,7 +108,7 @@ fun SupplyCatalogScreen(
     }
 
     if (viewModel.showRefreshError) {
-        AlertDialog(
+        AppDialog(
             onDismissRequest = {
                 viewModel.dismissRefreshError()
             },
@@ -119,13 +119,7 @@ fun SupplyCatalogScreen(
                 Text("Не удалось обновить каталог закупки")
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.dismissRefreshError()
-                    }
-                ) {
-                    Text("Закрыть".asActionButtonText())
-                }
+                AppDialogButton("Закрыть", onClick = viewModel::dismissRefreshError)
             }
         )
     }

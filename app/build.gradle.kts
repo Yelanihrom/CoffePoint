@@ -13,6 +13,13 @@ val releaseSigningProperties = Properties().apply {
     }
 }
 
+val testBackendProperties = Properties().apply {
+    val propertiesFile = rootProject.file("test-backend.properties")
+    if (propertiesFile.exists()) {
+        propertiesFile.inputStream().use(::load)
+    }
+}
+
 fun signingValue(property: String, environment: String): String? =
     providers.environmentVariable(environment).orNull ?: releaseSigningProperties.getProperty(property)
 
@@ -30,8 +37,11 @@ android {
         applicationId = "ru.coffeepoint"
         minSdk = 26
         targetSdk = 37
-        versionCode = 18
-        versionName = "1.0.18"
+        versionCode = 19
+        versionName = "1.0.19"
+        manifestPlaceholders["appLabel"] = "@string/app_name"
+        manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher"
+        manifestPlaceholders["appRoundIcon"] = "@mipmap/ic_launcher_round"
 
         buildConfigField("boolean", "IS_TEST_ENVIRONMENT", "false")
         buildConfigField("String", "TEST_SHEETS_WEB_APP_URL", "\"\"")
@@ -57,12 +67,17 @@ android {
             if (providers.gradleProperty("ciBuild").orNull == "true") {
                 applicationIdSuffix = ".ci"
                 versionNameSuffix = "-ci"
+                manifestPlaceholders["appLabel"] = "CoffeePoint TEST"
+                manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher_test"
+                manifestPlaceholders["appRoundIcon"] = "@mipmap/ic_launcher_test"
                 buildConfigField("boolean", "IS_TEST_ENVIRONMENT", "true")
                 buildConfigField("String", "TEST_SHEETS_WEB_APP_URL", quotedBuildConfig(
-                    providers.environmentVariable("COFFEEPOINT_TEST_WEB_APP_URL").orNull.orEmpty().trim()
+                    providers.environmentVariable("COFFEEPOINT_TEST_WEB_APP_URL").orNull
+                        ?.trim() ?: testBackendProperties.getProperty("webAppUrl", "").trim()
                 ))
                 buildConfigField("String", "TEST_SHEETS_SYNC_TOKEN", quotedBuildConfig(
-                    providers.environmentVariable("COFFEEPOINT_TEST_SYNC_TOKEN").orNull.orEmpty().trim()
+                    providers.environmentVariable("COFFEEPOINT_TEST_SYNC_TOKEN").orNull
+                        ?.trim() ?: testBackendProperties.getProperty("syncToken", "").trim()
                 ))
             }
         }

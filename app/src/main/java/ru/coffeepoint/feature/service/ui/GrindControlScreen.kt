@@ -20,7 +20,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material3.AlertDialog
+import ru.coffeepoint.shared.component.AppDialog
+import ru.coffeepoint.shared.component.AppDialogButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,7 +30,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -69,7 +69,7 @@ fun GrindControlScreen(
     val showKeypadHelp = remember { mutableStateOf(false) }
 
     if (showKeypadHelp.value) {
-        AlertDialog(
+        AppDialog(
             onDismissRequest = { showKeypadHelp.value = false },
             title = { Text("Кнопки аппарата") },
             text = {
@@ -83,9 +83,7 @@ fun GrindControlScreen(
                 )
             },
             confirmButton = {
-                TextButton(onClick = { showKeypadHelp.value = false }) {
-                    Text("Закрыть")
-                }
+                AppDialogButton("Закрыть", onClick = { showKeypadHelp.value = false })
             }
         )
     }
@@ -100,7 +98,7 @@ fun GrindControlScreen(
                             style = MaterialTheme.typography.titleLarge
                         )
                         Text(
-                            text = "Шаг 2 из 3",
+                            text = "Шаг 3 из 4",
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }

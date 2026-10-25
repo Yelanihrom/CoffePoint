@@ -58,7 +58,7 @@ fun ServiceStep2Screen(
         SyncSendingErrorDialog(
             message = savedLocallySyncMessage(viewModel.syncErrorMessage),
             dismissText = "\u0413\u043e\u0442\u043e\u0432\u043e",
-            retryText = "\u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u044c \u0441\u0435\u0439\u0447\u0430\u0441",
+            retryText = "Повторить",
             onDismiss = {
                 viewModel.dismissSyncError()
                 onFinish()

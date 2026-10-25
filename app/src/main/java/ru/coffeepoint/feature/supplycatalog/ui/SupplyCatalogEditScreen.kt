@@ -12,8 +12,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
+import ru.coffeepoint.shared.component.AppDialog
+import ru.coffeepoint.shared.component.AppDialogButton
+import ru.coffeepoint.shared.component.DialogButtonStyle
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -27,7 +28,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -44,7 +44,6 @@ import ru.coffeepoint.feature.supplycatalog.presentation.SupplyCatalogEditViewMo
 import ru.coffeepoint.shared.component.BottomActionBar
 import ru.coffeepoint.shared.component.SyncSendingErrorDialog
 import ru.coffeepoint.shared.component.SyncSendingOverlay
-import ru.coffeepoint.shared.component.asActionButtonText
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,7 +78,7 @@ fun SupplyCatalogEditScreen(
     }
 
     if (viewModel.showDeleteConfirm) {
-        AlertDialog(
+        AppDialog(
             onDismissRequest = viewModel::dismissDeleteConfirm,
             title = {
                 Text("Удалить вариант?")
@@ -88,20 +87,18 @@ fun SupplyCatalogEditScreen(
                 Text("Вариант закупки будет удален из каталога.")
             },
             confirmButton = {
-                Button(
+                AppDialogButton(
+                    text = "Удалить", style = DialogButtonStyle.Destructive,
                     onClick = {
                         viewModel.delete(onSaved)
                     }
-                ) {
-                    Text("Удалить".asActionButtonText())
-                }
+                )
             },
             dismissButton = {
-                TextButton(
+                AppDialogButton(
+                    text = "Отменить", style = DialogButtonStyle.Secondary,
                     onClick = viewModel::dismissDeleteConfirm
-                ) {
-                    Text("Отмена".asActionButtonText())
-                }
+                )
             }
         )
     }

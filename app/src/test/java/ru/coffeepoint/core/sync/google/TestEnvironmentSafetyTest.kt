@@ -10,6 +10,12 @@ import ru.coffeepoint.core.data.remote.dto.TerminalCommandRequestDto
 import ru.coffeepoint.core.data.remote.network.ApiProvider
 
 class TestEnvironmentSafetyTest {
+    @Test fun `test installation cannot replace the production app`() {
+        assumeTrue(BuildConfig.IS_TEST_ENVIRONMENT)
+        assertEquals("ru.coffeepoint.ci", BuildConfig.APPLICATION_ID)
+        assertTrue(BuildConfig.VERSION_NAME.endsWith("-ci"))
+    }
+
     @Test fun `CI sync uses only explicit test settings`() {
         assumeTrue(BuildConfig.IS_TEST_ENVIRONMENT)
         assertEquals(BuildConfig.TEST_SHEETS_WEB_APP_URL, GoogleSheetsSyncConfig.WEB_APP_URL)

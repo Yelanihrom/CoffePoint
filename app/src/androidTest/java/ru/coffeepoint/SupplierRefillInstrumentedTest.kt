@@ -96,39 +96,59 @@ class SupplierRefillInstrumentedTest {
         val db = DatabaseProvider.getDatabase(context)
         check(db.coffeeStationDao().getById(908070) == null) { "Test station already exists" }
         val oldStock = db.warehouseStockDao().getAll()
+        var nextSteps = 0
         try {
             seed(db, 20)
             compose.setContent {
                 CoffeePointTheme {
-                    ServiceStep1Screen(908070, UserRole.SUPPLY_OPERATOR, onBack = {}, onNext = {},
+                    ServiceStep1Screen(908070, UserRole.SUPPLY_OPERATOR, onBack = {}, onNext = { nextSteps++ },
                         isSupplyServiceFlow = true, syncImmediatelyOnSave = true)
                 }
             }
             compose.waitUntil(10000) { compose.onAllNodesWithText("Сколько добавили?").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Склад").assertIsDisplayed()
-            compose.onNodeWithText("8 / 20").assertIsDisplayed()
+            compose.onNodeWithText("Шаг 1 из 4 · Пополнение").assertIsDisplayed()
+            compose.onNodeWithText("Проверить и указать фактические остатки после пополнения").assertDoesNotExist()
+            compose.onNodeWithText("8").assertIsDisplayed()
+            compose.onNodeWithText("8 / 20").assertDoesNotExist()
+            compose.onNodeWithText("Добавлено / На складе").assertDoesNotExist()
             screenshot("supplier-refill-added.png")
             compose.onNodeWithText("ПРОВЕРИТЬ ОСТАТКИ").performClick()
             compose.waitUntil(10000) { compose.onAllNodesWithText("Остаток после пополнения").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("Шаг 2 из 4 · Проверка остатков").assertIsDisplayed()
+            compose.onNodeWithText("Проверить и указать фактические остатки после пополнения").assertIsDisplayed()
+            compose.onNodeWithText("Источник: Склад").assertDoesNotExist()
+            compose.onNodeWithText("Пополнено: 0").assertDoesNotExist()
+            compose.onNodeWithTag("stock-lids").assertExists()
             compose.onNode(hasText("-") and hasAnyAncestor(hasTestTag("stock-cups"))).performClick()
             compose.onNodeWithText("11").assertIsDisplayed()
-            compose.onNodeWithText("Добавлено: 8 · Ожидалось: 12 · Корректировка: -1").assertIsDisplayed()
+            val added = compose.onNodeWithText("Пополнено: 8").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            compose.onNodeWithText("Добавлено: 8").assertDoesNotExist()
+            compose.onNodeWithText("Ожидалось: 12").assertDoesNotExist()
+            val correction = compose.onNodeWithText("Корректировка: -1").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertTrue(added.bottom < correction.top)
             screenshot("supplier-refill-review.png")
             compose.onNodeWithContentDescription("Назад").performClick()
-            compose.onNodeWithText("8 / 20").assertIsDisplayed()
+            compose.onNodeWithText("Шаг 1 из 4 · Пополнение").assertIsDisplayed()
+            compose.onNodeWithText("8").assertIsDisplayed()
+            compose.onNodeWithText("8 / 20").assertDoesNotExist()
             compose.onNodeWithText("ПРОВЕРИТЬ ОСТАТКИ").performClick()
             compose.onNodeWithText("11").assertIsDisplayed()
             compose.onNodeWithText("ДАЛЕЕ").performClick()
             compose.waitUntil(15000) {
                 compose.onAllNodesWithText("Изменения сохранены на устройстве").fetchSemanticsNodes().isNotEmpty()
             }
+            compose.onNodeWithText("ПРОДОЛЖИТЬ").assertIsDisplayed()
+            compose.onNodeWithText("ГОТОВО").assertDoesNotExist()
             assertEquals(11, db.stationInventoryDao().getByStationId(908070)!!.cups)
             assertEquals(12, db.warehouseStockDao().getAll().single { it.itemType == "cups" }.quantity)
-            compose.onNodeWithText("ПОВТОРИТЬ СЕЙЧАС").performClick()
+            compose.onNodeWithText("ПОВТОРИТЬ").performClick()
             compose.waitUntil(15000) {
                 compose.onAllNodesWithText("Изменения сохранены на устройстве").fetchSemanticsNodes().isNotEmpty()
             }
             assertEquals(12, db.warehouseStockDao().getAll().single { it.itemType == "cups" }.quantity)
+            compose.onNodeWithText("ПРОДОЛЖИТЬ").performClick()
+            compose.runOnIdle { assertEquals(1, nextSteps) }
         } finally {
             WorkManager.getInstance(context).cancelAllWork().result.get()
             db.stationInventoryDao().deleteByStationId(908070)

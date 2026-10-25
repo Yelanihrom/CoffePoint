@@ -21,11 +21,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material3.AlertDialog
+import ru.coffeepoint.shared.component.AppDialog
+import ru.coffeepoint.shared.component.AppDialogButton
+import ru.coffeepoint.shared.component.AppDatePickerDialog
+import ru.coffeepoint.shared.component.DialogButtonStyle
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,7 +36,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -89,7 +90,7 @@ fun MonthlyEarningsScreen(
     }
 
     if (viewModel.showConnectionError) {
-        AlertDialog(
+        AppDialog(
             onDismissRequest = {
                 viewModel.dismissConnectionError()
             },
@@ -100,13 +101,7 @@ fun MonthlyEarningsScreen(
                 Text("\u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 \u043a \u0438\u043d\u0442\u0435\u0440\u043d\u0435\u0442\u0443 \u0438 \u043e\u0442\u043a\u043b\u044e\u0447\u0438\u0442\u0435 VPN")
             },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.dismissConnectionError()
-                    }
-                ) {
-                    Text("\u0417\u0430\u043a\u0440\u044b\u0442\u044c".asActionButtonText())
-                }
+                AppDialogButton("Закрыть", onClick = viewModel::dismissConnectionError)
             }
         )
     }
@@ -126,18 +121,19 @@ fun MonthlyEarningsScreen(
             }
         )
 
-        DatePickerDialog(
+        AppDatePickerDialog(
             onDismissRequest = {
                 datePickerTarget = null
             },
             confirmButton = {
-                TextButton(
+                AppDialogButton(
+                    text = "Выбрать",
                     onClick = {
                         val selectedDate = datePickerState.selectedDateMillis
                             ?.let { millis ->
                                 formatDisplayDate(millis)
                             }
-                            ?: return@TextButton
+                            ?: return@AppDialogButton
 
                         when (target) {
                             EarningsDatePickerTarget.OperationsStart -> {
@@ -163,18 +159,15 @@ fun MonthlyEarningsScreen(
                         )
                         datePickerTarget = null
                     }
-                ) {
-                    Text("\u0412\u044b\u0431\u0440\u0430\u0442\u044c".asActionButtonText())
-                }
+                )
             },
             dismissButton = {
-                TextButton(
+                AppDialogButton(
+                    text = "Отменить", style = DialogButtonStyle.Secondary,
                     onClick = {
                         datePickerTarget = null
                     }
-                ) {
-                    Text("\u041e\u0442\u043c\u0435\u043d\u0430".asActionButtonText())
-                }
+                )
             }
         ) {
             DatePicker(
