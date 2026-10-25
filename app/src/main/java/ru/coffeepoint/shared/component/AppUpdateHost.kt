@@ -5,11 +5,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
@@ -35,7 +33,7 @@ fun AppUpdateHost(viewModel: AppUpdateViewModel) {
     LaunchedEffect(state.file) {
         if (state.file != null && viewModel.consumeAutoInstall() && AppUpdatePlatform.canInstall(context)) install()
     }
-    AlertDialog(
+    AppDialog(
         onDismissRequest = viewModel::dismiss,
         title = { Text("Доступно обновление ${update.versionName}") },
         text = {
@@ -52,13 +50,23 @@ fun AppUpdateHost(viewModel: AppUpdateViewModel) {
             }
         },
         confirmButton = {
-            if (!state.downloading) TextButton(onClick = {
+            if (state.downloading) AppDialogButton(
+                text = "Отменить", onClick = viewModel::dismiss, style = DialogButtonStyle.Secondary
+            ) else AppDialogButton(
+                text = if (state.file != null) "Установить" else if (state.error != null) "Повторить" else "Обновить",
+                onClick = {
                 if (state.file == null) viewModel.download()
                 else if (AppUpdatePlatform.canInstall(context)) install()
                 else try { permission.launch(AppUpdatePlatform.permissionIntent(context)) }
                 catch (_: Exception) { viewModel.installationError() }
-            }) { Text((if (state.file != null) "Установить" else if (state.error != null) "Повторить" else "Обновить").asActionButtonText()) }
+            })
         },
-        dismissButton = { TextButton(onClick = viewModel::dismiss) { Text((if (state.downloading) "Отмена" else "Позже").asActionButtonText()) } }
+        dismissButton = if (state.downloading) null else ({
+            AppDialogButton(
+                text = "Позже",
+                onClick = viewModel::dismiss,
+                style = DialogButtonStyle.Secondary
+            )
+        })
     )
 }

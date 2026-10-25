@@ -16,6 +16,7 @@
 | Задача | Начать с |
 | --- | --- |
 | Найти пакет или экран | [Карта проекта](docs/project-structure.md), [features](app/src/main/java/ru/coffeepoint/feature/README.md) |
+| Модальные окна, кнопки, дата и время | [UI-kit](docs/ui-kit.md), `shared/component/AppDialogs.kt` |
 | Границы ответственности | [Архитектура](docs/architecture.md) |
 | Роли, заправка, снабжение, заработок | [Бизнес-процессы](docs/business-processes.md) |
 | Локальное сохранение, очередь, конфликт | [Синхронизация](docs/synchronization.md), [connector](app/src/main/java/ru/coffeepoint/core/sync/google/README.md) |
@@ -50,9 +51,12 @@ Room-схему и номер версии проверяй в исходник�
 
 ## Окружения и секреты
 
-- Тестовая сборка включается только с `-PciBuild=true`, имеет отдельный
+- Тестовая debug-сборка включается свойством `ciBuild=true` (по умолчанию
+  в `gradle.properties`, эквивалент `-PciBuild=true`), имеет отдельный
   applicationId и использует только тестовый URL/токен. Не добавляй fallback
   на рабочий сервер, не ослабляй блокировку команд терминалу ради тестов.
+  Локальные настройки Studio — игнорируемый `test-backend.properties`;
+  генератор `scripts/configure-studio-test.cjs`. Release остаётся рабочим.
 - `.codex`, ключи подписи, OAuth-файлы, токены и локальные properties не коммить.
   Не выводи секреты, полные авторизованные URL или HTTP-тела с токенами в логи.
 - Для тестового сервера запускай `scripts/prepare-test-backend.cjs` или
@@ -69,7 +73,7 @@ Room-схему и номер версии проверяй в исходник�
 Из корня проекта, Node.js 22+:
 
 ```powershell
-node --test scripts/tests/docs.test.cjs scripts/tests/test-backend.test.cjs scripts/tests/release.test.cjs google-apps-script/tests/http-contract.test.cjs
+node --test scripts/tests/docs.test.cjs scripts/tests/test-backend.test.cjs scripts/tests/studio-test.test.cjs scripts/tests/ui-kit.test.cjs scripts/tests/release.test.cjs google-apps-script/tests/http-contract.test.cjs
 node scripts/docs.cjs --check
 
 $env:JAVA_HOME = 'D:\Android Studio\jbr'
@@ -79,7 +83,8 @@ $env:JAVA_HOME = 'D:\Android Studio\jbr'
 Путь к JDK — пример для текущего компьютера; при другом окружении используй
 доступный JDK 21. Если Node.js не в PATH, найди установленный или bundled runtime;
 не считай отсутствие команды доказательством отсутствия самого runtime.
-Без тестовых переменных CI APK собирается, но не синхронизируется.
+Без тестовых переменных и локального `test-backend.properties` CI APK
+собирается, но не синхронизируется.
 
 - Изменение запросов: обе стороны контракта и соответствующие JVM/Node-тесты.
 - Изменение бизнес-правила: тесты границ, нулевых значений, ролей, дат и повторов

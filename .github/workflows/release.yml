@@ -52,7 +52,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          node --test scripts/tests/docs.test.cjs scripts/tests/test-backend.test.cjs scripts/tests/release.test.cjs google-apps-script/tests/http-contract.test.cjs
+          node --test scripts/tests/docs.test.cjs scripts/tests/test-backend.test.cjs scripts/tests/studio-test.test.cjs scripts/tests/ui-kit.test.cjs scripts/tests/release.test.cjs google-apps-script/tests/http-contract.test.cjs
           node scripts/docs.cjs --check
           node -e 'const fs=require("fs"); const {readVersion}=require("./scripts/docs.cjs"); const v=readVersion(fs.readFileSync("app/build.gradle.kts","utf8")); if(process.env.RELEASE_TAG!=="v"+v.name) throw Error("Tag must match Gradle versionName");'
       - uses: actions/setup-java@v4
@@ -66,7 +66,7 @@ jobs:
       - name: Test both Android configurations
         run: |
           bash ./gradlew :app:testDebugUnitTest -PciBuild=true --no-daemon --console=plain
-          bash ./gradlew :app:testDebugUnitTest --no-daemon --console=plain
+          bash ./gradlew :app:testDebugUnitTest -PciBuild=false --no-daemon --console=plain
       - name: Build signed production APK
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}

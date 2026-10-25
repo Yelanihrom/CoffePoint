@@ -1,7 +1,6 @@
 package ru.coffeepoint.feature.station.ui
 
-import android.app.TimePickerDialog
-import android.content.Context
+import ru.coffeepoint.shared.component.AppTimePickerDialog
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,7 +21,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material3.AlertDialog
+import ru.coffeepoint.shared.component.AppDialog
+import ru.coffeepoint.shared.component.AppDialogButton
+import ru.coffeepoint.shared.component.DialogButtonStyle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -40,7 +41,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -49,7 +49,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -63,7 +62,6 @@ import ru.coffeepoint.shared.component.BottomActionBar
 import ru.coffeepoint.shared.component.SyncSendingErrorDialog
 import ru.coffeepoint.shared.component.SyncSendingOverlay
 import ru.coffeepoint.shared.component.asActionButtonText
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -108,7 +106,7 @@ fun StationSettingsScreen(
 
     if (showDeleteDialog) {
 
-        AlertDialog(
+        AppDialog(
             onDismissRequest = {
                 showDeleteDialog = false
             },
@@ -120,7 +118,8 @@ fun StationSettingsScreen(
             },
             confirmButton = {
 
-                TextButton(
+                AppDialogButton(
+                    text = "Удалить", style = DialogButtonStyle.Destructive,
                     onClick = {
                         showDeleteDialog = false
 
@@ -128,20 +127,17 @@ fun StationSettingsScreen(
                             onDeleted()
                         }
                     }
-                ) {
-                    Text("Удалить".asActionButtonText())
-                }
+                )
 
             },
             dismissButton = {
 
-                TextButton(
+                AppDialogButton(
+                    text = "Отменить", style = DialogButtonStyle.Secondary,
                     onClick = {
                         showDeleteDialog = false
                     }
-                ) {
-                    Text("Отмена".asActionButtonText())
-                }
+                )
 
             }
         )
@@ -413,7 +409,17 @@ private fun VisitHoursSection(
     onTimeToChanged: (String) -> Unit
 ) {
 
-    val context = LocalContext.current
+    var editingTimeFrom by remember { mutableStateOf<Boolean?>(null) }
+    editingTimeFrom?.let { from ->
+        AppTimePickerDialog(
+            value = if (from) visitTimeFrom else visitTimeTo,
+            onDismiss = { editingTimeFrom = null },
+            onSave = { value ->
+                if (from) onTimeFromChanged(value) else onTimeToChanged(value)
+                editingTimeFrom = null
+            }
+        )
+    }
     val selectedDays = remember(visitDays) {
         visitDays.toDaySet()
     }
@@ -464,11 +470,7 @@ private fun VisitHoursSection(
                 label = "С",
                 value = visitTimeFrom,
                 onClick = {
-                    showVisitTimePicker(
-                        context = context,
-                        value = visitTimeFrom,
-                        onTimeSelected = onTimeFromChanged
-                    )
+                    editingTimeFrom = true
                 }
             )
 
@@ -477,11 +479,7 @@ private fun VisitHoursSection(
                 label = "До",
                 value = visitTimeTo,
                 onClick = {
-                    showVisitTimePicker(
-                        context = context,
-                        value = visitTimeTo,
-                        onTimeSelected = onTimeToChanged
-                    )
+                    editingTimeFrom = false
                 }
             )
 
@@ -829,35 +827,6 @@ private fun SettingsCheckboxRow(
         )
 
     }
-
-}
-
-private fun showVisitTimePicker(
-    context: Context,
-    value: String,
-    onTimeSelected: (String) -> Unit
-) {
-
-    val parts = value.split(":")
-    val hour = parts.getOrNull(0)?.toIntOrNull() ?: 9
-    val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
-
-    TimePickerDialog(
-        context,
-        { _, selectedHour, selectedMinute ->
-            onTimeSelected(
-                String.format(
-                    Locale.getDefault(),
-                    "%02d:%02d",
-                    selectedHour,
-                    selectedMinute
-                )
-            )
-        },
-        hour,
-        minute,
-        true
-    ).show()
 
 }
 

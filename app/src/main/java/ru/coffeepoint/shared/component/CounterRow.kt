@@ -17,6 +17,10 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 
 @Composable
 fun CounterRow(
@@ -27,12 +31,15 @@ fun CounterRow(
     valueSuffix: String = "",
     @DrawableRes iconRes: Int? = null,
     onMinus: () -> Unit,
-    onPlus: () -> Unit
+    onPlus: () -> Unit,
+    valueColor: Color = Color.Unspecified,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier
 ) {
 
     Row(
 
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
 
@@ -73,19 +80,19 @@ fun CounterRow(
 
             CounterButton(
                 text = "-",
-                onClick = onMinus
+                onClick = onMinus,
+                enabled = enabled
             )
 
             Text(
 
-                text = if (showMax && valueSuffix.isNotBlank()) {
-                    "$value $valueSuffix / $max $valueSuffix"
-                } else if (showMax) {
-                    "$value / $max"
-                } else if (valueSuffix.isNotBlank()) {
-                    "$value $valueSuffix"
-                } else {
-                    value.toString()
+                text = buildAnnotatedString {
+                    withStyle(SpanStyle(color = valueColor)) { append(value.toString()) }
+                    if (valueSuffix.isNotBlank()) append(" $valueSuffix")
+                    if (showMax) {
+                        append(" / $max")
+                        if (valueSuffix.isNotBlank()) append(" $valueSuffix")
+                    }
                 },
 
                 modifier = Modifier.width(96.dp),
@@ -100,7 +107,8 @@ fun CounterRow(
 
             CounterButton(
                 text = "+",
-                onClick = onPlus
+                onClick = onPlus,
+                enabled = enabled
             )
 
         }

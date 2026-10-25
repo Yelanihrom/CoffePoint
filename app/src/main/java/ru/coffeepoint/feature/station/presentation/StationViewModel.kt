@@ -20,6 +20,11 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
+data class ServicePreparationError(
+    val lastUpdated: String,
+    val hasPendingChanges: Boolean
+)
+
 class StationViewModel(
     application: Application
 ) : AndroidViewModel(application) {
@@ -39,7 +44,7 @@ class StationViewModel(
 
     var isPreparingService by mutableStateOf(false)
         private set
-    var servicePreparationError by mutableStateOf<String?>(null)
+    var servicePreparationError by mutableStateOf<ServicePreparationError?>(null)
         private set
 
     fun prepareService(includeWarehouse: Boolean, onReady: () -> Unit) {
@@ -54,11 +59,11 @@ class StationViewModel(
                     station = repository.getStation(current.station.id)
                     onReady()
                 } else {
-                    val reason = if (result == GoogleSheetsImportResult.SkippedPendingChanges)
-                        "Есть локальные изменения. Они сохранены и не заменены данными сервера."
-                    else "Не удалось получить актуальные данные станции."
                     val lastImport = GoogleSheetsImportPreferences(getApplication()).getLastImportText() ?: "неизвестно"
-                    servicePreparationError = "$reason\nПоследний общий импорт: $lastImport.\nМожно повторить запрос или продолжить с локальными данными; они могут быть устаревшими."
+                    servicePreparationError = ServicePreparationError(
+                        lastUpdated = lastImport,
+                        hasPendingChanges = result == GoogleSheetsImportResult.SkippedPendingChanges
+                    )
                 }
             } finally {
                 isPreparingService = false

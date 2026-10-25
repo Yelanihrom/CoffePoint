@@ -459,7 +459,7 @@ fun AppNavigation() {
                     }
                 },
                 stepLabel = if (isSupplyServiceFlow) {
-                    "Шаг 1 из 3"
+                    "Шаг 1 из 4"
                 } else {
                     "Пополнение запасов"
                 },

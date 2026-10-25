@@ -1,5 +1,6 @@
 *.iml
 .gradle
+/.kotlin/
 /local.properties
 /.idea/caches
 /.idea/
@@ -19,6 +20,7 @@ local.properties
 *.apk
 /keystores/
 /release-signing.properties
+/test-backend.properties
 /local-jdk/
 .clasprc*.json
 .clasp.json

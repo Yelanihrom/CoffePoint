@@ -8,7 +8,28 @@
 - CI APK читает URL и токен только из тестовых настроек сборки. Без них
   синхронизация отключена, перехода на рабочий API по умолчанию нет.
 - Команды управления терминалами Vendista в CI APK блокируются до сети.
-- Рабочая сборка без `-PciBuild=true` сохраняет прежние настройки.
+- В `gradle.properties` задано `ciBuild=true`: обычный debug Run в Studio
+  использует тестовый пакет и сервер. Рабочий release этим флагом не меняется.
+
+## Запуск из Android Studio
+
+На этом компьютере выполнить `node scripts/configure-studio-test.cjs`.
+Скрипт берёт тестовый deployment из `config/environments/test.json`, токен —
+из `.codex/test-secrets/sync-token.txt`, и создаёт игнорируемый Git файл
+`test-backend.properties`. Значения токена не печатаются.
+
+Затем в Studio выполнить **Sync Project with Gradle Files**, выбрать `debug`
+и нажать Run. Приложение называется **CoffeePoint TEST**, пакет `ru.coffeepoint.ci`,
+на его иконке есть жёлтая буква «Т». Рабочая иконка не меняется.
+Оно не заменяет рабочее приложение и не использует его локальную БД.
+Без тестового URL/токена синхронизация отключена, рабочего fallback нет.
+Старое установленное `ru.coffeepoint` остаётся рабочим: не путать два приложения.
+
+Переменные `COFFEEPOINT_TEST_WEB_APP_URL` и `COFFEEPOINT_TEST_SYNC_TOKEN`
+имеют приоритет над локальным файлом, включая явно пустые значения.
+Для полностью офлайн-инструментальных тестов обе переменные задать пустыми.
+Чтобы намеренно собрать debug с рабочим API, нужен явный `-PciBuild=false`;
+для обычной проверки интерфейса его не использовать. Release всегда рабочий.
 
 Отдельный Apps Script опубликован, Script Properties и серверные разрешения
 настроены. HTTP-чтение и запись в тестовую таблицу проверены 20.10.2026.
@@ -78,7 +99,8 @@ CLI открывает Google для выдачи разрешений; эти �
 После изменения настроек запустить новый Android CI. Уже собранный APK не меняется:
 конфигурация вшивается при сборке. Для локальной тестовой сборки эти значения
 передаются через переменные `COFFEEPOINT_TEST_WEB_APP_URL` и
-`COFFEEPOINT_TEST_SYNC_TOKEN`, затем выполняется Gradle с `-PciBuild=true`.
+`COFFEEPOINT_TEST_SYNC_TOKEN` или локальный `test-backend.properties`, затем
+выполняется Gradle с `-PciBuild=true` (он также задан по умолчанию в проекте).
 
 `build-info.json` содержит `backendEnvironment`, `backendConfigured` и
 `terminalCommandsEnabled`, но не токен. `backendConfigured` означает только

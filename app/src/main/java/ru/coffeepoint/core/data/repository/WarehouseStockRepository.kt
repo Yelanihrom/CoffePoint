@@ -101,68 +101,12 @@ class WarehouseStockRepository(
         return result
     }
 
-    suspend fun applyWriteOffNow(
-        writeOffItems: List<WarehouseStockWriteOff>
-    ): GoogleSheetsEntitySyncResult {
-        ensureDefaults()
-
-        val writeOffByType = writeOffItems
-            .filter { item -> item.amount > 0 }
-            .associate { item -> item.itemType to item.amount }
-
-        val updatedAt = currentTimestamp()
-        val entities = dao.getAll().map { entity ->
-            val amount = writeOffByType[entity.itemType] ?: 0
-            entity.copy(
-                quantity = (entity.quantity - amount).coerceAtLeast(0),
-                updatedAt = if (amount > 0) updatedAt else entity.updatedAt,
-                isSynced = if (amount > 0) false else entity.isSynced,
-                syncError = if (amount > 0) false else entity.syncError,
-                syncErrorType = if (amount > 0) {
-                    GoogleSheetsSyncDefaults.noErrorType
-                } else {
-                    entity.syncErrorType
-                }
-            )
-        }
-
-        dao.insertAll(entities)
-
-        val changedEntities = entities.filter { entity ->
-            writeOffByType.containsKey(entity.itemType)
-        }
-        val result = googleSheetsSyncManager.syncWarehouseStock(changedEntities)
-        updateSyncStatus(
-            items = changedEntities,
-            result = result
-        )
-
+    suspend fun syncPendingNow(): GoogleSheetsEntitySyncResult {
+        val items = dao.getUnsynced()
+        if (items.isEmpty()) return GoogleSheetsEntitySyncResult.success()
+        val result = googleSheetsSyncManager.syncWarehouseStock(items)
+        updateSyncStatus(items, result)
         return result
-    }
-
-    suspend fun getShortages(
-        writeOffItems: List<WarehouseStockWriteOff>
-    ): List<WarehouseStockShortage> {
-        ensureDefaults()
-
-        val quantities = dao.getAll()
-            .associate { entity -> entity.itemType to entity.quantity }
-
-        return writeOffItems
-            .filter { item -> item.amount > 0 }
-            .mapNotNull { item ->
-                val available = quantities[item.itemType] ?: 0
-
-                if (available < item.amount) {
-                    WarehouseStockShortage(
-                        itemType = item.itemType,
-                        required = item.amount,
-                        available = available
-                    )
-                } else {
-                    null
-                }
-            }
     }
 
     suspend fun syncCurrentNow(): GoogleSheetsEntitySyncResult {
@@ -303,14 +247,3 @@ class WarehouseStockRepository(
         }
     }
 }
-
-data class WarehouseStockWriteOff(
-    val itemType: String,
-    val amount: Int
-)
-
-data class WarehouseStockShortage(
-    val itemType: String,
-    val required: Int,
-    val available: Int
-)

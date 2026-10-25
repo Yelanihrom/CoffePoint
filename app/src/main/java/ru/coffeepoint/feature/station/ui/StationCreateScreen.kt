@@ -1,7 +1,6 @@
 package ru.coffeepoint.feature.station.ui
 
-import android.app.TimePickerDialog
-import android.content.Context
+import ru.coffeepoint.shared.component.AppTimePickerDialog
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material.icons.Icons
@@ -17,6 +16,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,7 +30,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Checkbox
@@ -42,7 +43,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.coffeepoint.feature.station.presentation.StationCreateViewModel
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -440,7 +440,17 @@ private fun EditorVisitHoursSection(
     onTimeToChanged: (String) -> Unit
 ) {
 
-    val context = LocalContext.current
+    var editingTimeFrom by remember { mutableStateOf<Boolean?>(null) }
+    editingTimeFrom?.let { from ->
+        AppTimePickerDialog(
+            value = if (from) visitTimeFrom else visitTimeTo,
+            onDismiss = { editingTimeFrom = null },
+            onSave = { value ->
+                if (from) onTimeFromChanged(value) else onTimeToChanged(value)
+                editingTimeFrom = null
+            }
+        )
+    }
     val selectedDays = remember(visitDays) {
         visitDays.toEditorDaySet()
     }
@@ -496,11 +506,7 @@ private fun EditorVisitHoursSection(
                     label = "С",
                     value = visitTimeFrom,
                     onClick = {
-                        showEditorVisitTimePicker(
-                            context = context,
-                            value = visitTimeFrom,
-                            onTimeSelected = onTimeFromChanged
-                        )
+                        editingTimeFrom = true
                     }
                 )
 
@@ -509,11 +515,7 @@ private fun EditorVisitHoursSection(
                     label = "До",
                     value = visitTimeTo,
                     onClick = {
-                        showEditorVisitTimePicker(
-                            context = context,
-                            value = visitTimeTo,
-                            onTimeSelected = onTimeToChanged
-                        )
+                        editingTimeFrom = false
                     }
                 )
 
@@ -549,35 +551,6 @@ private fun EditorVisitTimeButton(
         )
 
     }
-
-}
-
-private fun showEditorVisitTimePicker(
-    context: Context,
-    value: String,
-    onTimeSelected: (String) -> Unit
-) {
-
-    val parts = value.split(":")
-    val hour = parts.getOrNull(0)?.toIntOrNull() ?: 9
-    val minute = parts.getOrNull(1)?.toIntOrNull() ?: 0
-
-    TimePickerDialog(
-        context,
-        { _, selectedHour, selectedMinute ->
-            onTimeSelected(
-                String.format(
-                    Locale.getDefault(),
-                    "%02d:%02d",
-                    selectedHour,
-                    selectedMinute
-                )
-            )
-        },
-        hour,
-        minute,
-        true
-    ).show()
 
 }
 
