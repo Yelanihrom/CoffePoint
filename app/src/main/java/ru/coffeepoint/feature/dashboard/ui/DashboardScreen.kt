@@ -60,6 +60,9 @@ import androidx.compose.ui.unit.times
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
 import ru.coffeepoint.core.auth.UserRole
+import ru.coffeepoint.BuildConfig
+import ru.coffeepoint.core.update.AppUpdateUiState
+import ru.coffeepoint.feature.dashboard.component.AppVersionFooter
 import ru.coffeepoint.core.status.StationStatusSeverity
 import ru.coffeepoint.core.status.statusSeverity
 import ru.coffeepoint.feature.dashboard.component.StationCard
@@ -87,7 +90,9 @@ fun DashboardScreen(
     onSupplyCatalog: () -> Unit,
     onWarehouseStock: () -> Unit,
     onMonthlyEarnings: () -> Unit,
-    onManagerHome: () -> Unit
+    onManagerHome: () -> Unit,
+    appUpdateState: AppUpdateUiState = AppUpdateUiState(),
+    onCheckAppUpdate: () -> Unit = {}
 ) {
 
     val viewModel: DashboardViewModel = viewModel()
@@ -406,6 +411,16 @@ fun DashboardScreen(
                     Text("\u0423\u0441\u043f\u0435\u0448\u043d\u043e \u043e\u0431\u043d\u043e\u0432\u0438\u043b\u0438 \u0432\u0441\u0435 \u0434\u0430\u043d\u043d\u044b\u0435")
                 }
             }
+        },
+        bottomBar = {
+            AppVersionFooter(
+                versionName = BuildConfig.VERSION_NAME,
+                checking = appUpdateState.checking,
+                enabled = !appUpdateState.downloading,
+                message = appUpdateState.checkMessage,
+                isError = appUpdateState.checkFailed,
+                onCheck = onCheckAppUpdate
+            )
         },
         floatingActionButtonPosition = FabPosition.End,
         floatingActionButton = {

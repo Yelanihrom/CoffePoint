@@ -20,7 +20,10 @@ data class AppUpdateUiState(
     val downloading: Boolean = false,
     val progress: Int = 0,
     val file: File? = null,
-    val error: String? = null
+    val error: String? = null,
+    val checking: Boolean = false,
+    val checkMessage: String? = null,
+    val checkFailed: Boolean = false
 )
 
 class AppUpdateViewModel(application: Application) : AndroidViewModel(application) {
@@ -36,28 +39,50 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
     fun checkOnLaunch() {
         if (started || BuildConfig.IS_TEST_ENVIRONMENT) return
         started = true
+        check(manual = false)
+    }
+
+    fun checkManually() {
+        if (BuildConfig.IS_TEST_ENVIRONMENT) {
+            state = state.copy(checkMessage = "Проверка обновлений доступна в рабочей версии", checkFailed = false)
+            return
+        }
+        check(manual = true)
+    }
+
+    private fun check(manual: Boolean) {
+        if (state.checking || state.downloading) return
+        state = state.copy(checking = true, checkMessage = null, checkFailed = false)
         viewModelScope.launch {
             try {
                 val now = System.currentTimeMillis()
-                if (now < preferences.getLong("postponedUntil", 0)) return@launch
+                if (!manual && now < preferences.getLong("postponedUntil", 0)) return@launch
                 val installed = withContext(Dispatchers.IO) { AppUpdatePlatform.installed(getApplication()) }
                 val cached = preferences.getString("manifest", null)?.let {
                     runCatching { remote.validator.parse(it, installed) }.getOrNull()
                 }
-                if (cached != null) { state = AppUpdateUiState(update = cached); return@launch }
-                if (!UpdateCheckPolicy.shouldCheck(now, preferences.getLong("success", 0), preferences.getLong("attempt", 0))) return@launch
+                if (!manual && cached != null) { state = AppUpdateUiState(update = cached); return@launch }
+                if (!UpdateCheckPolicy.shouldCheck(now, preferences.getLong("success", 0), preferences.getLong("attempt", 0), manual)) return@launch
                 preferences.edit().putLong("attempt", now).apply()
                 val update = remote.check(installed)
-                preferences.edit().putLong("success", now).putString("manifest", update?.toJson()).apply()
-                state = AppUpdateUiState(update = update)
+                preferences.edit().putLong("success", now).putString("manifest", update?.toJson()).apply {
+                    if (manual) remove("postponedUntil")
+                }.apply()
+                state = AppUpdateUiState(
+                    update = update,
+                    checkMessage = if (manual && update == null) "Доступных обновлений нет" else null
+                )
             } catch (error: CancellationException) { throw error }
-            catch (error: Exception) { Log.w("AppUpdate", "Update check unavailable: ${error.javaClass.simpleName}") }
+            catch (error: Exception) {
+                Log.w("AppUpdate", "Update check unavailable: ${error.javaClass.simpleName}")
+                if (manual) state = state.copy(checkMessage = "Не удалось проверить обновление. Повторите позже", checkFailed = true)
+            } finally { state = state.copy(checking = false) }
         }
     }
 
     fun download() {
         val update = state.update ?: return
-        if (state.downloading) return
+        if (state.downloading || state.checking) return
         val current = ++generation
         state = state.copy(downloading = true, error = null, progress = 0)
         job = viewModelScope.launch {

@@ -41,6 +41,13 @@ class AppUpdateTest {
         assertTrue(UpdateCheckPolicy.shouldCheck(now, now + 1, now + 1))
     }
 
+    @Test fun `manual check bypasses success and retry intervals`() {
+        val now = 10 * UpdateCheckPolicy.DAY
+        assertFalse(UpdateCheckPolicy.shouldCheck(now, now, now))
+        assertTrue(UpdateCheckPolicy.shouldCheck(now, now, now, manual = true))
+        assertTrue(UpdateCheckPolicy.shouldCheck(now, 0, now, manual = true))
+    }
+
     @Test fun `latest published manifest is read without credentials`() = runBlocking {
         ApiTestServer().use { http ->
             val source = AppUpdateRemoteSource(http.client, apiBase = http.server.url("/"), downloadBase = http.server.url("/"))
