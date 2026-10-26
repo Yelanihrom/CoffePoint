@@ -32,7 +32,10 @@ class MainActivity : ComponentActivity() {
 
             CoffeePointTheme {
 
-                AppNavigation()
+                AppNavigation(
+                    appUpdateState = updateViewModel.state,
+                    onCheckAppUpdate = updateViewModel::checkManually
+                )
                 AppUpdateHost(updateViewModel)
 
             }

@@ -36,7 +36,8 @@ object UpdateCheckPolicy {
     const val DAY = 24 * 60 * 60 * 1000L
     const val RETRY = 60 * 60 * 1000L
 
-    fun shouldCheck(now: Long, lastSuccess: Long, lastAttempt: Long): Boolean {
+    fun shouldCheck(now: Long, lastSuccess: Long, lastAttempt: Long, manual: Boolean = false): Boolean {
+        if (manual) return true
         fun due(time: Long, interval: Long) = time <= 0 || now < time || now - time >= interval
         return due(lastSuccess, DAY) && due(lastAttempt, RETRY)
     }

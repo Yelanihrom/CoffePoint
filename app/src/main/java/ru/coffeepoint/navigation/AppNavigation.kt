@@ -14,6 +14,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import ru.coffeepoint.core.auth.RolePreferences
 import ru.coffeepoint.core.auth.UserRole
+import ru.coffeepoint.core.update.AppUpdateUiState
 import ru.coffeepoint.feature.auth.ui.RoleSelectionScreen
 import ru.coffeepoint.feature.camera.ui.CameraScreen
 import ru.coffeepoint.feature.dashboard.ui.DashboardScreen
@@ -32,7 +33,10 @@ import ru.coffeepoint.feature.warehouse.ui.WarehouseStockSettingsScreen
 import ru.coffeepoint.feature.warehouse.ui.WarehouseStockScreen
 
 @Composable
-fun AppNavigation() {
+fun AppNavigation(
+    appUpdateState: AppUpdateUiState = AppUpdateUiState(),
+    onCheckAppUpdate: () -> Unit = {}
+) {
 
     val navController = rememberNavController()
     val context = LocalContext.current
@@ -91,6 +95,8 @@ fun AppNavigation() {
             DashboardScreen(
                 role = role,
                 initialManagerMode = selectedManagerMode,
+                appUpdateState = appUpdateState,
+                onCheckAppUpdate = onCheckAppUpdate,
                 onStationClick = { stationId ->
 
                     navController.navigate(
