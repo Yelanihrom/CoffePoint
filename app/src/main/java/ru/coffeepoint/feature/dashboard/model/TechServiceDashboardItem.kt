@@ -49,7 +49,7 @@ fun StationDetail.supplyAttentionTechServiceDashboardItems(role: UserRole?): Lis
     return if (role == UserRole.MANAGER) {
         techServiceDashboardItems().filter { it.title == "Миксеры" || it.title == "Контейнер жидких отходов" }
     } else {
-        supplyOperatorTechServiceDashboardItems()
+        emptyList()
     }
 }
 

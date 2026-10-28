@@ -13,10 +13,16 @@ class SupplyMaintenanceResponsibilitiesTest {
         StationSettings(cupsMax = 12, lidsMax = 6, coffeeMax = 6, milkMax = 10, chocolateMax = 10, toppingMax = 10)
     )
 
-    @Test fun `supplier sees and receives only mixers even when container overdue`() {
+    @Test fun `supplier sees mixers but receives no maintenance notifications`() {
         val station = detail()
         assertEquals(listOf("Миксеры"), station.supplyOperatorTechServiceDashboardItems().map { it.title })
-        assertEquals(listOf("Миксеры"), station.supplyAttentionTechServiceDashboardItems(UserRole.SUPPLY_OPERATOR).map { it.title })
+        assertTrue(station.supplyAttentionTechServiceDashboardItems(UserRole.SUPPLY_OPERATOR).isEmpty())
+    }
+
+    @Test fun `operator and missing role receive no maintenance notifications`() {
+        val station = detail()
+        assertTrue(station.supplyAttentionTechServiceDashboardItems(UserRole.OPERATOR).isEmpty())
+        assertTrue(station.supplyAttentionTechServiceDashboardItems(null).isEmpty())
     }
 
     @Test fun `container stays in manager notifications and maintenance data`() {
@@ -32,5 +38,12 @@ class SupplyMaintenanceResponsibilitiesTest {
         assertTrue(station.supplyAttentionTechServiceDashboardItems(UserRole.SUPPLY_OPERATOR).isEmpty())
         assertEquals(listOf("Контейнер жидких отходов"),
             station.supplyAttentionTechServiceDashboardItems(UserRole.MANAGER).map { it.title })
+    }
+
+    @Test fun `manager receives no maintenance notifications for nodes not yet due`() {
+        val station = detail(mixers = "01.01.2999").let {
+            it.copy(station = it.station.copy(liquidWasteContainerServiceDate = "01.01.2999"))
+        }
+        assertTrue(station.supplyAttentionTechServiceDashboardItems(UserRole.MANAGER).isEmpty())
     }
 }
