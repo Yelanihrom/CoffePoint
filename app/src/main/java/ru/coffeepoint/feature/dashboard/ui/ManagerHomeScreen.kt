@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.dp
 fun ManagerHomeScreen(
     onOpenOperator: () -> Unit,
     onOpenSupply: () -> Unit,
+    onOpenAnalytics: () -> Unit,
     onChangeRole: () -> Unit,
     onCloseApp: () -> Unit
 ) {
@@ -92,6 +94,11 @@ fun ManagerHomeScreen(
                         title = "Снабженец",
                         icon = Icons.Default.Inventory2,
                         onClick = onOpenSupply
+                    ),
+                    ManagerMenuTileData(
+                        title = "Аналитика",
+                        icon = Icons.Default.BarChart,
+                        onClick = onOpenAnalytics
                     )
                 )
             ) { tile ->

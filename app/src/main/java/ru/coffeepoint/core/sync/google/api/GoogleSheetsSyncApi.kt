@@ -8,8 +8,18 @@ import retrofit2.http.Url
 import ru.coffeepoint.core.sync.google.dto.GoogleSheetsFullSyncResponseDto
 import ru.coffeepoint.core.sync.google.dto.GoogleSheetsSyncRequestDto
 import ru.coffeepoint.core.sync.google.dto.GoogleSheetsSyncResponseDto
+import ru.coffeepoint.core.sync.google.dto.SalesAnalyticsResponseDto
 
 interface GoogleSheetsSyncApi {
+
+    @GET
+    suspend fun salesAnalytics(
+        @Url url: String,
+        @Query("action") action: String,
+        @Query("token") token: String,
+        @Query("startDate") startDate: String,
+        @Query("endDate") endDate: String? = null
+    ): SalesAnalyticsResponseDto
 
     @GET
     suspend fun fullSync(

@@ -22,6 +22,10 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -30,11 +34,24 @@ fun ChecklistRow(
     title: String,
     hint: String,
     warningText: String? = null,
+    hintStartPadding: Dp = 52.dp,
+    hintEmphasis: String? = null,
     onCheckedChange: (Boolean) -> Unit
 ) {
 
     var showHint by remember { mutableStateOf(false) }
     val warningColor = Color(0xFFF57C00)
+    val hintText = remember(hint, hintEmphasis) {
+        buildAnnotatedString {
+            append(hint)
+            if (!hintEmphasis.isNullOrBlank()) {
+                val start = hint.indexOf(hintEmphasis)
+                if (start >= 0) {
+                    addStyle(SpanStyle(fontWeight = FontWeight.Bold), start, start + hintEmphasis.length)
+                }
+            }
+        }
+    }
 
     Column {
 
@@ -102,11 +119,11 @@ fun ChecklistRow(
 
             Text(
 
-                text = hint,
+                text = hintText,
 
                 modifier = Modifier
                     .padding(
-                        start = 52.dp,
+                        start = hintStartPadding,
                         end = 16.dp,
                         bottom = 12.dp
                     ),

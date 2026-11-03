@@ -10,6 +10,7 @@
 | --- | --- |
 | [GoogleSheetsSyncManager.kt](GoogleSheetsSyncManager.kt) | Фасад для вызовов из репозиториев |
 | [GoogleSheetsRemoteDataSource.kt](GoogleSheetsRemoteDataSource.kt) | Actions, выбор сущностей, преобразования JSON/моделей и типизация ошибок отправки |
+| [GoogleSheetsSalesAnalyticsRemoteDataSource.kt](GoogleSheetsSalesAnalyticsRemoteDataSource.kt) | Read-only отчёт продаж за период, проверка полноты и итога; отдельный HTTP timeout без логирования токена |
 | [GoogleSheetsImportService.kt](GoogleSheetsImportService.kt) | Защита от импорта поверх pending-данных и запись полученного набора в DAO |
 | [GoogleSheetsStationSyncService.kt](GoogleSheetsStationSyncService.kt) | Поиск ожидающих станций, выбор частичной/общей отправки и обновление локальных статусов |
 | [GoogleSheetsSyncConfig.kt](GoogleSheetsSyncConfig.kt) | URL опубликованного `/exec` и токен клиента |

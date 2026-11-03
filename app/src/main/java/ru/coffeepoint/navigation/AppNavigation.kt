@@ -16,6 +16,7 @@ import ru.coffeepoint.core.auth.RolePreferences
 import ru.coffeepoint.core.auth.UserRole
 import ru.coffeepoint.core.update.AppUpdateUiState
 import ru.coffeepoint.feature.auth.ui.RoleSelectionScreen
+import ru.coffeepoint.feature.analytics.ui.SalesAnalyticsScreen
 import ru.coffeepoint.feature.camera.ui.CameraScreen
 import ru.coffeepoint.feature.dashboard.ui.DashboardScreen
 import ru.coffeepoint.feature.dashboard.ui.ManagerHomeScreen
@@ -169,6 +170,9 @@ fun AppNavigation(
                     selectedManagerMode = "supply"
                     navController.navigate(Routes.Dashboard.route)
                 },
+                onOpenAnalytics = {
+                    navController.navigate(Routes.SalesAnalytics.route)
+                },
                 onChangeRole = {
                     rolePreferences.clearSelectedRole()
                     selectedRole = null
@@ -183,6 +187,14 @@ fun AppNavigation(
                     (context as? Activity)?.finish()
                 }
             )
+        }
+
+        composable(Routes.SalesAnalytics.route) {
+            if (selectedRole != UserRole.MANAGER) {
+                androidx.compose.runtime.LaunchedEffect(Unit) { navController.popBackStack() }
+            } else {
+                SalesAnalyticsScreen(onBack = { navController.popBackStack() })
+            }
         }
 
         composable(Routes.MonthlyEarnings.route) {

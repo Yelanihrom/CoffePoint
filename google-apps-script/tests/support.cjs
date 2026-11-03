@@ -71,7 +71,12 @@ function createHarness(properties = {SYNC_TOKEN: 'test-token', VENDISTA_TOKEN: '
     SpreadsheetApp: {openById: () => ({getSheetByName: name => sheets[name] ?? null})},
     LockService: {getScriptLock: () => lock},
     Logger: {log() {}},
-    Utilities: {sleep: delay => sleeps.push(delay)},
+    Utilities: {sleep: delay => sleeps.push(delay),
+      formatDate(date, timeZone, pattern) {
+        if (pattern !== 'yyyy-MM-dd') throw new Error('Unexpected date pattern in test: ' + pattern);
+        return new Intl.DateTimeFormat('en-CA', {timeZone, year: 'numeric', month: '2-digit', day: '2-digit'})
+          .format(date);
+      }},
     UrlFetchApp: {fetch: (url, options) => {
       requests.push({url, options});
       const next = responses.shift();
@@ -80,7 +85,7 @@ function createHarness(properties = {SYNC_TOKEN: 'test-token', VENDISTA_TOKEN: '
     }},
   });
   for (const name of ['Config.gs', 'Response.gs', 'Router.gs', 'Auth.gs', 'SheetsRepository.gs',
-    'StationSales.gs', 'VendistaClient.gs']) {
+    'StationSales.gs', 'VendistaClient.gs', 'SalesAnalytics.gs']) {
     vm.runInContext(fs.readFileSync(path.join(scriptRoot, name), 'utf8'), context, {filename: name});
   }
   const config = vm.runInContext('({CONFIG, SHEETS})', context);

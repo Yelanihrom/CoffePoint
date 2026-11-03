@@ -7,6 +7,72 @@ const newTimestamp = '2026-10-19T10:07:00';
 const warehouse = (itemType, quantity, updatedAt = newTimestamp) =>
   ({itemType, quantity, minQuantity: 2, maxQuantity: 12, updatedAt});
 
+test('analytics maps one report to stations and leaves all stored data unchanged', () => {
+  const app = createHarness();
+  const station = app.sheets.coffee_station.object();
+  app.sheets.coffee_station.seed([station,
+    {...station, id: 8, name: 'Second', terminalId: 111},
+    {...station, id: 9, name: 'Unconfigured', terminalId: ''}]);
+  const before = JSON.stringify(app.sheets);
+  app.responses.push({status: 200, body: {success: true, items: [
+    {terminal_id: station.terminalId, incoming_count: 12},
+    {terminal_id: 999, incoming_count: 1000},
+  ]}});
+  const result = app.call('GET', {action: 'sales_analytics', startDate: '2026-09-01'});
+  assert.equal(result.success, true);
+  assert.equal(result.data.endDate, null);
+  assert.equal(result.data.totalSales, 12);
+  assert.deepEqual(result.data.stations.map(s => s.salesCount), [12, 0, null]);
+  assert.equal(app.requests.length, 1);
+  const url = new URL(app.requests[0].url);
+  assert.equal(url.searchParams.get('DateFrom'), '2026-09-01 00:00:00');
+  assert.equal(url.searchParams.has('DateTo'), false);
+  assert.equal(JSON.stringify(app.sheets), before);
+});
+
+test('analytics explicit end date includes the selected Moscow day', () => {
+  const app = createHarness();
+  app.responses.push({status: 200, body: {success: true, items: []}});
+  const result = app.call('GET', {action: 'sales_analytics', startDate: '2026-09-01', endDate: '2026-09-02'});
+  assert.equal(result.success, true);
+  assert.equal(result.data.totalSales, 0);
+  assert.equal(new URL(app.requests[0].url).searchParams.get('DateTo'), '2026-09-02 23:59:59');
+});
+
+test('analytics rejects invalid periods and unauthorized access before Vendista request', () => {
+  for (const request of [
+    {startDate: '2026-02-30'}, {startDate: 'bad'}, {},
+    {startDate: '2026-09-02', endDate: '2026-09-01'},
+    {startDate: '2999-01-01'}, {startDate: '2026-09-01', endDate: '2999-01-01'},
+  ]) {
+    const app = createHarness();
+    assert.equal(app.call('GET', {action: 'sales_analytics', ...request}).error.status, 400);
+    assert.equal(app.requests.length, 0);
+  }
+  const app = createHarness();
+  assert.equal(app.call('GET', {action: 'sales_analytics', startDate: '2026-09-01'}, 'wrong').error.status, 401);
+  assert.equal(app.requests.length, 0);
+});
+
+test('analytics handles empty stations without Vendista and rejects duplicate terminals', () => {
+  const app = createHarness();
+  const station = app.sheets.coffee_station.object();
+  app.sheets.coffee_station.seed([]);
+  assert.equal(app.call('GET', {action: 'sales_analytics', startDate: '2026-09-01'}).data.totalSales, 0);
+  assert.equal(app.requests.length, 0);
+  app.sheets.coffee_station.seed([station, {...station, id: 9}]);
+  assert.equal(app.call('GET', {action: 'sales_analytics', startDate: '2026-09-01'}).error.status, 500);
+  assert.equal(app.requests.length, 0);
+});
+
+test('analytics does not return a partial total on upstream failure', () => {
+  const app = createHarness();
+  app.responses.push({status: 403, body: {success: false}});
+  const result = app.call('GET', {action: 'sales_analytics', startDate: '2026-09-01'});
+  assert.equal(result.success, false);
+  assert.equal(result.data, undefined);
+});
+
 for (const [name, expected] of Object.entries(schema)) {
   test(`Config schema matches the independent contract for ${name}`, () => {
     const {config} = createHarness();

@@ -6,8 +6,8 @@
 
 <!-- generated:app-version:start -->
 ```kotlin
-versionCode = 21
-versionName = "1.0.21"
+versionCode = 22
+versionName = "1.0.22"
 ```
 <!-- generated:app-version:end -->
 
@@ -91,8 +91,13 @@ WebP без потерь. В ссылках `R.drawable` расширение ф
 ## GitHub Releases
 
 Настроен [Production release](../.github/workflows/release.yml), запускаемый
-вручную. Чтобы он появился в обычном меню Actions, workflow сначала нужно
-слить из `test` в основную ветку `master`. Сам push в `test` рабочий релиз не создаёт.
+вручную из `master`. Сам push в `test` рабочий релиз не создаёт.
+
+Если выпуск добавляет серверную ручку, сначала проверить её в рабочем
+развертывании Apps Script. Для аналитики нужны `SalesAnalytics.gs`, новый
+`Router.gs` и существующие Script Properties `SYNC_TOKEN`/`VENDISTA_TOKEN`.
+Публикация APK не обновляет сервер, а тестовое развертывание не используется
+в рабочем APK. Ошибка `Unsupported action` означает, что web-app ещё не обновлён.
 
 1. Согласовать новую версию, увеличить `versionCode` и изменить `versionName`
    в Gradle, выполнить `node scripts/docs.cjs --write`.

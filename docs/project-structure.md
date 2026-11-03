@@ -26,6 +26,7 @@ CoffePoint/
           util/
           worker/
         feature/
+          analytics/
           auth/
           camera/
           dashboard/
@@ -59,7 +60,7 @@ CoffePoint/
 | `core/data/local/dao` | SQL-запросы, выборка неотправленных записей, обновление sync-статусов |
 | `core/data/mapper` | Преобразования Room Entity и моделей станции |
 | `core/data/preferences` | Время последнего импорта и сохранённое состояние заработка |
-| `core/data/repository` | Сохранение станции, склада, каталога, сотрудников и операций |
+| `core/data/repository` | Сохранение станции, склада, каталога, сотрудников и операций; загрузка отчёта аналитики |
 | `core/data/remote` | Прямые команды терминалам Vendista; не импорт продаж |
 | `core/sync/google` | Вся транспортная интеграция с Apps Script, её DTO и преобразования |
 | `core/sync/google/worker` | Фоновая отправка локальных изменений |

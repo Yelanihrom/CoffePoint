@@ -8,6 +8,8 @@ sealed class Routes(val route: String) {
 
     data object ManagerHome : Routes("manager_home")
 
+    data object SalesAnalytics : Routes("sales_analytics")
+
     data object SupplyCatalog : Routes("supply_catalog")
 
     data object WarehouseStock : Routes("warehouse_stock")
