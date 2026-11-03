@@ -5,6 +5,13 @@ function handleRequest(e, method) {
     const request = buildRequest(e, method);
     const action = request.action;
 
+    if (method === 'GET' && action === 'sales_analytics') {
+      return jsonResponse({
+        success: true,
+        data: getSalesAnalytics(request.startDate, request.endDate),
+      });
+    }
+
     if (method === 'GET' && action === 'full_sync') {
       return jsonResponse({
         success: true,
@@ -60,6 +67,8 @@ function buildRequest(e, method) {
       entity: e.parameter.entity,
       entities: e.parameter.entities,
       stationId: e.parameter.stationId,
+      startDate: e.parameter.startDate,
+      endDate: e.parameter.endDate,
       data: {},
     };
   }

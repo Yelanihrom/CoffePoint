@@ -5,6 +5,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import ru.coffeepoint.core.sync.google.api.GoogleSheetsSyncApi
+import java.util.concurrent.TimeUnit
 
 object GoogleSheetsApiProvider {
 
@@ -26,5 +27,13 @@ object GoogleSheetsApiProvider {
 
     val syncApi: GoogleSheetsSyncApi =
         retrofit.create(GoogleSheetsSyncApi::class.java)
+
+    // A report may include the server's bounded retries after Vendista rate limiting.
+    val analyticsApi: GoogleSheetsSyncApi by lazy {
+        retrofit.newBuilder().client(OkHttpClient.Builder()
+            .readTimeout(180, TimeUnit.SECONDS)
+            .callTimeout(210, TimeUnit.SECONDS)
+            .build()).build().create(GoogleSheetsSyncApi::class.java)
+    }
 
 }

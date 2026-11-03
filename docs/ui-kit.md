@@ -1,4 +1,50 @@
-# Модальные окна
+# UI-kit
+
+## Переиспользование
+
+Перед новым UI сначала проверь этот каталог, `shared/component` и похожие
+элементы на существующих экранах. Готовый компонент нужно использовать, а не
+копировать его в feature. Приватный аналог вынеси в общий компонент и переведи
+оба места на него. Расширяй API с сохранением вида по умолчанию; не создавай
+новый стиль без отдельной задачи на дизайн.
+
+## Каталог
+
+| Компонент | Когда использовать | Реализация |
+| --- | --- | --- |
+| `AppPeriodSelector` | Пара полей «С / По» для периода; заработок и аналитика | [AppPeriodSelector.kt](../app/src/main/java/ru/coffeepoint/shared/component/AppPeriodSelector.kt) |
+| `AppPeriodDateField` | Одиночное поле даты в том же стиле | [AppPeriodSelector.kt](../app/src/main/java/ru/coffeepoint/shared/component/AppPeriodSelector.kt) |
+| `AppDialog`, `AppDialogActions`, `AppDialogButton` | Окна и их действия | [AppDialogs.kt](../app/src/main/java/ru/coffeepoint/shared/component/AppDialogs.kt) |
+| `AppDatePickerDialog`, `AppTimePickerDialog` | Подтверждение выбора даты/времени | [AppDialogs.kt](../app/src/main/java/ru/coffeepoint/shared/component/AppDialogs.kt) |
+| `ChecklistRow` (service) | Чекбокс с раскрывающейся инструкцией, предупреждением и выделением подзаголовка | [ChecklistRow.kt](../app/src/main/java/ru/coffeepoint/feature/service/component/ChecklistRow.kt) |
+
+`ChecklistRow` сохраняет прежний отступ раскрытия по умолчанию (52dp).
+В снабженческом чек-листе `hintStartPadding=12.dp` выравнивает текст по левому
+краю чекбокса с учётом его внутреннего отступа. `hintEmphasis` выделяет заданный фрагмент жирным без Markdown
+и без изменения остального текста. Настройки оператора при этом не меняются.
+
+## Выбор периода
+
+`AppPeriodSelector` принимает готовые строки дат, два callback и `enabled`.
+Внешний вид взят с экрана заработка: фон `surfaceVariant`, радиус 8dp,
+отступы 12dp, текст `bodyMedium`/`SemiBold`, календарь 20dp справа.
+«С / По» и дата находятся в одной строке; минимальная зона нажатия — 48dp.
+Обычно это две равные колонки с промежутком 10dp. При узком доступном месте
+или увеличенном системном шрифте поля становятся друг под другом, чтобы
+подпись с датой не обрезалась. `enabled=false` блокирует оба callback.
+Для открытого конца передавай `endDate="Сейчас"`.
+
+Компонент не открывает календарь и не запрашивает данные самостоятельно:
+feature определяет правила дат, обработчики и вызов `AppDatePickerDialog`.
+Изменение периода в заработке по-прежнему обновляет историю, а в аналитике
+очищает отчёт до явного обновления; выделение UI не меняет эту логику.
+
+Проверки: `AppPeriodSelectorTest` (два callback, блокировка, адаптивное
+расположение), `SalesAnalyticsScreenTest` (использование на экране).
+`scripts/tests/ui-kit.test.cjs` проверяет, что заработок и аналитика используют
+общий селектор, а не возвращают прежние приватные реализации.
+
+## Модальные окна
 
 Общие компоненты находятся в
 [AppDialogs.kt](../app/src/main/java/ru/coffeepoint/shared/component/AppDialogs.kt).

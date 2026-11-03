@@ -129,7 +129,9 @@ fun SupplyServiceStep2Screen(
                             checked = item.checklistItem.checked,
                             title = item.checklistItem.title,
                             hint = item.checklistItem.description,
-                            warningText = "Не забыть одеть силиконовые шланги",
+                            warningText = item.warningText,
+                            hintStartPadding = 12.dp,
+                            hintEmphasis = item.hintEmphasis,
                             onCheckedChange = { checked ->
                                 viewModel.toggleChecklist(index, checked)
                             }

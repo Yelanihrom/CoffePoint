@@ -1,0 +1,14 @@
+{
+  "success": true,
+  "data": {
+    "startDate": "2026-09-01",
+    "endDate": null,
+    "generatedAt": "2026-09-03T10:00:00Z",
+    "totalSales": 12,
+    "stations": [
+      {"stationId": 7, "name": "Station 1", "terminalId": "258576", "salesCount": 12},
+      {"stationId": 8, "name": "Station 2", "terminalId": "111", "salesCount": 0},
+      {"stationId": 9, "name": "Station 3", "terminalId": null, "salesCount": null}
+    ]
+  }
+}

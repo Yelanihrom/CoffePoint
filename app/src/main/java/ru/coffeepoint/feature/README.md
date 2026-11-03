@@ -8,6 +8,7 @@ Features сгруппированы по задачам пользователя
 | --- | --- | --- |
 | [auth](auth) | Выбор роли и ввод пароля | Экран выбора роли; сохранение роли — `core/auth` |
 | [dashboard](dashboard) | Список станций, меню управляющего, карточки, поставка и фильтры | `ui/DashboardScreen.kt`, `presentation/DashboardViewModel.kt` |
+| [analytics](analytics) | Продажи по станциям за период, только для Управляющего | `ui/SalesAnalyticsScreen.kt`, `presentation/SalesAnalyticsViewModel.kt` |
 | [station](station) | Станция, создание, настройки, отображение остатков | `ui/StationScreen.kt`, `presentation/StationViewModel.kt` |
 | [service](service) | Заправка оператора, снабженческий процесс, контроль помола | `presentation/ServiceStep1ViewModel.kt`, отдельные ViewModel последующих шагов |
 | [warehouse](warehouse) | Склад, пополнение, настройка пределов | `ui/WarehouseStockScreen.kt`, `presentation/WarehouseStockViewModel.kt` |

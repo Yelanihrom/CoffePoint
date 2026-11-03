@@ -20,10 +20,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.DateRange
 import ru.coffeepoint.shared.component.AppDialog
 import ru.coffeepoint.shared.component.AppDialogButton
 import ru.coffeepoint.shared.component.AppDatePickerDialog
+import ru.coffeepoint.shared.component.AppPeriodSelector
 import ru.coffeepoint.shared.component.DialogButtonStyle
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -344,44 +344,6 @@ private fun WorkStartDateCard(
 }
 
 @Composable
-private fun PeriodDateCard(
-    label: String,
-    date: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        onClick = onClick
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "$label $date",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
-                maxLines = 1
-            )
-
-            Icon(
-                imageVector = Icons.Default.DateRange,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-    }
-}
-
-@Composable
 private fun SettlementCard(
     settlementText: String,
     settlementAmount: Int,
@@ -473,24 +435,12 @@ private fun OperationsCard(
                 count = operations.size
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                PeriodDateCard(
-                    label = "\u0421",
-                    date = startDate,
-                    onClick = onStartDateClick,
-                    modifier = Modifier.weight(1f)
-                )
-
-                PeriodDateCard(
-                    label = "\u041f\u043e",
-                    date = endDate,
-                    onClick = onEndDateClick,
-                    modifier = Modifier.weight(1f)
-                )
-            }
+            AppPeriodSelector(
+                startDate = startDate,
+                endDate = endDate,
+                onStartDateClick = onStartDateClick,
+                onEndDateClick = onEndDateClick
+            )
 
             Surface(
                 modifier = Modifier.fillMaxWidth(),

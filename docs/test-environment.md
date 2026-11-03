@@ -13,6 +13,19 @@
 
 ## Запуск из Android Studio
 
+Для аналитики выбран новый тестовый deployment версии 3 (`add "SalesAnalytics"`)
+из того же Script ID; актуальный ID — в `config/environments/test.json`.
+Старое развертывание версии 2 не содержит `sales_analytics`.
+После смены deployment повторно сгенерируйте локальные настройки и пересоберите
+приложение: установленный APK сам не меняет адрес сервера. Для GitHub CI также
+нужно актуальное значение variable `TEST_SHEETS_WEB_APP_URL`.
+
+После настройки `VENDISTA_TOKEN` проверены авторизация и live-запрос
+`sales_analytics` с открытым концом периода: успешный ответ, список станций
+и согласованный общий итог. Токен хранится только в Script Properties,
+не в этой конфигурации или Git. Проверка тестового deployment не подтверждает
+обновление рабочего сервера.
+
 На этом компьютере выполнить `node scripts/configure-studio-test.cjs`.
 Скрипт берёт тестовый deployment из `config/environments/test.json`, токен —
 из `.codex/test-secrets/sync-token.txt`, и создаёт игнорируемый Git файл

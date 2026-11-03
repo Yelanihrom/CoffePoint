@@ -26,3 +26,21 @@ test('modal design rules are documented for future changes', () => {
     assert.ok(doc.includes(component), `Missing UI-kit rule: ${component}`);
   }
 });
+
+test('earnings and analytics reuse the shared period selector', () => {
+  for (const relative of [
+    'feature/earnings/ui/MonthlyEarningsScreen.kt',
+    'feature/analytics/ui/SalesAnalyticsScreen.kt',
+  ]) {
+    const text = fs.readFileSync(path.join(source, relative), 'utf8');
+    assert.match(text, /import ru\.coffeepoint\.shared\.component\.AppPeriodSelector/);
+    assert.match(text, /\bAppPeriodSelector\s*\(/);
+    assert.doesNotMatch(text, /fun\s+(?:PeriodDateCard|PeriodDate)\s*\(/);
+  }
+  const doc = fs.readFileSync(path.join(root, 'docs/ui-kit.md'), 'utf8');
+  for (const component of ['AppPeriodSelector', 'AppPeriodDateField']) {
+    assert.ok(doc.includes(component), `Missing UI-kit rule: ${component}`);
+  }
+  const instructions = fs.readFileSync(path.join(root, 'AGENTS.md'), 'utf8');
+  assert.ok(instructions.includes('AppPeriodSelector'));
+});

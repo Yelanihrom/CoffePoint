@@ -41,6 +41,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -222,7 +224,7 @@ fun GrindControlScreen(
 }
 
 @Composable
-private fun GrindRangeScale(modifier: Modifier = Modifier) {
+internal fun GrindRangeScale(modifier: Modifier = Modifier) {
     val red = Color(0xFFE53935)
     val orange = Color(0xFFFF8A00)
     val yellow = Color(0xFFFFD54F)
@@ -233,26 +235,27 @@ private fun GrindRangeScale(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(26.dp)
+                .semantics { contentDescription = "Шкала помола от 0 до 10, отлично от 3 до 6" }
         ) {
             val y = size.height / 2f
             val strokeWidth = 9.dp.toPx()
-            val x4 = size.width * 0.4f
+            val x3 = size.width * 0.3f
             val x6 = size.width * 0.6f
 
             drawLine(
                 brush = Brush.horizontalGradient(
                     colors = listOf(red, orange, yellow),
                     startX = 0f,
-                    endX = x4
+                    endX = x3
                 ),
                 start = Offset(0f, y),
-                end = Offset(x4, y),
+                end = Offset(x3, y),
                 strokeWidth = strokeWidth,
                 cap = StrokeCap.Round
             )
             drawLine(
                 color = green,
-                start = Offset(x4, y),
+                start = Offset(x3, y),
                 end = Offset(x6, y),
                 strokeWidth = strokeWidth
             )
@@ -268,7 +271,7 @@ private fun GrindRangeScale(modifier: Modifier = Modifier) {
                 cap = StrokeCap.Round
             )
 
-            listOf(x4, x6).forEach { x ->
+            listOf(x3, x6).forEach { x ->
                 drawLine(
                     color = Color.White,
                     start = Offset(x, y - 11.dp.toPx()),
@@ -285,8 +288,8 @@ private fun GrindRangeScale(modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.labelSmall
             )
             Text(
-                text = "4",
-                modifier = Modifier.offset(x = maxWidth * 0.4f - 4.dp),
+                text = "3",
+                modifier = Modifier.offset(x = maxWidth * 0.3f - 4.dp),
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold
             )
@@ -305,13 +308,13 @@ private fun GrindRangeScale(modifier: Modifier = Modifier) {
         Row(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = "Сделать крупнее\nна 1 пункт",
-                modifier = Modifier.weight(4f),
+                modifier = Modifier.weight(3f),
                 style = MaterialTheme.typography.labelSmall,
                 color = red
             )
             Text(
                 text = "Отлично",
-                modifier = Modifier.weight(2f),
+                modifier = Modifier.weight(3f),
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = green,

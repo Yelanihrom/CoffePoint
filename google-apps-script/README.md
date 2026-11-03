@@ -23,6 +23,7 @@
 | [StationSales.gs](StationSales.gs) | Продажи после заправки и установка 10-минутного триггера |
 | [DailyEarnings.gs](DailyEarnings.gs) | Ежедневное начисление сотрудникам и установка триггера |
 | [VendistaClient.gs](VendistaClient.gs) | Общий запрос отчёта Vendista, retry и проверка неполного ответа |
+| [SalesAnalytics.gs](SalesAnalytics.gs) | Продажи по станциям за произвольный период без записи в таблицу |
 | [DrivePhotoStorage.gs](DrivePhotoStorage.gs) | Сохранённый модуль загрузки фото в Google Drive |
 | [tests](tests) | Локальные Node.js-тесты сервера на таблицах в памяти |
 
@@ -43,9 +44,17 @@
 ## HTTP API
 
 Рабочие ветки локального роутера: `full_sync`, `upsert`, `upsert_batch`,
-`complete_service`, `upload_photos`. Проверка токена выполняется до action.
+`complete_service`, `upload_photos`, `sales_analytics`. Проверка токена выполняется до action.
 Ошибки возвращаются как `success=false` с `error.status` и `error.message`.
 HTTP-код ответа сам по себе не определяет успех операции.
+
+Для экрана аналитики добавить `SalesAnalytics.gs` и обновить `Router.gs`.
+GET `sales_analytics` принимает обязательную дату `startDate` и необязательную
+`endDate` в формате `yyyy-MM-dd`. Границы дня — московские, без конечной даты
+`DateTo` не передаётся в Vendista. Используются прежние `Config.gs`,
+`SheetsRepository.gs`, `VendistaClient.gs` и Script Properties; новые листы,
+поля и триггеры не нужны. После обновления кода опубликовать новую версию
+существующего развертывания. Рабочее развертывание не обновляется из Git автоматически.
 
 В Android также есть action `delete` для каталога. В текущих локальных
 `Router.gs` / `SheetsRepository.gs` его реализации нет; это отдельный известный
