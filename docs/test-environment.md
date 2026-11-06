@@ -13,6 +13,21 @@
 
 ## Запуск из Android Studio
 
+В `.run` сохранены две Gradle-конфигурации сборки:
+
+- **TEST**: `:app:assembleDebug -PciBuild=true`, тестовое окружение и пакет
+  `ru.coffeepoint.ci`.
+- **MAIN**: `:app:assembleDebug -PciBuild=false`, рабочее окружение и пакет
+  `ru.coffeepoint`. Это локальный debug APK, не подписанный рабочий релиз.
+
+Обе конфигурации только собирают APK, не устанавливают его и не запускают
+отладчик. Результат — `app/build/outputs/apk/debug/app-debug.apk`; следующая
+сборка заменяет этот файл. Для обычного запуска с отладчиком используйте Android
+App для модуля `:app` и `debug` с тестовым окружением по умолчанию. Имена
+`main`, `unitTest`, `androidTest` обозначают наборы исходников, а не окружения.
+Выбор MAIN не меняет окружение последующего обычного Android App Run.
+Рабочие релизы по-прежнему выпускаются через `Production release`.
+
 Для аналитики выбран новый тестовый deployment версии 3 (`add "SalesAnalytics"`)
 из того же Script ID; актуальный ID — в `config/environments/test.json`.
 Старое развертывание версии 2 не содержит `sales_analytics`.

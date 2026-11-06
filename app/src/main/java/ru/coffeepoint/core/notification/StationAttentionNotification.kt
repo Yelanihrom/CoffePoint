@@ -146,6 +146,11 @@ class StationAttentionNotification(
 
         if (!canShowNotifications()) return
 
+        val preferences = context.getSharedPreferences("notification_intervals", Context.MODE_PRIVATE)
+        val timestampKey = "last_shown_$notificationId"
+        val now = System.currentTimeMillis()
+        if (!NotificationInterval.isDue(preferences.getLong(timestampKey, 0L), now)) return
+
         createChannel()
 
         val notification = NotificationCompat.Builder(
@@ -167,6 +172,8 @@ class StationAttentionNotification(
             notificationId,
             notification
         )
+
+        preferences.edit().putLong(timestampKey, now).apply()
 
     }
 
