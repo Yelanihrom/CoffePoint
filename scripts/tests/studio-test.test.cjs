@@ -6,6 +6,16 @@ const { androidTestProperties } = require('../configure-studio-test.cjs');
 const root = path.resolve(__dirname, '../..');
 const environment = JSON.parse(fs.readFileSync(path.join(root, 'config/environments/test.json'), 'utf8'));
 
+test('shared build configurations explicitly select their environment', () => {
+  for (const [name, ciBuild] of [['TEST', 'true'], ['MAIN', 'false']]) {
+    const xml = fs.readFileSync(path.join(root, '.run', `${name}.run.xml`), 'utf8');
+    assert.ok(xml.includes(`name="${name}" type="GradleRunConfiguration"`));
+    assert.ok(xml.includes(`-PciBuild=${ciBuild} --console=plain`));
+    assert.ok(xml.includes('value=":app:assembleDebug"'));
+    assert.ok(!xml.includes('installDebug'), 'Building must not install on connected devices');
+  }
+});
+
 test('local Studio settings use only the test deployment', () => {
   const result = androidTestProperties(environment, 'test-token');
   assert.ok(result.includes(`/s/${environment.deploymentId}/exec`));
