@@ -5,7 +5,7 @@ import ru.coffeepoint.BuildConfig
 object GoogleSheetsSyncConfig {
 
     internal const val PRODUCTION_WEB_APP_URL =
-        "https://script.google.com/macros/s/AKfycbzQvnaFl8no5VwXMFyNijnLcBqIe8qkss3e1dviwXHIh8DyndsW1FsaL4iyHBHw6ao/exec"
+        "https://script.google.com/macros/s/AKfycbzR8HJFVa46Mzd9eibmzvHbcqO-Xv8c6GMBL72aKBCUzSnwWHoboiP1Fo1zSOH-KQ_3yQ/exec"
 
     private const val PRODUCTION_SYNC_TOKEN =
         "be3ae4d8ba4718dd99a8645de8d52a5ba047caeeda420f73f9464484cecaca33"

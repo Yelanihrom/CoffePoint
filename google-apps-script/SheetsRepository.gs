@@ -276,30 +276,27 @@ function parseSyncTimestamp(value) {
   const text = String(value).trim();
   if (!text) return null;
 
-  const normalized = text
-    .replace(' ', 'T')
-    .replace(/(\.\d{3})\d+/, '$1');
-
-  const parsed = new Date(normalized);
-
-  if (!isNaN(parsed.getTime())) {
-    return parsed;
-  }
-
+  // Parse day-first dates before JavaScript can interpret them as month-first dates.
   const ruMatch = text.match(
     /^(\d{2})\.(\d{2})\.(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/
   );
 
-  if (!ruMatch) return null;
+  if (ruMatch) {
+    return new Date(
+      Number(ruMatch[3]),
+      Number(ruMatch[2]) - 1,
+      Number(ruMatch[1]),
+      Number(ruMatch[4] || 0),
+      Number(ruMatch[5] || 0),
+      Number(ruMatch[6] || 0)
+    );
+  }
 
-  return new Date(
-    Number(ruMatch[3]),
-    Number(ruMatch[2]) - 1,
-    Number(ruMatch[1]),
-    Number(ruMatch[4] || 0),
-    Number(ruMatch[5] || 0),
-    Number(ruMatch[6] || 0)
-  );
+  const normalized = text
+    .replace(' ', 'T')
+    .replace(/(T\d{2}:\d{2}:\d{2}\.\d{3})\d+(?=Z|[+-]\d{2}:\d{2}|$)/i, '$1');
+  const parsed = new Date(normalized);
+  return isNaN(parsed.getTime()) ? null : parsed;
 }
 
 function readSheet(sheetConfig) {

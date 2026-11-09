@@ -6,8 +6,8 @@
 
 <!-- generated:app-version:start -->
 ```kotlin
-versionCode = 23
-versionName = "1.0.23"
+versionCode = 24
+versionName = "1.0.24"
 ```
 <!-- generated:app-version:end -->
 
