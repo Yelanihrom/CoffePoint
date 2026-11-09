@@ -99,14 +99,6 @@ fun SalesAnalyticsContent(
                     enabled = !loading,
                     modifier = Modifier.padding(top = 12.dp)
                 )
-                if (period.end != null) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(enabled = !loading,
-                            onClick = { onPeriodChange(period.copy(end = null)) }) {
-                            Text("По текущий момент")
-                        }
-                    }
-                }
                 AppDialogButton("Обновить продажи", enabled = !loading, onClick = onRefresh,
                     modifier = Modifier.padding(top = 12.dp))
             }

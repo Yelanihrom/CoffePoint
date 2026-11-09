@@ -70,18 +70,17 @@ class SalesAnalyticsScreenTest {
         compose.runOnIdle { assertEquals(0, requests) }
     }
 
-    @Test fun closedPeriodCanReturnToCurrentMomentAndErrorDoesNotShowZeroTotal() {
-        var changed: AnalyticsPeriod? = null
+    @Test fun closedPeriodShowsEndDateWithoutResetButtonAndErrorDoesNotShowZeroTotal() {
         compose.setContent {
             CoffeePointTheme {
                 SalesAnalyticsContent(period.copy(end = LocalDate.parse("2026-11-02")), null, false,
-                    "Не удалось получить продажи", { changed = it }, {}, {})
+                    "Не удалось получить продажи", {}, {}, {})
             }
         }
         compose.onNodeWithText("Всего продаж").assertDoesNotExist()
         compose.onNodeWithText("Не удалось получить продажи").assertIsDisplayed()
-        compose.onNodeWithText("По текущий момент").performClick()
-        compose.runOnIdle { assertEquals(period, changed) }
+        compose.onNodeWithText("По 02.11.2026").assertIsDisplayed()
+        compose.onNodeWithText("По текущий момент").assertDoesNotExist()
     }
 
     @Test fun managerMenuHasAnalyticsEntry() {

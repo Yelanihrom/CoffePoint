@@ -273,6 +273,64 @@ test('supplier completion changes only the selected maintenance nodes', () => {
     mixersServiceDate: '2026-10-19', liquidWasteContainerServiceDate: '2026-10-19'});
 });
 
+test('Russian service dates keep day month and full year before generic date parsing', () => {
+  const app = createHarness();
+  for (let day = 1; day <= 12; day += 1) {
+    const text = `${String(day).padStart(2, '0')}.11.2026`;
+    for (const suffix of ['', ' 10:03', ' 10:03:45']) {
+      const date = app.context.parseSyncTimestamp(text + suffix);
+      assert.equal(date.getFullYear(), 2026, text + suffix);
+      assert.equal(date.getMonth(), 10, text + suffix);
+      assert.equal(date.getDate(), day, text + suffix);
+      assert.equal(date.getHours(), suffix ? 10 : 0);
+      assert.equal(date.getMinutes(), suffix ? 3 : 0);
+      assert.equal(date.getSeconds(), suffix.endsWith(':45') ? 45 : 0);
+    }
+  }
+});
+
+test('timestamp parsing preserves ISO offsets and truncates only fractional seconds', () => {
+  const app = createHarness();
+  for (const text of [
+    '2026-11-09T10:02:27.259123456Z',
+    '2026-11-09T13:02:27.259123456+03:00',
+    '2026-11-09 13:02:27.259123456+03:00',
+  ]) {
+    assert.equal(app.context.parseSyncTimestamp(text).toISOString(), '2026-11-09T10:02:27.259Z');
+  }
+  const date = new Date('2026-11-09T10:02:27.259Z');
+  assert.equal(app.context.parseSyncTimestamp(date), date);
+  assert.equal(app.context.parseSyncTimestamp('2026-11-09').toISOString(), '2026-11-09T00:00:00.000Z');
+});
+
+test('supplier November 9 completion replaces September 27 in text Date and ISO cells', () => {
+  for (const current of ['27.09.2026', new Date('2026-09-27T00:00:00+03:00'),
+    '2026-09-27T00:00:00+03:00']) {
+    const app = createHarness();
+    const before = {...app.sheets.coffee_station.object(), mixersServiceDate: current};
+    app.sheets.coffee_station.seed([before]);
+    const request = {action: 'complete_service', entity: 'coffee_station',
+      data: {id: before.id, mixersServiceDate: '09.11.2026'}};
+    assert.equal(app.call('POST', request).success, true);
+    assert.deepEqual(app.sheets.coffee_station.object(), {...before, mixersServiceDate: '09.11.2026'});
+    assert.equal(app.call('POST', request).success, true, 'Same date retry must remain safe');
+  }
+});
+
+test('supplier completion still rejects a genuinely newer mixer date', () => {
+  for (const current of ['10.11.2026', new Date('2026-11-10T00:00:00+03:00'),
+    '2026-11-10T00:00:00+03:00']) {
+    const app = createHarness();
+    const before = {...app.sheets.coffee_station.object(), mixersServiceDate: current};
+    app.sheets.coffee_station.seed([before]);
+    const result = app.call('POST', {action: 'complete_service', entity: 'coffee_station',
+      data: {id: before.id, mixersServiceDate: '09.11.2026'}});
+    assert.equal(result.error.status, 409);
+    assert.deepEqual(app.sheets.coffee_station.object(), before);
+    assert.equal(app.lock.held, false);
+  }
+});
+
 test('stale operator completion is rejected without resetting sales', () => {
   const app = createHarness();
   const before = structuredClone(app.sheets.coffee_station.rows);
