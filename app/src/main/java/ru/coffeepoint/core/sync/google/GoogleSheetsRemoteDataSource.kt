@@ -2,6 +2,8 @@ package ru.coffeepoint.core.sync.google
 
 import android.util.Log
 import ru.coffeepoint.core.data.local.entity.EmployeeEntity
+import ru.coffeepoint.core.data.local.entity.StationServiceVisitEntity
+import java.time.Instant
 import ru.coffeepoint.core.data.local.entity.EmployeeStationAssignmentEntity
 import ru.coffeepoint.core.data.local.entity.EmployeeTransactionEntity
 import ru.coffeepoint.core.data.local.entity.SupplyCatalogEntity
@@ -31,6 +33,34 @@ class GoogleSheetsRemoteDataSource(
         Log.w("GoogleSheetsSync", "Google Sheets $tag sync failed", error)
     }
 ) {
+    suspend fun completeSupplyVisit(visit: StationServiceVisitEntity, earningId: String? = null): SupplyVisitSyncResult {
+        var receipt: SupplyVisitReceipt? = null
+        val result = syncEntity("supply visit") {
+            check(GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) { "Unable to resolve host: sync disabled" }
+            val response = api.upsert(webAppUrl, GoogleSheetsSyncRequestDto(
+                action = "complete_supply_visit", token = syncToken, entity = "station_service_visits",
+                data = mapOf("id" to visit.id, "employeeId" to visit.employeeId,
+                    "stationId" to visit.stationId, "completedAt" to Instant.parse(visit.completedAt)
+                        .truncatedTo(java.time.temporal.ChronoUnit.MILLIS).toString()) +
+                    (earningId?.let { mapOf("earningId" to it) } ?: emptyMap())
+            ))
+            if (!response.success) throw GoogleSheetsSyncException(response.error?.status,
+                response.error?.message ?: "Supply visit sync failed")
+            val data = checkNotNull(response.data) { "Missing supply receipt" }
+            val savedVisit = checkNotNull(data.visit).toServiceVisit()
+            val earning = checkNotNull(data.earning).toEmployeeTransactionEntity()
+            check(savedVisit.id == visit.id && savedVisit.employeeId == visit.employeeId &&
+                savedVisit.stationId == visit.stationId &&
+                Instant.parse(savedVisit.completedAt).toEpochMilli() == Instant.parse(visit.completedAt).toEpochMilli()) { "Invalid visit receipt" }
+            check(java.util.UUID.fromString(earning.id).toString().equals(earning.id, ignoreCase = true) &&
+                earning.employeeId == visit.employeeId &&
+                earning.type == "EARNING" && earning.sourceType == "SUPPLY_SERVICE" &&
+                earning.sourceId == visit.id && earning.amount > 0 &&
+                Instant.parse(earning.operationDate).toEpochMilli() == Instant.parse(visit.completedAt).toEpochMilli()) { "Invalid earning receipt" }
+            receipt = SupplyVisitReceipt(savedVisit, earning)
+        }
+        return SupplyVisitSyncResult(result, receipt)
+    }
 
     suspend fun syncOperatorServiceFields(
         station: CoffeeStation
@@ -196,6 +226,7 @@ class GoogleSheetsRemoteDataSource(
         includeEmployeeData: Boolean = true
     ): GoogleSheetsFullSyncBundle {
         if (!GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) {
+            if (includeEmployeeData) throw UnknownHostException("Employee sync is disabled")
             return GoogleSheetsFullSyncBundle()
         }
 
@@ -224,6 +255,7 @@ class GoogleSheetsRemoteDataSource(
                         add("employees")
                         add("employee_station_assignments")
                         add("employees_transactions")
+                        add("station_service_visits")
                     }
                 }.joinToString(",")
             }
@@ -284,8 +316,33 @@ class GoogleSheetsRemoteDataSource(
             },
             employeeTransactions = data.employeeTransactions.map { row ->
                 row.toEmployeeTransactionEntity()
-            }
+            },
+            stationServiceVisits = data.stationServiceVisits.orEmpty().map { it.toServiceVisit() }
         )
+    }
+
+    suspend fun loadNotificationSettings(): List<ru.coffeepoint.core.notification.NotificationSettingsRow> {
+        if (!GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) {
+            throw UnknownHostException("Notification settings sync is disabled")
+        }
+        val response = api.fullSync(webAppUrl, "full_sync", syncToken, "notification_settings")
+        if (!response.success) throw GoogleSheetsSyncException(response.error?.status,
+            response.error?.message ?: "Notification settings sync error")
+        return parseNotificationSettings(response.data?.notificationSettings)
+    }
+
+    suspend fun syncNotificationSettings(
+        row: ru.coffeepoint.core.notification.NotificationSettingsRow
+    ): GoogleSheetsEntitySyncResult = syncEntity("notification settings") {
+        if (!GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) {
+            throw UnknownHostException("Notification settings sync is disabled")
+        }
+        require(row.values.isNotEmpty() && row.values.keys.all { it.availableFor(row.role) })
+        upsert("notification_settings", buildMap {
+            put("role", row.role.name)
+            put("updatedAt", row.updatedAt)
+            row.values.forEach { (option, value) -> put(option.sheetField, value) }
+        })
     }
 
     suspend fun loadSupplyCatalog(): List<SupplyCatalogEntity> {
@@ -441,6 +498,9 @@ class GoogleSheetsRemoteDataSource(
         return syncEntity(
             tag = "employee transactions",
             block = {
+                check(transactions.none { it.isLocalOnly || it.sourceType == "SUPPLY_SERVICE" }) {
+                    "Local-only or server-managed transactions cannot be uploaded"
+                }
                 transactions.forEach { transaction ->
                     upsert(
                         entity = "employees_transactions",
@@ -638,7 +698,9 @@ class GoogleSheetsRemoteDataSource(
             "amount" to amount,
             "comment" to comment,
             "createdAt" to createdAt,
-            "updatedAt" to updatedAt.requireSyncTimestamp("employees_transactions")
+            "updatedAt" to updatedAt.requireSyncTimestamp("employees_transactions"),
+            "sourceType" to sourceType,
+            "sourceId" to sourceId
         )
     }
 
@@ -812,14 +874,16 @@ class GoogleSheetsRemoteDataSource(
             id = plainStringValue("id"),
             employeeId = intValue("employeeId"),
             type = stringValue("type"),
-            operationDate = timestampValue("operationDate"),
+            operationDate = financialTimestamp("operationDate"),
             periodFrom = nullableStorageDateValue("periodFrom"),
             periodTo = nullableStorageDateValue("periodTo"),
             salesCount = nullableIntValue("salesCount"),
             amount = intValue("amount"),
             comment = stringValue("comment"),
-            createdAt = timestampValue("createdAt"),
-            updatedAt = timestampValue("updatedAt"),
+            createdAt = financialTimestamp("createdAt"),
+            updatedAt = financialTimestamp("updatedAt"),
+            sourceType = stringValue("sourceType").ifBlank { null },
+            sourceId = plainStringValue("sourceId").ifBlank { null },
             isSynced = true,
             syncError = false
         )
@@ -828,6 +892,19 @@ class GoogleSheetsRemoteDataSource(
     private fun Map<String, Any?>.stringValue(key: String): String {
         return this[key]?.toString().orEmpty()
     }
+
+    private fun Map<String, Any?>.financialTimestamp(key: String): String {
+        val value = stringValue(key)
+        return if (value.endsWith("Z") || Regex("[+-]\\d{2}:\\d{2}$").containsMatchIn(value))
+            java.time.OffsetDateTime.parse(value).toInstant().toString() else timestampValue(key)
+    }
+
+    private fun Map<String, Any?>.toServiceVisit() = StationServiceVisitEntity(
+        id = plainStringValue("id"), employeeId = intValue("employeeId"), stationId = intValue("stationId"),
+        completedAt = Instant.parse(stringValue("completedAt")).toString(),
+        createdAt = Instant.parse(stringValue("createdAt")).toString(),
+        updatedAt = Instant.parse(stringValue("updatedAt")).toString(), isSynced = true
+    )
 
     private fun Map<String, Any?>.plainStringValue(key: String): String {
         return when (val value = this[key]) {
@@ -1071,5 +1148,9 @@ data class GoogleSheetsFullSyncBundle(
     val warehouseStock: List<WarehouseStockEntity> = emptyList(),
     val employees: List<EmployeeEntity> = emptyList(),
     val employeeStationAssignments: List<EmployeeStationAssignmentEntity> = emptyList(),
-    val employeeTransactions: List<EmployeeTransactionEntity> = emptyList()
+    val employeeTransactions: List<EmployeeTransactionEntity> = emptyList(),
+    val stationServiceVisits: List<StationServiceVisitEntity> = emptyList()
 )
+
+data class SupplyVisitReceipt(val visit: StationServiceVisitEntity, val earning: EmployeeTransactionEntity)
+data class SupplyVisitSyncResult(val result: GoogleSheetsEntitySyncResult, val receipt: SupplyVisitReceipt? = null)

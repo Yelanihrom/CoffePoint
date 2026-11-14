@@ -5,16 +5,27 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import ru.coffeepoint.core.data.repository.MonthlyEarningsOperation
 import ru.coffeepoint.core.data.repository.MonthlyEarningsRepository
+import ru.coffeepoint.core.data.repository.LocalSupplierUnavailableException
+import ru.coffeepoint.core.auth.UserRole
+import kotlin.coroutines.cancellation.CancellationException
 
 class MonthlyEarningsViewModel(
-    application: Application
+    application: Application,
+    savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
 
-    private val repository = MonthlyEarningsRepository(application)
+    val employeeRole = savedStateHandle.get<String>("employeeRole")?.let {
+        runCatching { UserRole.valueOf(it) }.getOrNull()
+    } ?: UserRole.OPERATOR
+    private val repository = MonthlyEarningsRepository(application, employeeRole)
+
+    var errorMessage by mutableStateOf("Проверьте подключение к интернету и отключите VPN")
+        private set
 
     var state by mutableStateOf(repository.getState())
         private set
@@ -38,21 +49,31 @@ class MonthlyEarningsViewModel(
             loading = true
 
             try {
-                operations = repository.getOperationsForPeriod(
-                    startDate = startDate,
-                    endDate = endDate
-                )
+                try {
+                    operations = repository.getOperationsForPeriod(startDate, endDate)
+                } catch (_: LocalSupplierUnavailableException) {
+                    // A fresh production installation must import its supplier before reading the cache.
+                    operations = emptyList()
+                }
 
                 val refreshed = repository.refreshEmployeeTransactions()
+                state = repository.getState()
                 if (!refreshed) {
+                    errorMessage = "Проверьте подключение к интернету и отключите VPN"
                     showConnectionError = true
                     return@launch
                 }
-                state = repository.getState()
                 operations = repository.getOperationsForPeriod(
                     startDate = startDate,
                     endDate = endDate
                 )
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                errorMessage = if (error is LocalSupplierUnavailableException)
+                    "Не удалось определить снабженца. Проверьте активного сотрудника в таблице"
+                    else "Не удалось загрузить данные сотрудника"
+                showConnectionError = true
             } finally {
                 loading = false
             }
@@ -64,10 +85,16 @@ class MonthlyEarningsViewModel(
         endDate: String
     ) {
         viewModelScope.launch {
-            operations = repository.getOperationsForPeriod(
-                startDate = startDate,
-                endDate = endDate
-            )
+            try {
+                operations = repository.getOperationsForPeriod(
+                    startDate = startDate,
+                    endDate = endDate
+                )
+            } catch (cancellation: CancellationException) { throw cancellation }
+            catch (_: Exception) {
+                errorMessage = "Не удалось загрузить данные сотрудника"
+                showConnectionError = true
+            }
         }
     }
 
@@ -93,6 +120,11 @@ class MonthlyEarningsViewModel(
                 viewModelScope.launch {
                     repository.syncPendingData()
                 }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (_: Exception) {
+                errorMessage = "Не удалось сохранить выплату"
+                showConnectionError = true
             } finally {
                 loading = false
             }

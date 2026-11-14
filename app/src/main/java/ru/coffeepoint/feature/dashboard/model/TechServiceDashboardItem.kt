@@ -2,6 +2,7 @@
 
 import ru.coffeepoint.feature.station.model.StationDetail
 import ru.coffeepoint.core.auth.UserRole
+import ru.coffeepoint.core.notification.NotificationOption
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -9,9 +10,9 @@ import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 
 private const val MIXERS_SERVICE_INTERVAL_DAYS = 30
-private const val LIQUID_WASTE_CONTAINER_SERVICE_INTERVAL_DAYS = 60
-private const val BREW_UNIT_SERVICE_INTERVAL_DAYS = 360
-private const val EXHAUST_SERVICE_INTERVAL_DAYS = 360
+private const val LIQUID_WASTE_CONTAINER_SERVICE_INTERVAL_DAYS = 180
+private const val BREW_UNIT_SERVICE_INTERVAL_DAYS = 180
+private const val EXHAUST_SERVICE_INTERVAL_DAYS = 720
 private const val EXPANSION_TANK_SERVICE_INTERVAL_DAYS = 360
 private const val COFFEE_GRINDER_SERVICE_INTERVAL_DAYS = 720
 
@@ -45,11 +46,15 @@ fun StationDetail.supplyOperatorTechServiceDashboardItems(): List<TechServiceDas
         }
 }
 
-fun StationDetail.supplyAttentionTechServiceDashboardItems(role: UserRole?): List<TechServiceDashboardItem> {
-    return if (role == UserRole.MANAGER) {
-        techServiceDashboardItems().filter { it.title == "Миксеры" || it.title == "Контейнер жидких отходов" }
-    } else {
-        emptyList()
+fun StationDetail.supplyAttentionTechServiceDashboardItems(
+    role: UserRole?,
+    isEnabled: (NotificationOption) -> Boolean = { role != null && it.defaultEnabled(role) }
+): List<TechServiceDashboardItem> {
+    if (role == null || role == UserRole.OPERATOR) return emptyList()
+    return techServiceDashboardItems().filter { item ->
+        NotificationOption.entries.any { option ->
+            option.nodeTitle == item.title && option.availableFor(role) && isEnabled(option)
+        }
     }
 }
 

@@ -16,13 +16,10 @@ import ru.coffeepoint.feature.analytics.model.ANALYTICS_TIME_ZONE
 import ru.coffeepoint.feature.analytics.model.AnalyticsPeriod
 import ru.coffeepoint.feature.analytics.model.SalesAnalyticsReport
 import ru.coffeepoint.feature.analytics.presentation.SalesAnalyticsViewModel
-import ru.coffeepoint.shared.component.AppDatePickerDialog
 import ru.coffeepoint.shared.component.AppDialogButton
 import ru.coffeepoint.shared.component.AppPeriodSelector
-import ru.coffeepoint.shared.component.DialogButtonStyle
-import java.time.Instant
+import ru.coffeepoint.shared.component.SyncSendingOverlay
 import java.time.LocalDate
-import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -46,38 +43,18 @@ fun SalesAnalyticsContent(
     onRefresh: () -> Unit,
     onBack: () -> Unit
 ) {
+    if (loading) SyncSendingOverlay()
     var selectingStart by remember { mutableStateOf<Boolean?>(null) }
     selectingStart?.let { start ->
         val initial = (if (start) period.start else period.end)
             ?: LocalDate.now(ANALYTICS_TIME_ZONE)
-        val today = LocalDate.now(ANALYTICS_TIME_ZONE)
-        val picker = rememberDatePickerState(
-            initialSelectedDateMillis = initial.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-            selectableDates = object : SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long): Boolean =
-                    Instant.ofEpochMilli(utcTimeMillis).atZone(ZoneOffset.UTC).toLocalDate() <= today
-            }
-        )
-        AppDatePickerDialog(
-            onDismissRequest = { selectingStart = null },
-            confirmButton = {
-                AppDialogButton("Выбрать", enabled = picker.selectedDateMillis != null, onClick = {
-                    picker.selectedDateMillis?.let { millis ->
-                        val day = Instant.ofEpochMilli(millis).atZone(ZoneOffset.UTC).toLocalDate()
-                        onPeriodChange(if (start) period.copy(start = day) else period.copy(end = day))
-                    }
-                    selectingStart = null
-                })
-            },
-            dismissButton = {
-                AppDialogButton("Отменить", style = DialogButtonStyle.Secondary,
-                    onClick = { selectingStart = null })
-            }
-        ) { DatePicker(state = picker) }
+        AnalyticsDatePicker(initial,
+            onSelect = { day -> onPeriodChange(if (start) period.copy(start = day) else period.copy(end = day)) },
+            onDismiss = { selectingStart = null })
     }
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Аналитика") }, navigationIcon = {
+        TopAppBar(title = { Text("Продажи") }, navigationIcon = {
             IconButton(onClick = onBack) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Назад")
             }
@@ -102,15 +79,9 @@ fun SalesAnalyticsContent(
                 AppDialogButton("Обновить продажи", enabled = !loading, onClick = onRefresh,
                     modifier = Modifier.padding(top = 12.dp))
             }
-            if (loading) {
-                item {
-                    Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(Modifier.size(32.dp))
-                    }
-                }
-            } else if (error != null) {
+            if (!loading && error != null) {
                 item { Text(error, color = MaterialTheme.colorScheme.error) }
-            } else if (report != null) {
+            } else if (!loading && report != null) {
                 item {
                     Row(Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically) {

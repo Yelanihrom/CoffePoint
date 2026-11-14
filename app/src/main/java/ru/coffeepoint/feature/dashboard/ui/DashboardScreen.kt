@@ -27,7 +27,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Close
@@ -66,15 +65,10 @@ import ru.coffeepoint.feature.dashboard.component.AppVersionFooter
 import ru.coffeepoint.core.status.StationStatusSeverity
 import ru.coffeepoint.core.status.statusSeverity
 import ru.coffeepoint.feature.dashboard.component.StationCard
-import ru.coffeepoint.feature.dashboard.component.SupplySummaryCard
 import ru.coffeepoint.feature.dashboard.component.WarehouseStockCard
 import ru.coffeepoint.feature.dashboard.model.DashboardMode
-import ru.coffeepoint.feature.dashboard.model.SupplyItem
-import ru.coffeepoint.feature.dashboard.model.isCritical
-import ru.coffeepoint.feature.dashboard.model.isWarning
 import ru.coffeepoint.feature.dashboard.model.supplyItems
-import ru.coffeepoint.feature.dashboard.model.supplySummaryItems
-import ru.coffeepoint.feature.dashboard.model.supplyOperatorTechServiceDashboardItems
+import ru.coffeepoint.feature.dashboard.model.SupplyStockFilter
 import ru.coffeepoint.feature.dashboard.presentation.DashboardViewModel
 import ru.coffeepoint.feature.supplycatalog.component.SupplyCatalogQuickInfoDialog
 import ru.coffeepoint.shared.component.SyncSendingOverlay
@@ -87,7 +81,6 @@ fun DashboardScreen(
     onAddStation: () -> Unit,
     onChangeRole: () -> Unit,
     onCloseApp: () -> Unit,
-    onSupplyCatalog: () -> Unit,
     onWarehouseStock: () -> Unit,
     onMonthlyEarnings: () -> Unit,
     onManagerHome: () -> Unit,
@@ -105,9 +98,8 @@ fun DashboardScreen(
     val isManager = role == UserRole.MANAGER
     val isSupplyOperator = role == UserRole.SUPPLY_OPERATOR
     val canViewMonthlyEarnings =
-        role == UserRole.MANAGER || role == UserRole.OPERATOR
-    val canViewSupplyCatalog =
-        role == UserRole.MANAGER || role == UserRole.SUPPLY_OPERATOR
+        role == UserRole.MANAGER || role == UserRole.OPERATOR ||
+            role == UserRole.SUPPLY_OPERATOR
     var selectedMode by remember(initialManagerMode) {
         mutableStateOf(
             if (initialManagerMode == "supply") {
@@ -119,7 +111,6 @@ fun DashboardScreen(
     }
     var selectedSupplyFilter by remember { mutableStateOf(SupplyStockFilter.ALL) }
     var warehouseStockExpanded by remember { mutableStateOf(false) }
-    var supplySummaryExpanded by remember { mutableStateOf(false) }
     var quickCatalogItemType by remember { mutableStateOf<String?>(null) }
     var quickCatalogQuantityText by remember { mutableStateOf<String?>(null) }
     val currentMode = when {
@@ -144,11 +135,6 @@ fun DashboardScreen(
     val infiniteTransition = rememberInfiniteTransition(label = "")
     val isSupplyView = isSupplyOperator ||
         (isManager && currentMode == DashboardMode.SUPPLY)
-    val supplyItemMatches: (SupplyItem) -> Boolean = when (selectedSupplyFilter) {
-        SupplyStockFilter.ALL -> { _ -> true }
-        SupplyStockFilter.WARNING -> { item -> item.isWarning || item.isCritical }
-        SupplyStockFilter.CRITICAL -> { item -> item.isCritical }
-    }
 
     val visibleStations = when (currentMode) {
         DashboardMode.ALL_STATIONS -> stations
@@ -159,13 +145,7 @@ fun DashboardScreen(
 
         DashboardMode.SUPPLY -> {
             if (isSupplyView) {
-                stations.filter { detail ->
-                    detail.supplyItems().any(supplyItemMatches) ||
-                        (
-                            selectedSupplyFilter == SupplyStockFilter.ALL &&
-                                detail.supplyOperatorTechServiceDashboardItems().isNotEmpty()
-                            )
-                }
+                stations.filter(selectedSupplyFilter::matchesStation)
             } else {
                 stations.filter { detail ->
                     detail.supplyItems().isNotEmpty()
@@ -302,18 +282,7 @@ fun DashboardScreen(
 
                     Row {
 
-                        if (canViewSupplyCatalog && isSupplyView) {
-                            IconButton(
-                                onClick = onSupplyCatalog
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Inventory2,
-                                    contentDescription = "\u041a\u0430\u0442\u0430\u043b\u043e\u0433 \u0437\u0430\u043a\u0443\u043f\u043e\u043a"
-                                )
-                            }
-                        }
-
-                        if (canViewMonthlyEarnings && !isSupplyView) {
+                        if (canViewMonthlyEarnings) {
                             IconButton(
                                 onClick = onMonthlyEarnings
                             ) {
@@ -364,7 +333,7 @@ fun DashboardScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         SupplyFilterChip(
-                            text = "\u0412\u0441\u0435 \u043e\u0441\u0442\u0430\u0442\u043a\u0438",
+                            text = "Все станции",
                             selected = selectedSupplyFilter == SupplyStockFilter.ALL,
                             onClick = {
                                 selectedSupplyFilter = SupplyStockFilter.ALL
@@ -468,24 +437,6 @@ fun DashboardScreen(
 
                     }
 
-                    item {
-
-                        SupplySummaryCard(
-                            items = visibleStations
-                                .supplySummaryItems()
-                                .filter(supplyItemMatches),
-                            expanded = supplySummaryExpanded,
-                            onExpandedChange = { expanded ->
-                                supplySummaryExpanded = expanded
-                            },
-                            onSupplyItemClick = { item ->
-                                quickCatalogItemType = item.itemType
-                                quickCatalogQuantityText = item.value
-                            }
-                        )
-
-                    }
-
                 }
             }
 
@@ -498,7 +449,6 @@ fun DashboardScreen(
                     showStationStatus = !isSupplyView,
                     showTerminalInfo = isManager && !isSupplyView,
                     showSupplyOperatorTechService = isSupplyView,
-                    supplyItemFilter = supplyItemMatches,
                     onSupplyItemClick = { item ->
                         quickCatalogItemType = item.itemType
                         quickCatalogQuantityText = item.value
@@ -514,12 +464,6 @@ fun DashboardScreen(
 
     }
 
-}
-
-private enum class SupplyStockFilter {
-    ALL,
-    WARNING,
-    CRITICAL
 }
 
 @Composable

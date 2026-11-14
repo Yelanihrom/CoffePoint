@@ -12,10 +12,12 @@
 
 | Компонент | Когда использовать | Реализация |
 | --- | --- | --- |
+| `AppMenuItem` | Строка подраздела с иконкой и стрелкой; настройки и меню аналитики | [AppMenuItem.kt](../app/src/main/java/ru/coffeepoint/shared/component/AppMenuItem.kt) |
 | `AppPeriodSelector` | Пара полей «С / По» для периода; заработок и аналитика | [AppPeriodSelector.kt](../app/src/main/java/ru/coffeepoint/shared/component/AppPeriodSelector.kt) |
 | `AppPeriodDateField` | Одиночное поле даты в том же стиле | [AppPeriodSelector.kt](../app/src/main/java/ru/coffeepoint/shared/component/AppPeriodSelector.kt) |
 | `AppDialog`, `AppDialogActions`, `AppDialogButton` | Окна и их действия | [AppDialogs.kt](../app/src/main/java/ru/coffeepoint/shared/component/AppDialogs.kt) |
 | `AppDatePickerDialog`, `AppTimePickerDialog` | Подтверждение выбора даты/времени | [AppDialogs.kt](../app/src/main/java/ru/coffeepoint/shared/component/AppDialogs.kt) |
+| `SyncSendingOverlay` | Блокирующая загрузка или сохранение данных на активном экране | [SyncSendingFeedback.kt](../app/src/main/java/ru/coffeepoint/shared/component/SyncSendingFeedback.kt) |
 | `ChecklistRow` (service) | Чекбокс с раскрывающейся инструкцией, предупреждением и выделением подзаголовка | [ChecklistRow.kt](../app/src/main/java/ru/coffeepoint/feature/service/component/ChecklistRow.kt) |
 
 `ChecklistRow` сохраняет прежний отступ раскрытия по умолчанию (52dp).
@@ -36,8 +38,10 @@
 
 Компонент не открывает календарь и не запрашивает данные самостоятельно:
 feature определяет правила дат, обработчики и вызов `AppDatePickerDialog`.
-Изменение периода в заработке по-прежнему обновляет историю, а в аналитике
-очищает отчёт до явного обновления; выделение UI не меняет эту логику.
+Изменение периода в заработке и истории обслуживаний обновляет локальную историю,
+а в аналитике продаж очищает отчёт до явного обновления.
+Продажи и история обслуживаний используют общий feature-компонент
+`AnalyticsDatePicker` поверх `AppDatePickerDialog` с запретом будущих дат.
 
 Проверки: `AppPeriodSelectorTest` (два callback, блокировка, адаптивное
 расположение), `SalesAnalyticsScreenTest` (использование на экране).
@@ -73,6 +77,12 @@ feature определяет правила дат, обработчики и в
   те же кнопки. Изменение времени применяется только при подтверждении.
 - `SyncSendingOverlay` остаётся отдельным блокирующим индикатором без действий;
   это не окно ошибки или подтверждения.
+  Используется единообразно при явных сетевых загрузках и сохранениях, включая
+  продажи, историю обслуживаний, заработок, каталог и настройки уведомлений.
+  Это круговой индикатор поверх затемнённого экрана без отдельной карточки/текста.
+  Пока операция выполняется, нажатия под ним и закрытие через Back/внешнее нажатие
+  заблокированы; после завершения или ошибки индикатор снимается состоянием feature.
+  Фоновые воркеры и локальная фильтрация списков его не показывают.
 
 ## Проверенные окна
 

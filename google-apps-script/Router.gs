@@ -39,6 +39,10 @@ function handleRequest(e, method) {
       });
     }
 
+    if (method === 'POST' && action === 'complete_supply_visit') {
+      return jsonResponse({ success: true, data: completeSupplyVisit(request.data) });
+    }
+
     if (method === 'POST' && action === 'complete_service') {
       updateStationServiceFields(request.data);
 

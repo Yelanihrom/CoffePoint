@@ -77,6 +77,7 @@ import ru.coffeepoint.core.data.local.entity.SupplyCatalogEntity
 import ru.coffeepoint.feature.supplycatalog.model.SupplyCatalogItemType
 import ru.coffeepoint.feature.supplycatalog.presentation.SupplyCatalogViewModel
 import ru.coffeepoint.shared.component.asActionButtonText
+import ru.coffeepoint.shared.component.SyncSendingOverlay
 
 @Composable
 fun SupplyCatalogScreen(
@@ -87,6 +88,7 @@ fun SupplyCatalogScreen(
 ) {
 
     val viewModel: SupplyCatalogViewModel = viewModel()
+    if (viewModel.loading) SyncSendingOverlay()
     val lifecycleOwner = LocalLifecycleOwner.current
 
     LaunchedEffect(Unit) {

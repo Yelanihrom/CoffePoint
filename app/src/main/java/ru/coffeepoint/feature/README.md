@@ -8,12 +8,13 @@ Features сгруппированы по задачам пользователя
 | --- | --- | --- |
 | [auth](auth) | Выбор роли и ввод пароля | Экран выбора роли; сохранение роли — `core/auth` |
 | [dashboard](dashboard) | Список станций, меню управляющего, карточки, поставка и фильтры | `ui/DashboardScreen.kt`, `presentation/DashboardViewModel.kt` |
-| [analytics](analytics) | Продажи по станциям за период, только для Управляющего | `ui/SalesAnalyticsScreen.kt`, `presentation/SalesAnalyticsViewModel.kt` |
+| [analytics](analytics) | Меню продаж и истории обслуживаний, только для Управляющего | `ui/AnalyticsMenuScreen.kt`, `ui/SalesAnalyticsScreen.kt`, `ui/ServiceVisitHistoryScreen.kt` |
 | [station](station) | Станция, создание, настройки, отображение остатков | `ui/StationScreen.kt`, `presentation/StationViewModel.kt` |
 | [service](service) | Заправка оператора, снабженческий процесс, контроль помола | `presentation/ServiceStep1ViewModel.kt`, отдельные ViewModel последующих шагов |
 | [warehouse](warehouse) | Склад, пополнение, настройка пределов | `ui/WarehouseStockScreen.kt`, `presentation/WarehouseStockViewModel.kt` |
 | [supplycatalog](supplycatalog) | Варианты закупки и краткая информация | `ui/SupplyCatalogScreen.kt`, `presentation/SupplyCatalogEditViewModel.kt` |
 | [earnings](earnings) | Начисления, выплаты, взаиморасчёт | `ui/MonthlyEarningsScreen.kt`, `presentation/MonthlyEarningsViewModel.kt` |
+| [settings](settings) | Меню настроек и вложенные локальные уведомления по ролям и узлам | `ui/SettingsScreen.kt`, `ui/NotificationSettingsScreen.kt`, хранение — `core/notification/NotificationSettings` |
 | [camera](camera) | Камера и локальные фото; сохранённый временно отключённый сценарий | Не удалять без отдельного изменения процесса |
 
 В `ui` размещается Compose, в `presentation` — состояние и действия экрана,

@@ -6,5 +6,7 @@
   "warehouse_stock": {"key":"itemType","responseKey":"warehouseStock","headers":["itemType","quantity","minQuantity","maxQuantity","updatedAt"]},
   "employees": {"key":"id","responseKey":"employees","headers":["id","name","role","workStartDate","isActive","createdAt","updatedAt"]},
   "employee_station_assignments": {"key":"id","responseKey":"employeeStationAssignments","headers":["id","employeeId","stationId","validFrom","validTo","createdAt","updatedAt"]},
-  "employees_transactions": {"key":"id","responseKey":"employeeTransactions","headers":["id","employeeId","type","operationDate","periodFrom","periodTo","salesCount","amount","comment","createdAt","updatedAt"]}
+  "employees_transactions": {"key":"id","responseKey":"employeeTransactions","headers":["id","employeeId","type","operationDate","periodFrom","periodTo","salesCount","amount","comment","createdAt","updatedAt","sourceType","sourceId"]},
+  "station_service_visits": {"key":"id","responseKey":"stationServiceVisits","headers":["id","employeeId","stationId","completedAt","createdAt","updatedAt"]},
+  "notification_settings": {"key":"role","responseKey":"notificationSettings","headers":["role","refillEnabled","criticalStockEnabled","warehouseEnabled","mixersEnabled","liquidWasteContainerEnabled","brewUnitEnabled","exhaustEnabled","expansionTankEnabled","coffeeGrinderEnabled","updatedAt"]}
 }

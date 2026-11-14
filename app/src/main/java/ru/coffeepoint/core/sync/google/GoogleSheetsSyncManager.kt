@@ -18,6 +18,13 @@ class GoogleSheetsSyncManager(
     private val remoteDataSource: GoogleSheetsRemoteDataSource =
         GoogleSheetsRemoteDataSource()
 ) {
+    suspend fun loadNotificationSettings() = remoteDataSource.loadNotificationSettings()
+
+    suspend fun syncNotificationSettings(row: ru.coffeepoint.core.notification.NotificationSettingsRow) =
+        remoteDataSource.syncNotificationSettings(row)
+
+    suspend fun completeSupplyVisit(visit: ru.coffeepoint.core.data.local.entity.StationServiceVisitEntity,
+        earningId: String? = null) = remoteDataSource.completeSupplyVisit(visit, earningId)
 
     suspend fun syncOperatorServiceFields(
         station: CoffeeStation

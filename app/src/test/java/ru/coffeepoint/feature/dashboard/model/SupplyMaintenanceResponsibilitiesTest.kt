@@ -3,9 +3,21 @@ package ru.coffeepoint.feature.dashboard.model
 import org.junit.Assert.*
 import org.junit.Test
 import ru.coffeepoint.core.auth.UserRole
+import ru.coffeepoint.core.notification.NotificationOption
 import ru.coffeepoint.feature.station.model.*
 
 class SupplyMaintenanceResponsibilitiesTest {
+    @Test fun `supplier can opt into one node without enabling other overdue nodes`() {
+        val station = detail()
+        assertEquals(listOf("Контейнер жидких отходов"),
+            station.supplyAttentionTechServiceDashboardItems(UserRole.SUPPLY_OPERATOR) {
+                it == NotificationOption.CONTAINER
+            }.map { it.title })
+        assertTrue(station.supplyAttentionTechServiceDashboardItems(UserRole.MANAGER) { false }.isEmpty())
+        assertTrue(station.supplyAttentionTechServiceDashboardItems(UserRole.OPERATOR) { true }.isEmpty())
+        assertTrue(station.supplyAttentionTechServiceDashboardItems(null) { true }.isEmpty())
+    }
+
     private fun detail(mixers: String = "01.01.2000") = StationDetail(
         CoffeeStation(id = 7, name = "Station", lastServiceDate = "", salesAfterService = 0,
             mixersServiceDate = mixers, liquidWasteContainerServiceDate = "01.01.2000"),

@@ -19,6 +19,8 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,8 +39,10 @@ fun ManagerHomeScreen(
     onOpenOperator: () -> Unit,
     onOpenSupply: () -> Unit,
     onOpenAnalytics: () -> Unit,
+    onOpenSupplyCatalog: () -> Unit,
     onChangeRole: () -> Unit,
-    onCloseApp: () -> Unit
+    onCloseApp: () -> Unit,
+    onOpenSettings: () -> Unit = {}
 ) {
     Scaffold(
         topBar = {
@@ -99,6 +103,16 @@ fun ManagerHomeScreen(
                         title = "Аналитика",
                         icon = Icons.Default.BarChart,
                         onClick = onOpenAnalytics
+                    ),
+                    ManagerMenuTileData(
+                        title = "Каталог закупок",
+                        icon = Icons.Default.ShoppingCart,
+                        onClick = onOpenSupplyCatalog
+                    ),
+                    ManagerMenuTileData(
+                        title = "Настройки",
+                        icon = Icons.Default.Settings,
+                        onClick = onOpenSettings
                     )
                 )
             ) { tile ->

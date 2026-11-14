@@ -28,11 +28,15 @@ import ru.coffeepoint.shared.component.BottomActionBar
 import ru.coffeepoint.shared.component.SyncSendingErrorDialog
 import ru.coffeepoint.shared.component.SyncSendingOverlay
 import ru.coffeepoint.shared.component.savedLocallySyncMessage
+import ru.coffeepoint.shared.component.AppDialog
+import ru.coffeepoint.shared.component.AppDialogButton
+import ru.coffeepoint.core.auth.UserRole
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SupplyServiceStep2Screen(
     stationId: Int,
+    role: UserRole,
     onBack: () -> Unit,
     onFinish: () -> Unit
 ) {
@@ -58,10 +62,19 @@ fun SupplyServiceStep2Screen(
                 onFinish()
             },
             onRetry = {
-                viewModel.retrySync(stationId) {
+                viewModel.finishSupplyService(stationId, role) {
                     onFinish()
                 }
             }
+        )
+    }
+
+    viewModel.localSaveError?.let { message ->
+        AppDialog(
+            onDismissRequest = viewModel::dismissLocalSaveError,
+            title = { Text("Не удалось сохранить обслуживание") },
+            text = { Text(message) },
+            confirmButton = { AppDialogButton("Закрыть", onClick = viewModel::dismissLocalSaveError) }
         )
     }
 
@@ -83,6 +96,7 @@ fun SupplyServiceStep2Screen(
                 },
                 navigationIcon = {
                     IconButton(
+                        enabled = !viewModel.isSaving,
                         onClick = onBack
                     ) {
                         Icon(
@@ -98,7 +112,7 @@ fun SupplyServiceStep2Screen(
                 text = "\u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c \u043e\u0431\u0441\u043b\u0443\u0436\u0438\u0432\u0430\u043d\u0438\u0435",
                 enabled = viewModel.canFinish(),
                 onClick = {
-                    viewModel.finishSupplyService(stationId) {
+                    viewModel.finishSupplyService(stationId, role) {
                         onFinish()
                     }
                 }

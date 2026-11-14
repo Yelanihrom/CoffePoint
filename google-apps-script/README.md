@@ -24,6 +24,7 @@
 | [DailyEarnings.gs](DailyEarnings.gs) | Ежедневное начисление сотрудникам и установка триггера |
 | [VendistaClient.gs](VendistaClient.gs) | Общий запрос отчёта Vendista, retry и проверка неполного ответа |
 | [SalesAnalytics.gs](SalesAnalytics.gs) | Продажи по станциям за произвольный период без записи в таблицу |
+| [SupplyServiceVisits.gs](SupplyServiceVisits.gs) | Визит снабженца и начисление 2000 рублей одним Sheets API batch |
 | [DrivePhotoStorage.gs](DrivePhotoStorage.gs) | Сохранённый модуль загрузки фото в Google Drive |
 | [tests](tests) | Локальные Node.js-тесты сервера на таблицах в памяти |
 
@@ -56,8 +57,29 @@
 сохраняя его URL.
 
 Рабочие ветки локального роутера: `full_sync`, `upsert`, `upsert_batch`,
-`complete_service`, `upload_photos`, `sales_analytics`. Проверка токена выполняется до action.
+`complete_service`, `upload_photos`, `sales_analytics`, `complete_supply_visit`.
+Проверка токена выполняется до action.
 Ошибки возвращаются как `success=false` с `error.status` и `error.message`.
+
+Настройки уведомлений подготовлены для обоих окружений: лист `notification_settings`
+и изменения `Config.gs`, `SheetsRepository.gs`. `full_sync` возвращает
+`notificationSettings`; `upsert`/`upsert_batch` используют ключ `role` и проверяют
+boolean-флаги, допустимую роль и ISO UTC `updatedAt`. Частичная правка не очищает
+остальные флаги; устаревшее время возвращает 409. Новый отдельный action не нужен.
+Рабочие листы и колонки подготовлены 14.11.2026. Android использует одинаковые
+методы в TEST/production без fallback между окружениями. Рабочий сервер обновлён
+14.11.2026 через clasp до v27 с прежним URL; полный и выборочные импорты проверены.
+APK ещё не выпущен. Тестовый сервер остаётся v8. Порядок и предварительные проверки — в
+[инструкции публикации](../docs/production-backend.md).
+
+В `SheetsRepository.gs` функции `employeeTimestampFields_`,
+`normalizeEmployeeTimestamp_` и `employeeTimestampCell_` обеспечивают единое
+хранение временных отметок сотрудников, привязок, операций и визитов как дат
+Sheets. Отображение — `yyyy-MM-dd HH:mm:ss` по Москве; JSON — ISO UTC с
+сохранением миллисекунд. Входящее время без зоны считается московским.
+`SupplyServiceVisits.gs` использует тот же формат при атомарном append через
+Sheets API. Изменение установлено в TEST и рабочем сервере v27.
+Поля дат без времени этим правилом не затрагиваются.
 HTTP-код ответа сам по себе не определяет успех операции.
 
 Для экрана аналитики добавить `SalesAnalytics.gs` и обновить `Router.gs`.
@@ -77,6 +99,20 @@ GET `sales_analytics` принимает обязательную дату `star
 ними. Поэтому перестройку колонок нельзя заменять простым повтором upsert.
 
 ## Триггеры
+
+Визиты не используют триггеры: POST `complete_supply_visit` создаёт визит и
+начисление по запросу. Требуется Advanced Google Service **Sheets v4** — зависимость
+задана в `appsscript.json`. Для стандартного Cloud-проекта может потребоваться
+включить Google Sheets API; владелец должен выдать запрошенные Google разрешения.
+Обе строки сохраняются одним `Sheets.Spreadsheets.batchUpdate` под ScriptLock.
+Повтор возвращает существующие записи, а другой сотрудник/станция/время с тем же ID
+отклоняются. Ставка берётся с сервера; обычный upsert начислений визита запрещён.
+ID начисления — обычный UUID: для нового начисления берётся клиентский `earningId`
+или `Utilities.getUuid()`, а существующее ищется по `sourceType/sourceId`.
+Автоматические `AUTO-EARNING-*` и UUID выплат не меняются.
+Android вызывает обработчик на 4-м этапе и из исходящего воркера. Нужен
+активный серверный снабженец; local-only профиль допустим только для локального TEST.
+Подробности — [контракт визита](../docs/api-endpoints.md#визиты-снабженца).
 
 | Функция установки | Устанавливаемый обработчик | Расписание |
 | --- | --- | --- |

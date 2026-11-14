@@ -52,7 +52,6 @@ fun StationCard(
     showStationStatus: Boolean,
     showTerminalInfo: Boolean,
     showSupplyOperatorTechService: Boolean = false,
-    supplyItemFilter: (SupplyItem) -> Boolean = { true },
     onSupplyItemClick: (SupplyItem) -> Unit = {},
     onClick: () -> Unit = {}
 ) {
@@ -140,7 +139,6 @@ fun StationCard(
                         Spacer(modifier = Modifier.height(14.dp))
                         SupplyInfo(
                             detail = detail,
-                            supplyItemFilter = supplyItemFilter,
                             onSupplyItemClick = onSupplyItemClick
                         )
                         if (showSupplyOperatorTechService) {
@@ -240,30 +238,32 @@ private fun SalesInfo(
 @Composable
 private fun SupplyInfo(
     detail: StationDetail,
-    supplyItemFilter: (SupplyItem) -> Boolean,
     onSupplyItemClick: (SupplyItem) -> Unit
 ) {
 
-    val supplyItems = detail.supplyItems().filter(supplyItemFilter)
-
-    Text(
-        text = "\u041d\u0435\u043e\u0431\u0445\u043e\u0434\u0438\u043c\u043e \u0437\u0430\u043a\u0443\u043f\u0438\u0442\u044c",
-        style = MaterialTheme.typography.bodyMedium,
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
-
-    Spacer(modifier = Modifier.height(8.dp))
+    val supplyItems = detail.supplyItems()
 
     if (supplyItems.isEmpty()) {
 
         Text(
-            text = "Поставка не требуется",
+            text = if (detail.station.excludeFromSupplyPlanning) {
+                "Станция исключена из снабжения"
+            } else {
+                "Станция полностью загружена"
+            },
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
     } else {
+
+        Text(
+            text = "Необходимо закупить",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(8.dp))
 
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),

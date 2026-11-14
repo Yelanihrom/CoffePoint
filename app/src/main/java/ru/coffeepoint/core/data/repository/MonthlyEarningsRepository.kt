@@ -2,6 +2,8 @@ package ru.coffeepoint.core.data.repository
 
 import android.content.Context
 import ru.coffeepoint.core.data.local.DatabaseProvider
+import ru.coffeepoint.core.data.local.AppDatabase
+import ru.coffeepoint.core.auth.UserRole
 import ru.coffeepoint.core.data.local.entity.EmployeeEntity
 import ru.coffeepoint.core.data.local.entity.EmployeeTransactionEntity
 import ru.coffeepoint.core.data.preferences.MonthlyEarningsPreferences
@@ -10,16 +12,25 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
+import java.time.OffsetDateTime
+import java.time.Instant
+import java.util.TimeZone
 
 class MonthlyEarningsRepository(
-    context: Context
+    context: Context,
+    private val employeeRole: UserRole = UserRole.OPERATOR,
+    private val db: AppDatabase = DatabaseProvider.getDatabase(context),
+    private val preferences: MonthlyEarningsPreferences = MonthlyEarningsPreferences(context, employeeRole.name),
+    private val enqueueSync: () -> Unit = {
+        ru.coffeepoint.core.sync.google.GoogleSheetsSyncManager().enqueueBackgroundSync(context.applicationContext)
+    }
 ) {
 
-    private val preferences = MonthlyEarningsPreferences(context)
-    private val employeeSyncRepository = EmployeeSyncRepository(context)
-    private val db = DatabaseProvider.getDatabase(context)
+    private val employeeSyncRepository = EmployeeSyncRepository(context, db)
     private val employeeDao = db.employeeDao()
     private val employeeTransactionDao = db.employeeTransactionDao()
+
+    init { require(employeeRole == UserRole.OPERATOR || employeeRole == UserRole.SUPPLY_OPERATOR) }
 
     fun getState(): MonthlyEarningsState {
 
@@ -27,25 +38,28 @@ class MonthlyEarningsRepository(
 
         return MonthlyEarningsState(
             workStartDateText = preferences.getWorkStartDateText()
-                ?: toDisplayDate(DEFAULT_EMPLOYEE_WORK_START_DATE),
+                ?: if (employeeRole == UserRole.OPERATOR) toDisplayDate(DEFAULT_EMPLOYEE_WORK_START_DATE) else "—",
             settlementText = formatEarnings(settlementAmount),
-            settlementAmount = settlementAmount
+            settlementAmount = settlementAmount,
+            employeeName = preferences.getEmployeeName()
         )
 
     }
 
     suspend fun addPayment(amount: Int) {
+        require(amount > 0)
 
-        val now = Calendar.getInstance().time
+        val employee = currentEmployee()
+        val now = Calendar.getInstance(MOSCOW).time
         val storageDate = SimpleDateFormat(
             "yyyy-MM-dd'T'HH:mm:ss",
             Locale.getDefault()
-        ).format(now)
+        ).apply { timeZone = MOSCOW }.format(now)
 
         employeeTransactionDao.insert(
             EmployeeTransactionEntity(
                 id = UUID.randomUUID().toString(),
-                employeeId = currentEmployeeId(),
+                employeeId = employee.id,
                 type = TRANSACTION_TYPE_PAYMENT,
                 operationDate = storageDate,
                 periodFrom = null,
@@ -55,38 +69,42 @@ class MonthlyEarningsRepository(
                 comment = "",
                 createdAt = storageDate,
                 updatedAt = storageDate,
-                isSynced = false
+                isSynced = false,
+                isLocalOnly = employee.isLocalOnly
             )
         )
-        preferences.updateSettlementAmount(
-            getSettlementAmount(
-                employee = currentEmployee()
-            )
-        )
+        refreshLocalState()
+        enqueueSync()
 
     }
 
     suspend fun refreshEmployeeTransactions(): Boolean {
 
-        if (!employeeSyncRepository.refreshEmployeeDataFromGoogleSheets()) return false
+        val refreshed = employeeSyncRepository.refreshEmployeeDataFromGoogleSheets()
+        refreshLocalState()
+        return refreshed
+    }
+
+    suspend fun refreshLocalState() {
+        val current = currentEmployee()
 
         preferences.updateWorkStartDateText(
-            toDisplayDate(currentEmployee().workStartDate)
+            toDisplayDate(current.workStartDate)
         )
+        preferences.updateEmployeeName(current.name)
         preferences.updateSettlementAmount(
             getSettlementAmount(
-                employee = currentEmployee()
+                employee = current
             )
         )
-
-        return true
 
     }
 
     suspend fun syncPendingData() {
-        runCatching {
+        try {
             employeeSyncRepository.syncEmployeeData()
-        }
+        } catch (cancellation: kotlinx.coroutines.CancellationException) { throw cancellation }
+        catch (_: Exception) { /* The persisted queue is retried by WorkManager. */ }
     }
 
     suspend fun getOperationsForPeriod(
@@ -153,7 +171,12 @@ class MonthlyEarningsRepository(
 
     private suspend fun currentEmployee(): EmployeeEntity {
 
-        val employee = employeeDao.getFirstActive()
+        val candidates = employeeDao.getActiveByRole(employeeRole.name)
+        if (employeeRole == UserRole.SUPPLY_OPERATOR) {
+            return candidates.singleOrNull()
+                ?: throw LocalSupplierUnavailableException()
+        }
+        val employee = candidates.firstOrNull()
 
         if (employee != null) {
             return employee
@@ -204,7 +227,7 @@ class MonthlyEarningsRepository(
         return SimpleDateFormat(
             "dd.MM.yyyy",
             Locale.getDefault()
-        ).format(millis)
+        ).apply { timeZone = MOSCOW }.format(millis)
 
     }
 
@@ -212,6 +235,7 @@ class MonthlyEarningsRepository(
         storageDate: String
     ): String {
 
+        if (storageDate.isBlank()) return "—"
         val patterns = listOf(
             "yyyy-MM-dd",
             "yyyy-M-d",
@@ -227,7 +251,7 @@ class MonthlyEarningsRepository(
                     isLenient = false
                 }.parse(storageDate)
             }.getOrNull()
-        } ?: Calendar.getInstance().time
+        } ?: return "—"
 
         return SimpleDateFormat(
             "dd.MM.yyyy",
@@ -245,8 +269,9 @@ class MonthlyEarningsRepository(
             Locale.getDefault()
         ).apply {
             isLenient = false
+            timeZone = MOSCOW
         }.parse(startDate)?.let { date ->
-            Calendar.getInstance().apply {
+            Calendar.getInstance(MOSCOW).apply {
                 time = date
                 set(Calendar.HOUR_OF_DAY, 0)
                 set(Calendar.MINUTE, 0)
@@ -266,8 +291,9 @@ class MonthlyEarningsRepository(
             Locale.getDefault()
         ).apply {
             isLenient = false
+            timeZone = MOSCOW
         }.parse(endDate)?.let { date ->
-            Calendar.getInstance().apply {
+            Calendar.getInstance(MOSCOW).apply {
                 time = date
                 set(Calendar.HOUR_OF_DAY, 23)
                 set(Calendar.MINUTE, 59)
@@ -282,6 +308,8 @@ class MonthlyEarningsRepository(
         paymentDate: String
     ): Long? {
 
+        runCatching { OffsetDateTime.parse(paymentDate).toInstant().toEpochMilli() }.getOrNull()?.let { return it }
+        runCatching { Instant.parse(paymentDate).toEpochMilli() }.getOrNull()?.let { return it }
         val patterns = listOf(
             "yyyy-MM-dd'T'HH:mm:ss",
             "yyyy-M-d'T'HH:mm:ss",
@@ -299,6 +327,7 @@ class MonthlyEarningsRepository(
                     Locale.getDefault()
                 ).apply {
                     isLenient = false
+                    timeZone = MOSCOW
                 }.parse(paymentDate)?.time
             }.getOrNull()
         }
@@ -306,6 +335,8 @@ class MonthlyEarningsRepository(
     }
 
     private companion object {
+
+        val MOSCOW: TimeZone = TimeZone.getTimeZone("Europe/Moscow")
 
         const val DEFAULT_EMPLOYEE_ID = 1
         const val DEFAULT_EMPLOYEE_NAME = "Максим"
@@ -322,7 +353,8 @@ class MonthlyEarningsRepository(
 data class MonthlyEarningsState(
     val workStartDateText: String,
     val settlementText: String,
-    val settlementAmount: Int
+    val settlementAmount: Int,
+    val employeeName: String = ""
 )
 
 data class MonthlyEarningsOperation(

@@ -13,6 +13,9 @@
 | [GoogleSheetsSalesAnalyticsRemoteDataSource.kt](GoogleSheetsSalesAnalyticsRemoteDataSource.kt) | Read-only отчёт продаж за период, проверка полноты и итога; отдельный HTTP timeout без логирования токена |
 | [GoogleSheetsImportService.kt](GoogleSheetsImportService.kt) | Защита от импорта поверх pending-данных и запись полученного набора в DAO |
 | [GoogleSheetsStationSyncService.kt](GoogleSheetsStationSyncService.kt) | Поиск ожидающих станций, выбор частичной/общей отправки и обновление локальных статусов |
+| [SupplierVisitSyncService.kt](SupplierVisitSyncService.kt) | Отправка pending-визитов и подтверждение начисления; согласование local-only сотрудника разрешено только в TEST |
+| [EmployeeDataImporter.kt](EmployeeDataImporter.kt) | Общий транзакционный импорт сотрудников/визитов/финансов без удаления pending-операций |
+| [NotificationSettingsMapper.kt](NotificationSettingsMapper.kt) | Проверка трёх ролей, boolean-флагов и дат; HTTP через RemoteDataSource, локальный pending и отправка — `core/data/repository/NotificationSettingsRepository` |
 | [GoogleSheetsSyncConfig.kt](GoogleSheetsSyncConfig.kt) | URL опубликованного `/exec` и токен клиента |
 | [GoogleSheetsSyncMessages.kt](GoogleSheetsSyncMessages.kt) | Общие сообщения по типу ошибки |
 | [api](api) | Retrofit-интерфейс GET и POST |

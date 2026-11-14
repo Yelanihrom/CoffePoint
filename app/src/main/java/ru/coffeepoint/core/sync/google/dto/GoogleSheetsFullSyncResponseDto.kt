@@ -14,5 +14,7 @@ data class GoogleSheetsFullSyncDataDto(
     val warehouseStock: List<Map<String, Any?>> = emptyList(),
     val employees: List<Map<String, Any?>> = emptyList(),
     val employeeStationAssignments: List<Map<String, Any?>> = emptyList(),
-    val employeeTransactions: List<Map<String, Any?>> = emptyList()
+    val employeeTransactions: List<Map<String, Any?>> = emptyList(),
+    val stationServiceVisits: List<Map<String, Any?>> = emptyList(),
+    val notificationSettings: List<Map<String, Any?>>? = null
 )

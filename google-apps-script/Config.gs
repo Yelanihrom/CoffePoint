@@ -3,6 +3,7 @@ const CONFIG = {
   ROOT_FOLDER_ID: '1h6KHirLDpiof_M6wMdhEDUlBCKySeVkF',
   PHOTOS_FOLDER_NAME: 'Photos',
   TIMEZONE: 'Europe/Moscow',
+  SUPPLY_EARNINGS_PER_VISIT: 2000,
   SCRIPT_PROPERTY_KEYS: {
     SYNC_TOKEN: 'SYNC_TOKEN',
     VENDISTA_TOKEN: 'VENDISTA_TOKEN',
@@ -16,6 +17,15 @@ const CONFIG = {
 };
 
 const SHEETS = {
+  NOTIFICATION_SETTINGS: {
+    name: 'notification_settings',
+    key: 'role',
+    headers: [
+      'role', 'refillEnabled', 'criticalStockEnabled', 'warehouseEnabled',
+      'mixersEnabled', 'liquidWasteContainerEnabled', 'brewUnitEnabled',
+      'exhaustEnabled', 'expansionTankEnabled', 'coffeeGrinderEnabled', 'updatedAt',
+    ],
+  },
   COFFEE_STATION: {
     name: 'coffee_station',
     key: 'id',
@@ -158,6 +168,13 @@ const SHEETS = {
       'comment',
       'createdAt',
       'updatedAt',
+      'sourceType',
+      'sourceId',
     ],
+  },
+  STATION_SERVICE_VISITS: {
+    name: 'station_service_visits',
+    key: 'id',
+    headers: ['id', 'employeeId', 'stationId', 'completedAt', 'createdAt', 'updatedAt'],
   },
 };

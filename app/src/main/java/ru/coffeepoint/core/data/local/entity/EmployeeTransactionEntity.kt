@@ -1,6 +1,7 @@
 package ru.coffeepoint.core.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
@@ -14,7 +15,8 @@ import androidx.room.PrimaryKey
                 "periodFrom",
                 "periodTo",
             ]
-        )
+        ),
+        Index(value = ["sourceType", "sourceId"], unique = true)
     ]
 )
 data class EmployeeTransactionEntity(
@@ -32,5 +34,9 @@ data class EmployeeTransactionEntity(
     val updatedAt: String,
     val isSynced: Boolean = true,
     val syncError: Boolean = false,
-    val syncErrorType: String = ""
+    val syncErrorType: String = "",
+    val sourceType: String? = null,
+    val sourceId: String? = null,
+    @ColumnInfo(defaultValue = "0")
+    val isLocalOnly: Boolean = false
 )

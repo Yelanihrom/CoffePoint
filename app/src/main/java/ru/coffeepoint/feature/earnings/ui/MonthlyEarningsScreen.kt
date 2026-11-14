@@ -1,8 +1,6 @@
 ﻿package ru.coffeepoint.feature.earnings.ui
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,7 +23,6 @@ import ru.coffeepoint.shared.component.AppDatePickerDialog
 import ru.coffeepoint.shared.component.AppPeriodSelector
 import ru.coffeepoint.shared.component.DialogButtonStyle
 import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -53,10 +49,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.coffeepoint.core.data.repository.MonthlyEarningsOperation
+import ru.coffeepoint.core.auth.UserRole
+import androidx.compose.ui.text.style.TextOverflow
 import ru.coffeepoint.feature.earnings.presentation.MonthlyEarningsViewModel
 import ru.coffeepoint.shared.component.asActionButtonText
+import ru.coffeepoint.shared.component.SyncSendingOverlay
 import java.text.SimpleDateFormat
-import java.util.Calendar
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
@@ -65,10 +66,10 @@ import java.util.TimeZone
 @Composable
 fun MonthlyEarningsScreen(
     canCreatePayment: Boolean,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    viewModel: MonthlyEarningsViewModel = viewModel()
 ) {
-
-    val viewModel: MonthlyEarningsViewModel = viewModel()
+    val isSupplier = viewModel.employeeRole == UserRole.SUPPLY_OPERATOR
     var operationsStartDate by remember {
         mutableStateOf(lastSevenDaysStartDisplayDate())
     }
@@ -95,10 +96,10 @@ fun MonthlyEarningsScreen(
                 viewModel.dismissConnectionError()
             },
             title = {
-                Text("\u041e\u0448\u0438\u0431\u043a\u0430 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f")
+                Text("Не удалось загрузить заработок")
             },
             text = {
-                Text("\u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 \u043a \u0438\u043d\u0442\u0435\u0440\u043d\u0435\u0442\u0443 \u0438 \u043e\u0442\u043a\u043b\u044e\u0447\u0438\u0442\u0435 VPN")
+                Text(viewModel.errorMessage)
             },
             confirmButton = {
                 AppDialogButton("Закрыть", onClick = viewModel::dismissConnectionError)
@@ -201,10 +202,16 @@ fun MonthlyEarningsScreen(
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
-                            text = "\u0417\u0430\u0440\u0430\u0431\u043e\u0442\u043e\u043a \u043e\u043f\u0435\u0440\u0430\u0442\u043e\u0440\u0430",
+                            text = if (viewModel.employeeRole == UserRole.SUPPLY_OPERATOR)
+                                "Заработок снабженца" else "Заработок оператора",
                             style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
+                        if (viewModel.state.employeeName.isNotBlank()) {
+                            Text(viewModel.state.employeeName, style = MaterialTheme.typography.bodyMedium)
+                        }
                     }
 
                 }
@@ -219,10 +226,12 @@ fun MonthlyEarningsScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                item {
-                    WorkStartDateCard(
-                        workStartDateText = viewModel.state.workStartDateText
-                    )
+                if (!isSupplier) {
+                    item {
+                        WorkStartDateCard(
+                            workStartDateText = viewModel.state.workStartDateText
+                        )
+                    }
                 }
 
                 item {
@@ -243,6 +252,7 @@ fun MonthlyEarningsScreen(
         }
 
         SettlementCard(
+            recipientLabel = if (isSupplier) "К выплате снабженцу" else "К выплате оператору",
             settlementText = viewModel.state.settlementText,
             settlementAmount = viewModel.state.settlementAmount,
             canCreatePayment = canCreatePayment,
@@ -271,56 +281,10 @@ fun MonthlyEarningsScreen(
         )
 
         if (viewModel.loading) {
-            BlockingLoaderOverlay()
+            SyncSendingOverlay()
         }
     }
 
-}
-
-@Composable
-private fun BlockingLoaderOverlay() {
-    val interactionSource = remember {
-        MutableInteractionSource()
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = {}
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.36f)
-        ) {}
-
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    strokeWidth = 2.dp
-                )
-
-                Text(
-                    text = "\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-    }
 }
 
 @Composable
@@ -345,6 +309,7 @@ private fun WorkStartDateCard(
 
 @Composable
 private fun SettlementCard(
+    recipientLabel: String,
     settlementText: String,
     settlementAmount: Int,
     canCreatePayment: Boolean,
@@ -386,7 +351,7 @@ private fun SettlementCard(
                     text = if (isAdvanceDebt) {
                         "\u0412\u044b\u0434\u0430\u043d\u043e \u0430\u0432\u0430\u043d\u0441\u043e\u043c"
                     } else {
-                        "\u041a \u0432\u044b\u043f\u043b\u0430\u0442\u0435 \u043e\u043f\u0435\u0440\u0430\u0442\u043e\u0440\u0443"
+                        recipientLabel
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -592,7 +557,7 @@ private fun CreatePaymentRow(
 
         Button(
             onClick = onCreatePayment,
-            enabled = paymentAmount.isNotBlank() && !loading,
+            enabled = (paymentAmount.toIntOrNull() ?: 0) > 0 && !loading,
             modifier = Modifier
                 .weight(1f)
                 .height(EarningsButtonHeight),
@@ -608,27 +573,14 @@ private fun CreatePaymentRow(
     }
 }
 
-private fun lastSevenDaysStartDisplayDate(): String {
-    return formatDisplayDate(
-        Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-            add(Calendar.DAY_OF_MONTH, -6)
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
-    )
+internal fun lastSevenDaysStartDisplayDate(now: Instant = Instant.now()): String {
+    return now.atZone(ZoneId.of("Europe/Moscow")).toLocalDate().minusDays(6)
+        .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
 }
 
-private fun currentDisplayDate(): String {
-    return formatDisplayDate(
-        Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }.timeInMillis
-    )
+internal fun currentDisplayDate(now: Instant = Instant.now()): String {
+    return now.atZone(ZoneId.of("Europe/Moscow")).toLocalDate()
+        .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
 }
 
 private fun parseDisplayDateToMillis(

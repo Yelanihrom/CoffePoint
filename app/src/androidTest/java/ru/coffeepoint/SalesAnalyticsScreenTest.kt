@@ -65,7 +65,8 @@ class SalesAnalyticsScreenTest {
                 SalesAnalyticsContent(period, null, true, null, {}, { requests++ }, {})
             }
         }
-        compose.onNodeWithText("ОБНОВИТЬ ПРОДАЖИ").assertIsNotEnabled().performClick()
+        compose.onNodeWithContentDescription("Загрузка данных").assertIsDisplayed()
+        compose.onNodeWithText("ОБНОВИТЬ ПРОДАЖИ").assertIsNotEnabled()
         compose.onNodeWithText("По Сейчас").assertIsNotEnabled()
         compose.runOnIdle { assertEquals(0, requests) }
     }
@@ -86,9 +87,18 @@ class SalesAnalyticsScreenTest {
     @Test fun managerMenuHasAnalyticsEntry() {
         var opened = false
         compose.setContent {
-            CoffeePointTheme { ManagerHomeScreen({}, {}, { opened = true }, {}, {}) }
+            CoffeePointTheme { ManagerHomeScreen({}, {}, { opened = true }, {}, {}, {}) }
         }
         compose.onNodeWithText("Аналитика").performClick()
+        compose.runOnIdle { assertTrue(opened) }
+    }
+
+    @Test fun managerMenuHasFourthCatalogEntry() {
+        var opened = false
+        compose.setContent {
+            CoffeePointTheme { ManagerHomeScreen({}, {}, {}, { opened = true }, {}, {}) }
+        }
+        compose.onNodeWithText("Каталог закупок").performClick()
         compose.runOnIdle { assertTrue(opened) }
     }
 }
