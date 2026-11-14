@@ -92,9 +92,9 @@ import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 
 private const val MIXERS_SERVICE_INTERVAL_DAYS = 30
-private const val LIQUID_WASTE_CONTAINER_SERVICE_INTERVAL_DAYS = 60
-private const val BREW_UNIT_SERVICE_INTERVAL_DAYS = 360
-private const val EXHAUST_SERVICE_INTERVAL_DAYS = 360
+private const val LIQUID_WASTE_CONTAINER_SERVICE_INTERVAL_DAYS = 180
+private const val BREW_UNIT_SERVICE_INTERVAL_DAYS = 180
+private const val EXHAUST_SERVICE_INTERVAL_DAYS = 720
 private const val EXPANSION_TANK_SERVICE_INTERVAL_DAYS = 360
 private const val COFFEE_GRINDER_SERVICE_INTERVAL_DAYS = 720
 

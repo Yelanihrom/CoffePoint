@@ -17,9 +17,13 @@ import ru.coffeepoint.core.auth.UserRole
 import ru.coffeepoint.core.update.AppUpdateUiState
 import ru.coffeepoint.feature.auth.ui.RoleSelectionScreen
 import ru.coffeepoint.feature.analytics.ui.SalesAnalyticsScreen
+import ru.coffeepoint.feature.analytics.ui.AnalyticsMenuScreen
+import ru.coffeepoint.feature.analytics.ui.ServiceVisitHistoryScreen
 import ru.coffeepoint.feature.camera.ui.CameraScreen
 import ru.coffeepoint.feature.dashboard.ui.DashboardScreen
 import ru.coffeepoint.feature.dashboard.ui.ManagerHomeScreen
+import ru.coffeepoint.feature.settings.ui.NotificationSettingsScreen
+import ru.coffeepoint.feature.settings.ui.SettingsScreen
 import ru.coffeepoint.feature.earnings.ui.MonthlyEarningsScreen
 import ru.coffeepoint.feature.service.ui.ServiceStep1Screen
 import ru.coffeepoint.feature.service.ui.ServiceStep2Screen
@@ -129,13 +133,6 @@ fun AppNavigation(
                 onCloseApp = {
                     (context as? Activity)?.finish()
                 },
-                onSupplyCatalog = {
-                    if (role == UserRole.MANAGER ||
-                        role == UserRole.SUPPLY_OPERATOR
-                    ) {
-                        navController.navigate(Routes.SupplyCatalog.route)
-                    }
-                },
                 onWarehouseStock = {
                     if (role == UserRole.MANAGER ||
                         role == UserRole.SUPPLY_OPERATOR
@@ -145,9 +142,14 @@ fun AppNavigation(
                 },
                 onMonthlyEarnings = {
                     if (role == UserRole.MANAGER ||
-                        role == UserRole.OPERATOR
+                        role == UserRole.OPERATOR ||
+                        role == UserRole.SUPPLY_OPERATOR
                     ) {
-                        navController.navigate(Routes.MonthlyEarnings.route)
+                        val employeeRole = if (role == UserRole.SUPPLY_OPERATOR ||
+                            (role == UserRole.MANAGER && selectedManagerMode == "supply")) {
+                            UserRole.SUPPLY_OPERATOR
+                        } else UserRole.OPERATOR
+                        navController.navigate(Routes.MonthlyEarnings.createRoute(employeeRole.name))
                     }
                 },
                 onManagerHome = {
@@ -160,8 +162,24 @@ fun AppNavigation(
 
         }
 
+        composable(Routes.Settings.route) {
+            if (selectedRole == UserRole.MANAGER) {
+                SettingsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenNotifications = { navController.navigate(Routes.NotificationSettings.route) }
+                )
+            }
+        }
+
+        composable(Routes.NotificationSettings.route) {
+            if (selectedRole == UserRole.MANAGER) {
+                NotificationSettingsScreen(onBack = { navController.popBackStack() })
+            }
+        }
+
         composable(Routes.ManagerHome.route) {
             ManagerHomeScreen(
+                onOpenSettings = { navController.navigate(Routes.Settings.route) },
                 onOpenOperator = {
                     selectedManagerMode = "operator"
                     navController.navigate(Routes.Dashboard.route)
@@ -171,7 +189,10 @@ fun AppNavigation(
                     navController.navigate(Routes.Dashboard.route)
                 },
                 onOpenAnalytics = {
-                    navController.navigate(Routes.SalesAnalytics.route)
+                    navController.navigate(Routes.AnalyticsMenu.route)
+                },
+                onOpenSupplyCatalog = {
+                    navController.navigate(Routes.SupplyCatalog.route)
                 },
                 onChangeRole = {
                     rolePreferences.clearSelectedRole()
@@ -189,6 +210,24 @@ fun AppNavigation(
             )
         }
 
+        composable(Routes.AnalyticsMenu.route) {
+            if (selectedRole != UserRole.MANAGER) {
+                androidx.compose.runtime.LaunchedEffect(Unit) { navController.popBackStack() }
+            } else {
+                AnalyticsMenuScreen(onBack = { navController.popBackStack() },
+                    onOpenSales = { navController.navigate(Routes.SalesAnalytics.route) },
+                    onOpenServiceHistory = { navController.navigate(Routes.ServiceVisitHistory.route) })
+            }
+        }
+
+        composable(Routes.ServiceVisitHistory.route) {
+            if (selectedRole != UserRole.MANAGER) {
+                androidx.compose.runtime.LaunchedEffect(Unit) { navController.popBackStack() }
+            } else {
+                ServiceVisitHistoryScreen(onBack = { navController.popBackStack() })
+            }
+        }
+
         composable(Routes.SalesAnalytics.route) {
             if (selectedRole != UserRole.MANAGER) {
                 androidx.compose.runtime.LaunchedEffect(Unit) { navController.popBackStack() }
@@ -197,14 +236,17 @@ fun AppNavigation(
             }
         }
 
-        composable(Routes.MonthlyEarnings.route) {
+        composable(Routes.MonthlyEarnings.route, arguments = listOf(
+            navArgument("employeeRole") { type = NavType.StringType; defaultValue = "OPERATOR" }
+        )) { entry ->
 
             val role = selectedRole ?: UserRole.OPERATOR
 
-            if (role != UserRole.MANAGER &&
-                role != UserRole.OPERATOR
-            ) {
-                navController.popBackStack()
+            val employeeRole = entry.arguments?.getString("employeeRole") ?: "OPERATOR"
+            val validRole = employeeRole == "OPERATOR" ||
+                employeeRole == "SUPPLY_OPERATOR"
+            if (!validRole || (role != UserRole.MANAGER && role.name != employeeRole)) {
+                androidx.compose.runtime.LaunchedEffect(Unit) { navController.popBackStack() }
                 return@composable
             }
 
@@ -528,6 +570,7 @@ fun AppNavigation(
 
             SupplyServiceStep2Screen(
                 stationId = stationId,
+                role = selectedRole ?: UserRole.OPERATOR,
                 onBack = {
                     navController.popBackStack()
                 },

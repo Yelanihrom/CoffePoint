@@ -46,14 +46,16 @@ class SupplyServiceChecklistUiTest {
 
     @Test fun newInstructionsExpandIndependentlyAndOnlyMixersHaveHoseWarning() {
         content()
-        val cleaning = buildSupplyServiceChecklist()[1].checklistItem.description
-        val system = buildSupplyServiceChecklist()[2].checklistItem.description
+        val mixers = buildSupplyServiceChecklist()[0].checklistItem.description
+        val system = buildSupplyServiceChecklist()[1].checklistItem.description
         compose.onNodeWithText("Помыть миксеры").assertIsDisplayed()
         compose.onAllNodesWithText("Не забыть одеть силиконовые шланги").assertCountEquals(1)
-        compose.onNodeWithText(cleaning).assertDoesNotExist()
+        compose.onNodeWithText("Продуть и почистить УЗК").assertDoesNotExist()
+        compose.onAllNodes(isToggleable()).assertCountEquals(2)
+        compose.onNodeWithText(mixers).assertDoesNotExist()
         compose.onNodeWithText(system).assertDoesNotExist()
-        compose.onNodeWithText("Продуть и почистить УЗК").performClick()
-        compose.onNodeWithText(cleaning).assertIsDisplayed()
+        compose.onNodeWithText("Помыть миксеры").performClick()
+        compose.onNodeWithText(mixers).assertIsDisplayed()
         compose.onNodeWithText(system).assertDoesNotExist()
         compose.onNodeWithText("Общий тест системы").performScrollTo().performClick()
         compose.onNodeWithText(system).performScrollTo().assertIsDisplayed()
@@ -61,16 +63,16 @@ class SupplyServiceChecklistUiTest {
         val styled = hintNode.config[SemanticsProperties.Text].single()
         val emphasis = styled.spanStyles.single { it.item.fontWeight == FontWeight.Bold }
         assertEquals("Критерий проверки:", styled.text.substring(emphasis.start, emphasis.end))
-        val checkboxLeft = compose.onAllNodes(isToggleable())[2].fetchSemanticsNode().boundsInRoot.left
+        val checkboxLeft = compose.onAllNodes(isToggleable())[1].fetchSemanticsNode().boundsInRoot.left
         assertEquals("Hint must align with checkbox", checkboxLeft, hintNode.boundsInRoot.left, 1f)
     }
 
-    @Test fun completionRequiresAllThreeChecksAndUncheckingBlocksItAgain() {
+    @Test fun completionRequiresBothChecksAndUncheckingBlocksItAgain() {
         content()
         compose.onNodeWithText("ЗАВЕРШИТЬ").assertIsNotEnabled()
-        for (index in 0..2) {
+        for (index in 0..1) {
             compose.onAllNodes(isToggleable())[index].performClick()
-            if (index < 2) compose.onNodeWithText("ЗАВЕРШИТЬ").assertIsNotEnabled()
+            if (index < 1) compose.onNodeWithText("ЗАВЕРШИТЬ").assertIsNotEnabled()
         }
         compose.onNodeWithText("ЗАВЕРШИТЬ").assertIsEnabled()
         compose.onAllNodes(isToggleable())[1].performClick()

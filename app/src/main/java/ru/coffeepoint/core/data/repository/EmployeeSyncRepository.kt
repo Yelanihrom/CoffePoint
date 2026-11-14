@@ -1,7 +1,6 @@
 package ru.coffeepoint.core.data.repository
 
 import android.content.Context
-import androidx.room.withTransaction
 import ru.coffeepoint.core.data.local.DatabaseProvider
 import ru.coffeepoint.core.data.local.entity.EmployeeEntity
 import ru.coffeepoint.core.data.local.entity.EmployeeStationAssignmentEntity
@@ -9,20 +8,26 @@ import ru.coffeepoint.core.data.local.entity.EmployeeTransactionEntity
 import ru.coffeepoint.core.sync.google.GoogleSheetsEntitySyncResult
 import ru.coffeepoint.core.sync.google.GoogleSheetsSyncErrorType
 import ru.coffeepoint.core.sync.google.GoogleSheetsSyncManager
+import ru.coffeepoint.core.sync.google.EmployeeDataImporter
+import ru.coffeepoint.core.sync.google.SupplierVisitSyncService
+import ru.coffeepoint.core.data.local.AppDatabase
 
 class EmployeeSyncRepository(
-    context: Context
+    context: Context,
+    private val db: AppDatabase = DatabaseProvider.getDatabase(context),
+    private val syncManager: GoogleSheetsSyncManager = GoogleSheetsSyncManager(),
+    private val enqueueSync: () -> Unit = { syncManager.enqueueBackgroundSync(context.applicationContext) }
 ) {
 
     private val syncStatePreferences = context.applicationContext.getSharedPreferences(
         "google_sheets_sync_state",
         Context.MODE_PRIVATE
     )
-    private val db = DatabaseProvider.getDatabase(context)
     private val employeeDao = db.employeeDao()
     private val assignmentDao = db.employeeStationAssignmentDao()
     private val transactionDao = db.employeeTransactionDao()
-    private val syncManager = GoogleSheetsSyncManager()
+    suspend fun syncSupplierVisits(): GoogleSheetsEntitySyncResult =
+        SupplierVisitSyncService(db, syncManager).syncPending()
 
     suspend fun syncEmployeesAndAssignments(): GoogleSheetsEntitySyncResult {
         val employees = employeeDao.getUnsynced()
@@ -69,10 +74,11 @@ class EmployeeSyncRepository(
     }
 
     suspend fun syncEmployeeData(): GoogleSheetsEntitySyncResult {
+        val visitsResult = syncSupplierVisits()
         val employeesResult = syncEmployeesAndAssignments()
         val transactionsResult = syncEmployeeTransactions()
 
-        val failedResults = listOf(employeesResult, transactionsResult)
+        val failedResults = listOf(visitsResult, employeesResult, transactionsResult)
             .filterNot { result -> result.synced }
 
         if (failedResults.isEmpty()) return GoogleSheetsEntitySyncResult.success()
@@ -95,7 +101,7 @@ class EmployeeSyncRepository(
             TRANSACTIONS_RECONCILED_KEY,
             false
         )
-        val remoteData = runCatching {
+        val remoteData = try {
             syncManager.loadFullSyncBundle(
                 includeStations = false,
                 includeSettings = false,
@@ -103,41 +109,26 @@ class EmployeeSyncRepository(
                 includeWarehouseStock = false,
                 includeEmployeeData = true
             )
-        }.getOrElse {
+        } catch (cancellation: kotlin.coroutines.cancellation.CancellationException) { throw cancellation }
+        catch (_: Exception) {
             return false
         }
 
-        val imported = runCatching {
-            db.withTransaction {
-                if (shouldReconcileTransactions) {
-                    if (transactionDao.getUnsynced().isNotEmpty()) return@withTransaction false
-                    if (
-                        transactionDao.getAll().isNotEmpty() &&
-                        remoteData.employeeTransactions.isEmpty()
-                    ) {
-                        return@withTransaction false
-                    }
-                }
-
-                employeeDao.insertAll(remoteData.employees)
-                assignmentDao.insertAll(remoteData.employeeStationAssignments)
-
-                if (shouldReconcileTransactions) {
-                    transactionDao.deleteAll()
-                }
-                transactionDao.insertAll(remoteData.employeeTransactions)
-                true
-            }
-        }.getOrElse {
+        val reconciled = try {
+            EmployeeDataImporter(db).import(remoteData, shouldReconcileTransactions)
+        } catch (cancellation: kotlin.coroutines.cancellation.CancellationException) { throw cancellation }
+        catch (_: Exception) {
             return false
         }
 
-        if (!imported) return false
-
-        if (shouldReconcileTransactions) {
+        if (reconciled) {
             syncStatePreferences.edit()
                 .putBoolean(TRANSACTIONS_RECONCILED_KEY, true)
                 .apply()
+        }
+
+        if (db.stationServiceVisitDao().getUnsynced().isNotEmpty() || transactionDao.getUnsynced().isNotEmpty()) {
+            enqueueSync()
         }
 
         return true

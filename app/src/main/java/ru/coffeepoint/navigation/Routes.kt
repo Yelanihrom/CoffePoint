@@ -8,7 +8,13 @@ sealed class Routes(val route: String) {
 
     data object ManagerHome : Routes("manager_home")
 
+    data object NotificationSettings : Routes("notification_settings")
+
+    data object Settings : Routes("settings")
+
     data object SalesAnalytics : Routes("sales_analytics")
+    data object AnalyticsMenu : Routes("analytics_menu")
+    data object ServiceVisitHistory : Routes("service_visit_history")
 
     data object SupplyCatalog : Routes("supply_catalog")
 
@@ -16,7 +22,10 @@ sealed class Routes(val route: String) {
 
     data object WarehouseStockSettings : Routes("warehouse_stock_settings")
 
-    data object MonthlyEarnings : Routes("monthly_earnings")
+    data object MonthlyEarnings : Routes("monthly_earnings?employeeRole={employeeRole}") {
+        fun createRoute(employeeRole: String = "OPERATOR"): String =
+            "monthly_earnings?employeeRole=$employeeRole"
+    }
 
     data object SupplyCatalogEdit : Routes("supply_catalog_edit/{itemId}/{itemType}") {
 

@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import ru.coffeepoint.core.data.local.entity.SupplyCatalogEntity
 import ru.coffeepoint.core.data.repository.SupplyCatalogRepository
 
@@ -32,19 +33,21 @@ class SupplyCatalogViewModel(
     }
 
     fun refresh() {
+        if (loading) return
+        loading = true
+        showRefreshError = false
         viewModelScope.launch {
-            loading = true
-            showRefreshError = false
-
-            val refreshed = repository.refreshFromGoogleSheets()
-
-            if (refreshed) {
-                items = repository.getItems()
-            } else {
+            try {
+                val refreshed = repository.refreshFromGoogleSheets()
+                if (refreshed) items = repository.getItems()
+                else showRefreshError = true
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
                 showRefreshError = true
+            } finally {
+                loading = false
             }
-
-            loading = false
         }
     }
 

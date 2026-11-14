@@ -2,8 +2,10 @@ package ru.coffeepoint.core.data.local
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import ru.coffeepoint.BuildConfig
 
 object DatabaseProvider {
 
@@ -51,8 +53,16 @@ object DatabaseProvider {
                     MIGRATION_31_32,
                     MIGRATION_32_33,
                     MIGRATION_33_34,
-                    MIGRATION_34_35
+                    MIGRATION_34_35,
+                    MIGRATION_35_36,
+                    MIGRATION_36_37,
+                    MIGRATION_37_38
                 )
+                .addCallback(object : RoomDatabase.Callback() {
+                    override fun onOpen(db: SupportSQLiteDatabase) {
+                        if (BuildConfig.IS_TEST_ENVIRONMENT) LocalTestEmployees.ensureSupplier(db)
+                    }
+                })
                 .build()
                 .also {
                     INSTANCE = it
@@ -60,6 +70,41 @@ object DatabaseProvider {
 
         }
 
+    }
+
+    internal val MIGRATION_37_38 = object : Migration(37, 38) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE employees_transactions ADD COLUMN sourceType TEXT")
+            db.execSQL("ALTER TABLE employees_transactions ADD COLUMN sourceId TEXT")
+            db.execSQL("ALTER TABLE employees_transactions ADD COLUMN isLocalOnly INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("CREATE UNIQUE INDEX index_employees_transactions_sourceType_sourceId ON employees_transactions (sourceType, sourceId)")
+        }
+    }
+
+    internal val MIGRATION_36_37 = object : Migration(36, 37) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE employees ADD COLUMN isLocalOnly INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
+    internal val MIGRATION_35_36 = object : Migration(35, 36) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("""
+                CREATE TABLE IF NOT EXISTS station_service_visits (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    employeeId INTEGER NOT NULL,
+                    stationId INTEGER NOT NULL,
+                    completedAt TEXT NOT NULL,
+                    createdAt TEXT,
+                    updatedAt TEXT NOT NULL,
+                    isSynced INTEGER NOT NULL DEFAULT 0,
+                    syncError INTEGER NOT NULL DEFAULT 0,
+                    syncErrorType TEXT NOT NULL DEFAULT ''
+                )
+            """.trimIndent())
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_station_service_visits_employeeId_completedAt ON station_service_visits (employeeId, completedAt)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_station_service_visits_stationId_completedAt ON station_service_visits (stationId, completedAt)")
+        }
     }
 
     private val MIGRATION_3_4 = object : Migration(3, 4) {

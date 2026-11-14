@@ -14,6 +14,7 @@ class MemorySheet {
     this.formats = [];
   }
   getName() { return this.name; }
+  getSheetId() { return Object.keys(schema).indexOf(this.name); }
   getLastRow() { return this.rows.length; }
   setFrozenRows() {}
   appendRow(values) { this.rows.push([...values]); }
@@ -63,16 +64,37 @@ function createHarness(properties = {SYNC_TOKEN: 'test-token', VENDISTA_TOKEN: '
   const requests = [];
   const responses = [];
   const sleeps = [];
+  const atomicBatches = [];
   const context = vm.createContext({
     PropertiesService: {getScriptProperties: () => ({getProperty: key => properties[key] ?? null})},
     ContentService: {MimeType: {JSON: 'application/json'}, createTextOutput: text => ({
       text, setMimeType() { return this; },
     })},
     SpreadsheetApp: {openById: () => ({getSheetByName: name => sheets[name] ?? null})},
+    Sheets: {Spreadsheets: {batchUpdate(body) {
+      if (context.failAtomicBatch) throw new Error('Injected Sheets API failure');
+      const prepared = body.requests.map(request => {
+        const value = request.appendCells;
+        const sheet = Object.values(sheets).find(s => s.getSheetId() === value.sheetId);
+        if (!sheet) throw new Error('Missing sheet');
+        return {sheet, rows: value.rows.map(row => row.values.map(cell => {
+          const raw = cell.userEnteredValue.numberValue ?? cell.userEnteredValue.stringValue;
+          return cell.userEnteredFormat?.numberFormat?.type === 'DATE_TIME'
+            ? new Date(Math.round((raw - 25569) * 86400000) - 3 * 3600000) : raw;
+        }))};
+      });
+      prepared.forEach(({sheet, rows}) => rows.forEach(row => sheet.appendRow(row)));
+      atomicBatches.push(body);
+    }}},
     LockService: {getScriptLock: () => lock},
     Logger: {log() {}},
-    Utilities: {sleep: delay => sleeps.push(delay),
+    Utilities: {getUuid: () => require('node:crypto').randomUUID(), sleep: delay => sleeps.push(delay),
+      parseDate(text, timeZone) {
+        if (timeZone !== 'Europe/Moscow') throw new Error('Unexpected timezone');
+        return new Date(text + (text.includes('T') ? '+03:00' : 'T00:00:00+03:00'));
+      },
       formatDate(date, timeZone, pattern) {
+        if (pattern === 'Z' && timeZone === 'Europe/Moscow') return '+0300';
         if (pattern !== 'yyyy-MM-dd') throw new Error('Unexpected date pattern in test: ' + pattern);
         return new Intl.DateTimeFormat('en-CA', {timeZone, year: 'numeric', month: '2-digit', day: '2-digit'})
           .format(date);
@@ -85,7 +107,7 @@ function createHarness(properties = {SYNC_TOKEN: 'test-token', VENDISTA_TOKEN: '
     }},
   });
   for (const name of ['Config.gs', 'Response.gs', 'Router.gs', 'Auth.gs', 'SheetsRepository.gs',
-    'StationSales.gs', 'VendistaClient.gs', 'SalesAnalytics.gs']) {
+    'StationSales.gs', 'VendistaClient.gs', 'SalesAnalytics.gs', 'SupplyServiceVisits.gs']) {
     vm.runInContext(fs.readFileSync(path.join(scriptRoot, name), 'utf8'), context, {filename: name});
   }
   const config = vm.runInContext('({CONFIG, SHEETS})', context);
@@ -95,7 +117,7 @@ function createHarness(properties = {SYNC_TOKEN: 'test-token', VENDISTA_TOKEN: '
       : {parameter: {}, postData: {contents: JSON.stringify({...request, token})}};
     return JSON.parse(context.handleRequest(event, method).text);
   }
-  return {context, config, sheets, lock, call, requests, responses, sleeps};
+  return {context, config, sheets, lock, call, requests, responses, sleeps, atomicBatches};
 }
 
 module.exports = {createHarness, schema, fullSync};

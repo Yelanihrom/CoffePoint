@@ -37,14 +37,7 @@ class StationRepository(
     private val settingsDao = db.stationSettingsDao()
     private val googleSheetsSyncManager = GoogleSheetsSyncManager()
     private val googleSheetsImportService = GoogleSheetsImportService(
-        stationDao = stationDao,
-        inventoryDao = inventoryDao,
-        settingsDao = settingsDao,
-        supplyCatalogDao = db.supplyCatalogDao(),
-        warehouseStockDao = db.warehouseStockDao(),
-        employeeDao = db.employeeDao(),
-        employeeStationAssignmentDao = db.employeeStationAssignmentDao(),
-        employeeTransactionDao = db.employeeTransactionDao()
+        db = db,
     )
     private val googleSheetsStationSyncService = GoogleSheetsStationSyncService(
         stationDao = stationDao,
@@ -106,6 +99,13 @@ class StationRepository(
         )
 
         if (result == GoogleSheetsImportResult.Success) {
+            try {
+                NotificationSettingsRepository(appContext).refresh()
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+            catch (error: Exception) {
+                android.util.Log.w("GoogleSheetsSync", "Notification settings import failed")
+                return GoogleSheetsImportResult.Error(error)
+            }
             googleSheetsImportPreferences.saveLastImportTime(
                 System.currentTimeMillis()
             )
@@ -386,41 +386,8 @@ class StationRepository(
 
     }
 
-    suspend fun updateSupplyOperatorServiceDates(
-        stationId: Int,
-        serviceDate: String,
-        updateMixers: Boolean,
-        updateLiquidWasteContainer: Boolean
-    ): Boolean {
-
-        val detail = getStation(stationId) ?: return false
-
-        if (!updateMixers && !updateLiquidWasteContainer) {
-            return true
-        }
-
-        return saveStation(
-            detail = detail.copy(
-                station = detail.station.copy(
-                    mixersServiceDate = if (updateMixers) {
-                        serviceDate
-                    } else {
-                        detail.station.mixersServiceDate
-                    },
-                    liquidWasteContainerServiceDate = if (updateLiquidWasteContainer) {
-                        serviceDate
-                    } else {
-                        detail.station.liquidWasteContainerServiceDate
-                    }
-                )
-            ),
-            syncImmediately = true,
-            supplyServiceFieldsOnly = true,
-            updateMixersServiceDate = updateMixers,
-            updateLiquidWasteContainerServiceDate = updateLiquidWasteContainer
-        )
-
-    }
+    suspend fun syncSupplyServiceNow(stationId: Int): Boolean =
+        googleSheetsStationSyncService.syncSupplyServiceFields(stationId)
 
 }
 

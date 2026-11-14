@@ -9,7 +9,7 @@
 | Папка | Назначение |
 | --- | --- |
 | [local](local) | `AppDatabase`, `DatabaseProvider` и Room-миграции |
-| [local/entity](local/entity) | Локальные схемы восьми таблиц |
+| [local/entity](local/entity) | Восемь синхронизируемых таблиц и локальная подготовка визитов `station_service_visits` |
 | [local/dao](local/dao) | Чтение, запись и статусы синхронизации |
 | [mapper](mapper) | Entity ↔ модели станции, остатков и настроек |
 | [preferences](preferences) | Последний импорт и сохранённое состояние экрана заработка |
@@ -23,9 +23,10 @@
 | `StationRepository` | Станции, остатки, настройки, аренда и даты обслуживания; делегирование импорта/отправки |
 | `WarehouseStockRepository` | Остатки и пределы склада, загрузка доступности и синхронизация |
 | `SupplierRefillRepository` | Атомарное локальное сохранение фактического остатка станции и списания добавленного со склада с проверкой нехватки |
+| `SupplierServiceCompletionRepository` | Атомарные дата миксеров, визит и предварительное начисление 2000 рублей снабженцу на 4-м этапе; production не принимает local-only профиль |
 | `SupplyCatalogRepository` | Загрузка и прямое сохранение/удаление вариантов закупки |
 | `EmployeeSyncRepository` | Отправка и импорт сотрудников, привязок и финансовых операций |
-| `MonthlyEarningsRepository` | История операций, выплаты и взаиморасчёт по первому активному сотруднику |
+| `MonthlyEarningsRepository` | История, выплаты и взаиморасчёт отдельно для оператора и снабженца |
 | `remote/repository/TerminalCommandRepository` | Прямые команды терминалу Vendista |
 
 Для локальной схемы и её миграций см.

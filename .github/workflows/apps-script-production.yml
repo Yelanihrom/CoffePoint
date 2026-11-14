@@ -1,0 +1,85 @@
+name: Production Apps Script
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full 40-character commit SHA already merged into master
+        required: true
+        type: string
+      expected_version:
+        description: Current published Apps Script version (23 at initial setup)
+        required: true
+        type: string
+      publish:
+        description: Publish after checks (false is read-only preflight)
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apps-script-production
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SOURCE_SHA: ${{ inputs.source_sha }}
+    steps:
+      - name: Require master and a literal commit SHA
+        run: |
+          test "$GITHUB_REF" = refs/heads/master
+          [[ "$SOURCE_SHA" =~ ^[a-f0-9]{40}$ ]]
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 0
+      - name: Require a commit already on master
+        run: git merge-base --is-ancestor HEAD origin/master
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify documentation and server/deployment contracts without live access
+        run: |
+          node scripts/docs.cjs --check
+          node --test google-apps-script/tests/*.test.cjs scripts/tests/*.test.cjs
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: production-apps-script
+    env:
+      SOURCE_SHA: ${{ inputs.source_sha }}
+      EXPECTED_VERSION: ${{ inputs.expected_version }}
+      PUBLISH: ${{ inputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check production and optionally publish the selected commit
+        env:
+          PRODUCTION_CLASP_AUTH_JSON: ${{ secrets.PRODUCTION_CLASP_AUTH_JSON }}
+          PRODUCTION_SYNC_TOKEN: ${{ secrets.PRODUCTION_SYNC_TOKEN }}
+        run: node scripts/production-backend.cjs
+      - name: Store sanitized deployment report (never source backups or credentials)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: apps-script-production-${{ github.run_id }}
+          path: ${{ runner.temp }}/deployment-report.json
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Write summary
+        if: ${{ always() }}
+        run: |
+          node -e 'const fs=require("fs"),p=require("path");const f=p.join(process.env.RUNNER_TEMP,"deployment-report.json");if(fs.existsSync(f)){const r=JSON.parse(fs.readFileSync(f,"utf8"));fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,"### Apps Script production\nCommit: "+r.commit+"\n\nStatus: "+r.status+"\n\nPrevious version: "+(r.previousVersion||r.expectedVersion)+"\n\nNew version: "+(r.newVersion||"not created")+"\n");}'

@@ -27,7 +27,8 @@ class StationAttentionNotification(
         stations: List<StationDetail>
     ) {
 
-        if (!canShowForRefillRole()) return
+        if (!NotificationSettings(context).isEnabled(
+                RolePreferences(context).getSelectedRole(), NotificationOption.REFILL)) return
 
         val lines = stations.mapNotNull { detail ->
 
@@ -38,7 +39,7 @@ class StationAttentionNotification(
 
             if (issues.isEmpty()) return@mapNotNull null
 
-            "${detail.station.name}: ${
+            "${detail.station.notificationLabel()}: ${
                 issues.joinToString(", ") { issue ->
                     issue.description
                 }
@@ -62,13 +63,16 @@ class StationAttentionNotification(
 
         if (!canShowForSupplyRole()) return
 
+        val role = RolePreferences(context).getSelectedRole()
+        val settings = NotificationSettings(context)
+
         val lines = stations.mapNotNull { detail ->
             val criticalSupplyItems = detail.supplyItems()
-                .filter { item -> item.isCritical }
+                .filter { item -> item.isCritical && settings.isEnabled(role, NotificationOption.CRITICAL_STOCK) }
 
-            val techServiceItems = detail.supplyAttentionTechServiceDashboardItems(
-                RolePreferences(context).getSelectedRole()
-            )
+            val techServiceItems = detail.supplyAttentionTechServiceDashboardItems(role) { option ->
+                settings.isEnabled(role, option)
+            }
 
             if (criticalSupplyItems.isEmpty() && techServiceItems.isEmpty()) {
                 return@mapNotNull null
@@ -96,7 +100,7 @@ class StationAttentionNotification(
                 }
             }
 
-            "${detail.station.name}: ${parts.joinToString("; ")}"
+            "${detail.station.notificationLabel()}: ${parts.joinToString("; ")}"
         }
 
         if (lines.isEmpty()) return
@@ -113,7 +117,8 @@ class StationAttentionNotification(
         items: List<WarehouseStockItem>
     ) {
 
-        if (!canShowForSupplyRole()) return
+        if (!NotificationSettings(context).isEnabled(
+                RolePreferences(context).getSelectedRole(), NotificationOption.WAREHOUSE)) return
 
         val lines = items
             .filter { item ->
@@ -205,18 +210,6 @@ class StationAttentionNotification(
             context,
             Manifest.permission.POST_NOTIFICATIONS
         ) == PackageManager.PERMISSION_GRANTED
-
-    }
-
-    private fun canShowForRefillRole(): Boolean {
-
-        return when (RolePreferences(context).getSelectedRole()) {
-            UserRole.MANAGER,
-            UserRole.OPERATOR -> true
-
-            UserRole.SUPPLY_OPERATOR,
-            null -> false
-        }
 
     }
 

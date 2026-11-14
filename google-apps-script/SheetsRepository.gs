@@ -30,7 +30,10 @@ function getFullSyncData(entities, stationId) {
       : [],
     employeeTransactions: requestedEntities.has(SHEETS.EMPLOYEES_TRANSACTIONS.name)
       ? readSheet(SHEETS.EMPLOYEES_TRANSACTIONS)
-      : []
+      : [],
+    stationServiceVisits: readRequested(SHEETS.STATION_SERVICE_VISITS, 'stationId'),
+    notificationSettings: requestedEntities.has(SHEETS.NOTIFICATION_SETTINGS.name)
+      ? readNotificationSettings_() : []
   };
 }
 
@@ -44,7 +47,9 @@ function parseEntities(entities) {
       SHEETS.WAREHOUSE_STOCK.name,
       SHEETS.EMPLOYEES.name,
       SHEETS.EMPLOYEE_STATION_ASSIGNMENTS.name,
-      SHEETS.EMPLOYEES_TRANSACTIONS.name
+      SHEETS.EMPLOYEES_TRANSACTIONS.name,
+      SHEETS.STATION_SERVICE_VISITS.name,
+      SHEETS.NOTIFICATION_SETTINGS.name
     ]);
   }
 
@@ -84,10 +89,29 @@ function upsertEntities(entityName, dataItems) {
       }
 
       const normalizedKey = String(keyValue);
+      if (entityName === SHEETS.EMPLOYEES_TRANSACTIONS.name &&
+          data.sourceType === 'SUPPLY_SERVICE') {
+        throw createHttpError(403, 'Supply earnings are managed by complete_supply_visit');
+      }
       if (seenKeys.has(normalizedKey)) {
         throw createHttpError(400, 'Duplicate key in batch: ' + normalizedKey);
       }
       seenKeys.add(normalizedKey);
+
+      data = Object.assign({}, data);
+      if (sheetConfig.name === SHEETS.NOTIFICATION_SETTINGS.name) {
+        if (typeof data.updatedAt !== 'string' ||
+            !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(data.updatedAt) ||
+            isNaN(Date.parse(data.updatedAt))) {
+          throw createHttpError(400, 'Notification settings require ISO UTC updatedAt');
+        }
+        data.updatedAt = new Date(data.updatedAt);
+      }
+      employeeTimestampFields_(sheetConfig.name).forEach(function(field) {
+        if (Object.prototype.hasOwnProperty.call(data, field)) {
+          data[field] = normalizeEmployeeTimestamp_(data[field]);
+        }
+      });
 
       assertIncomingRowHasTimestamp(sheet, headers, data);
       const rowIndex = findRowByKey(sheet, headers, sheetConfig.key, keyValue);
@@ -98,6 +122,10 @@ function upsertEntities(entityName, dataItems) {
       const currentValues = rowIndex
         ? sheet.getRange(rowIndex, 1, 1, headers.length).getValues()[0]
         : headers.map(() => '');
+      if (entityName === SHEETS.EMPLOYEES_TRANSACTIONS.name &&
+          currentValues[headers.indexOf('sourceType')] === 'SUPPLY_SERVICE') {
+        throw createHttpError(403, 'Supply earnings are managed by complete_supply_visit');
+      }
       const values = headers.map((header, index) => {
         if (Object.prototype.hasOwnProperty.call(data, header)) {
           if (sheetConfig.name === SHEETS.WAREHOUSE_STOCK.name && header === 'updatedAt') {
@@ -115,6 +143,9 @@ function upsertEntities(entityName, dataItems) {
       if (sheetConfig.name === SHEETS.COFFEE_STATION.name && rowIndex) {
         preserveNewerServiceDates_(headers, currentValues, values);
       }
+      if (sheetConfig.name === SHEETS.NOTIFICATION_SETTINGS.name) {
+        validateNotificationSettings_(rowToObject(headers, values), 400);
+      }
 
       return { rowIndex: rowIndex, values: values };
     });
@@ -130,6 +161,16 @@ function upsertEntities(entityName, dataItems) {
     if (sheetConfig.name === SHEETS.WAREHOUSE_STOCK.name && sheet.getLastRow() > 1) {
       sheet.getRange(2, headers.indexOf('updatedAt') + 1, sheet.getLastRow() - 1, 1)
         .setNumberFormat('dd.MM.yyyy HH:mm');
+    }
+    if (sheet.getLastRow() > 1) {
+      if (sheetConfig.name === SHEETS.NOTIFICATION_SETTINGS.name) {
+        sheet.getRange(2, headers.indexOf('updatedAt') + 1, sheet.getLastRow() - 1, 1)
+          .setNumberFormat('yyyy-mm-dd hh:mm:ss');
+      }
+      employeeTimestampFields_(sheetConfig.name).forEach(function(field) {
+        sheet.getRange(2, headers.indexOf(field) + 1, sheet.getLastRow() - 1, 1)
+          .setNumberFormat('yyyy-mm-dd hh:mm:ss');
+      });
     }
   } finally {
     lock.releaseLock();
@@ -324,7 +365,8 @@ function findSheetConfig(entityName) {
     SHEETS.WAREHOUSE_STOCK,
     SHEETS.EMPLOYEES,
     SHEETS.EMPLOYEE_STATION_ASSIGNMENTS,
-    SHEETS.EMPLOYEES_TRANSACTIONS
+    SHEETS.EMPLOYEES_TRANSACTIONS,
+    SHEETS.NOTIFICATION_SETTINGS
   ];
 
   const config = configs.find((item) => item.name === entityName);
@@ -401,6 +443,33 @@ function rowToObject(headers, row) {
   }, {});
 }
 
+function validateNotificationSettings_(row, status) {
+  if (!['MANAGER', 'OPERATOR', 'SUPPLY_OPERATOR'].includes(row.role)) {
+    throw createHttpError(status, 'Invalid notification role');
+  }
+  const fields = SHEETS.NOTIFICATION_SETTINGS.headers.filter(field => field.endsWith('Enabled'));
+  fields.forEach(function(field) {
+    if (typeof row[field] !== 'boolean') {
+      throw createHttpError(status, 'Notification setting must be boolean: ' + field);
+    }
+    if (row[field] && ((row.role === 'OPERATOR' && field !== 'refillEnabled') ||
+        (row.role === 'SUPPLY_OPERATOR' && field === 'refillEnabled'))) {
+      throw createHttpError(status, 'Notification is unavailable for this role: ' + field);
+    }
+  });
+}
+
+function readNotificationSettings_() {
+  const rows = readSheet(SHEETS.NOTIFICATION_SETTINGS);
+  const roles = new Set();
+  rows.forEach(function(row) {
+    validateNotificationSettings_(row, 500);
+    if (roles.has(row.role)) throw createHttpError(500, 'Duplicate notification role');
+    roles.add(row.role);
+  });
+  return rows;
+}
+
 function normalizeWarehouseTimestamp_(value) {
   // Preserve the instant and explicit offset used by conflict checks and Android.
   if (typeof value !== 'string' || !/(?:Z|[+-]\d{2}:\d{2})$/i.test(value)) return value;
@@ -412,4 +481,46 @@ function normalizeWarehouseTimestamp_(value) {
 function normalizeCellValue(value) {
   if (value === undefined || value === null) return '';
   return value;
+}
+
+function employeeTimestampFields_(sheetName) {
+  if (sheetName === SHEETS.EMPLOYEES_TRANSACTIONS.name) return ['operationDate', 'createdAt', 'updatedAt'];
+  if (sheetName === SHEETS.STATION_SERVICE_VISITS.name) return ['completedAt', 'createdAt', 'updatedAt'];
+  if (sheetName === SHEETS.EMPLOYEES.name || sheetName === SHEETS.EMPLOYEE_STATION_ASSIGNMENTS.name) {
+    return ['createdAt', 'updatedAt'];
+  }
+  return [];
+}
+
+function normalizeEmployeeTimestamp_(value) {
+  if (value === '' || value === null || value === undefined) return '';
+  if (Object.prototype.toString.call(value) === '[object Date]' && !isNaN(value.getTime())) return value;
+  const text = String(value).trim();
+  let date;
+  if (/(?:Z|[+-]\d{2}:\d{2})$/i.test(text)) {
+    date = parseSyncTimestamp(text);
+  } else {
+    const normalized = text.replace(' ', 'T').replace(/\.(\d{1,3})$/, function(_, fraction) {
+      return '.' + fraction.padEnd(3, '0');
+    });
+    const pattern = /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? 'yyyy-MM-dd' :
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?$/.test(normalized)
+        ? "yyyy-MM-dd'T'HH:mm:ss" + (normalized.includes('.') ? '.SSS' : '') : null;
+    if (pattern) date = Utilities.parseDate(normalized, CONFIG.TIMEZONE, pattern);
+  }
+  if (!date || isNaN(date.getTime())) throw createHttpError(400, 'Invalid employee timestamp');
+  return date;
+}
+
+function employeeTimestampCell_(value) {
+  const date = normalizeEmployeeTimestamp_(value);
+  if (!date) return {userEnteredValue: {stringValue: ''}};
+  const offset = Utilities.formatDate(date, CONFIG.TIMEZONE, 'Z');
+  const offsetMinutes = (Number(offset.slice(1, 3)) * 60 + Number(offset.slice(3, 5))) *
+    (offset[0] === '-' ? -1 : 1);
+  // Sheets serials are local wall-clock dates; API responses continue to use UTC instants.
+  return {
+    userEnteredValue: {numberValue: (date.getTime() + offsetMinutes * 60000) / 86400000 + 25569},
+    userEnteredFormat: {numberFormat: {type: 'DATE_TIME', pattern: 'yyyy-mm-dd hh:mm:ss'}},
+  };
 }

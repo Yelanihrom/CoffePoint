@@ -3,11 +3,12 @@ package ru.coffeepoint.core.data.preferences
 import android.content.Context
 
 class MonthlyEarningsPreferences(
-    context: Context
+    context: Context,
+    employeeScope: String = "OPERATOR"
 ) {
 
     private val preferences = context.getSharedPreferences(
-        "monthly_earnings",
+        if (employeeScope == "OPERATOR") "monthly_earnings" else "monthly_earnings_$employeeScope",
         Context.MODE_PRIVATE
     )
 
@@ -43,6 +44,12 @@ class MonthlyEarningsPreferences(
         preferences.edit()
             .putString(KEY_WORK_START_DATE_TEXT, value)
             .apply()
+    }
+
+    fun getEmployeeName(): String = preferences.getString("employee_name", "").orEmpty()
+
+    fun updateEmployeeName(value: String) {
+        preferences.edit().putString("employee_name", value).apply()
     }
 
     private companion object {

@@ -1,28 +1,21 @@
 package ru.coffeepoint.core.sync.google
 
-import ru.coffeepoint.core.data.local.dao.CoffeeStationDao
-import ru.coffeepoint.core.data.local.dao.EmployeeDao
-import ru.coffeepoint.core.data.local.dao.EmployeeStationAssignmentDao
-import ru.coffeepoint.core.data.local.dao.EmployeeTransactionDao
-import ru.coffeepoint.core.data.local.dao.StationInventoryDao
-import ru.coffeepoint.core.data.local.dao.StationSettingsDao
-import ru.coffeepoint.core.data.local.dao.SupplyCatalogDao
-import ru.coffeepoint.core.data.local.dao.WarehouseStockDao
+import androidx.room.withTransaction
+import ru.coffeepoint.core.data.local.AppDatabase
+
 import ru.coffeepoint.core.data.mapper.toInventoryEntity
 import ru.coffeepoint.core.data.mapper.toSettingsEntity
 import ru.coffeepoint.core.data.mapper.toStationEntity
 
 class GoogleSheetsImportService(
-    private val stationDao: CoffeeStationDao,
-    private val inventoryDao: StationInventoryDao,
-    private val settingsDao: StationSettingsDao,
-    private val supplyCatalogDao: SupplyCatalogDao,
-    private val warehouseStockDao: WarehouseStockDao,
-    private val employeeDao: EmployeeDao,
-    private val employeeStationAssignmentDao: EmployeeStationAssignmentDao,
-    private val employeeTransactionDao: EmployeeTransactionDao,
+    private val db: AppDatabase,
     private val syncManager: GoogleSheetsSyncManager = GoogleSheetsSyncManager()
 ) {
+    private val stationDao = db.coffeeStationDao()
+    private val inventoryDao = db.stationInventoryDao()
+    private val settingsDao = db.stationSettingsDao()
+    private val supplyCatalogDao = db.supplyCatalogDao()
+    private val warehouseStockDao = db.warehouseStockDao()
 
     suspend fun importFullSync(
         includeSupplyCatalog: Boolean = true,
@@ -50,27 +43,29 @@ class GoogleSheetsImportService(
         val remoteStations = remoteData.stations
         if (remoteStations.isEmpty()) return GoogleSheetsImportResult.Empty
 
-        inventoryDao.deleteAll()
-        settingsDao.deleteAll()
-        stationDao.deleteAll()
+        try {
+            db.withTransaction {
+                if (includeEmployeeData) EmployeeDataImporter(db).import(remoteData)
+                inventoryDao.deleteAll()
+                settingsDao.deleteAll()
+                stationDao.deleteAll()
 
-        remoteStations.forEach { detail ->
-            stationDao.insert(detail.toStationEntity())
-            inventoryDao.insert(detail.toInventoryEntity())
-            settingsDao.insert(detail.toSettingsEntity())
-        }
+                remoteStations.forEach { detail ->
+                    stationDao.insert(detail.toStationEntity())
+                    inventoryDao.insert(detail.toInventoryEntity())
+                    settingsDao.insert(detail.toSettingsEntity())
+                }
 
-        if (includeSupplyCatalog) {
-            supplyCatalogDao.deleteAll()
-            supplyCatalogDao.insertAll(remoteData.supplyCatalog)
-        }
+                if (includeSupplyCatalog) {
+                    supplyCatalogDao.deleteAll()
+                    supplyCatalogDao.insertAll(remoteData.supplyCatalog)
+                }
 
-        warehouseStockDao.insertAll(remoteData.warehouseStock)
-
-        if (includeEmployeeData) {
-            employeeDao.insertAll(remoteData.employees)
-            employeeStationAssignmentDao.insertAll(remoteData.employeeStationAssignments)
-            employeeTransactionDao.insertAll(remoteData.employeeTransactions)
+                warehouseStockDao.insertAll(remoteData.warehouseStock)
+            }
+        } catch (cancellation: kotlin.coroutines.cancellation.CancellationException) { throw cancellation }
+        catch (error: Exception) {
+            return GoogleSheetsImportResult.Error(error)
         }
 
         return GoogleSheetsImportResult.Success

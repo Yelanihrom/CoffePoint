@@ -1,6 +1,7 @@
 package ru.coffeepoint.core.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "employees")
@@ -15,5 +16,7 @@ data class EmployeeEntity(
     val updatedAt: String,
     val isSynced: Boolean = true,
     val syncError: Boolean = false,
-    val syncErrorType: String = ""
+    val syncErrorType: String = "",
+    @ColumnInfo(defaultValue = "0")
+    val isLocalOnly: Boolean = false
 )

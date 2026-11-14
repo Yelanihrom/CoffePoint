@@ -21,6 +21,29 @@ import java.net.UnknownHostException
 import java.net.InetAddress
 
 class GoogleSheetsRemoteDataSourceTest {
+    @Test fun `notification settings use a selective read and a narrow partial upsert`() = runBlocking {
+        val rows = ru.coffeepoint.core.auth.UserRole.entries.map { role -> buildMap<String, Any?> {
+            put("role", role.name)
+            put("updatedAt", "2026-11-14T08:15:30.399Z")
+            ru.coffeepoint.core.notification.NotificationOption.entries.forEach {
+                put(it.sheetField, it.defaultEnabled(role))
+            }
+        } }
+        http.enqueue(com.google.gson.Gson().toJson(mapOf("success" to true,
+            "data" to mapOf("notificationSettings" to rows))))
+        val settings = remote.loadNotificationSettings()
+        assertEquals(3, settings.size)
+        assertEquals("notification_settings", http.takeRequest().requestUrl!!.queryParameter("entities"))
+        val row = settings.single { it.role == ru.coffeepoint.core.auth.UserRole.SUPPLY_OPERATOR }
+            .copy(values = mapOf(ru.coffeepoint.core.notification.NotificationOption.WAREHOUSE to true))
+        http.enqueue("{\"success\":true}")
+        assertTrue(remote.syncNotificationSettings(row).synced)
+        val request = http.takeRequest().jsonBody()
+        assertEquals("notification_settings", request["entity"].asString)
+        val data = request.getAsJsonObject("data")
+        assertEquals(setOf("role", "warehouseEnabled", "updatedAt"), data.keySet())
+        assertTrue(data["warehouseEnabled"].asBoolean)
+    }
     private lateinit var http: ApiTestServer
     private lateinit var remote: GoogleSheetsRemoteDataSource
 
@@ -38,6 +61,54 @@ class GoogleSheetsRemoteDataSourceTest {
             syncToken = token,
             reportFailure = { _, _ -> }
         )
+
+    private val visit get() = StationServiceVisitEntity("visit-1", 2, 7,
+        "2026-11-10T21:30:00Z", updatedAt = "2026-11-10T21:30:00Z")
+
+    @Test fun `visit sends identity not money and preserves server receipt instants`() = runBlocking {
+        http.enqueue(fixture("supply-visit.json"))
+        val result = remote.completeSupplyVisit(visit)
+        assertTrue(result.result.synced)
+        assertEquals(visit.completedAt, result.receipt!!.visit.completedAt)
+        assertEquals(visit.completedAt, result.receipt!!.earning.operationDate)
+        assertEquals("SUPPLY_SERVICE", result.receipt!!.earning.sourceType)
+        assertEquals("visit-1", result.receipt!!.earning.sourceId)
+        val request = http.takeRequest().jsonBody()
+        assertEquals("complete_supply_visit", request["action"].asString)
+        val data = request.getAsJsonObject("data")
+        assertEquals(setOf("id", "employeeId", "stationId", "completedAt"), data.keySet())
+        assertEquals(visit.completedAt, data["completedAt"].asString)
+    }
+
+    @Test fun `invalid missing or conflicting visit receipts remain unsynced`() = runBlocking {
+        for (body in listOf("{\"success\":true}", fixture("supply-visit.json").replace("visit-1", "other-visit"),
+            "{\"success\":false,\"error\":{\"status\":409,\"message\":\"Conflict\"}}")) {
+            http.enqueue(body)
+            val result = remote.completeSupplyVisit(visit)
+            assertFalse(result.result.synced)
+            assertNull(result.receipt)
+        }
+    }
+
+    @Test fun `visit upload carries the persisted local earning UUID`() = runBlocking {
+        val id = "b7d18d52-0c8c-44cb-a13a-94ae52d009c0"
+        http.enqueue(fixture("supply-visit.json"))
+        assertTrue(remote.completeSupplyVisit(visit, id).result.synced)
+        assertEquals(id, http.takeRequest().jsonBody().getAsJsonObject("data")["earningId"].asString)
+    }
+
+    @Test fun `old nanosecond visit timestamps are sent with millisecond precision`() = runBlocking {
+        val original = visit.copy(completedAt = "2026-11-10T21:30:00.123456789Z")
+        http.enqueue(fixture("supply-visit.json").replace("21:30:00.000Z", "21:30:00.123Z"))
+        assertTrue(remote.completeSupplyVisit(original).result.synced)
+        assertEquals("2026-11-10T21:30:00.123Z",
+            http.takeRequest().jsonBody().getAsJsonObject("data")["completedAt"].asString)
+    }
+
+    @Test fun `warehouse batch acknowledgement remains compatible with visit response data`() = runBlocking {
+        http.enqueue("{\"success\":true,\"data\":{\"updatedCount\":1}}")
+        assertTrue(remote.syncWarehouseStock(listOf(WarehouseStockEntity("milk", 2, updatedAt = LOCAL_TIMESTAMP))).synced)
+    }
 
     @Test fun `operator service start excludes warehouse and settings`() = runBlocking {
         http.enqueue(fixture("full-sync.json"))
@@ -110,12 +181,25 @@ class GoogleSheetsRemoteDataSourceTest {
         assertEquals("warehouse_stock", http.takeRequest().requestUrl!!.queryParameter("entities"))
     }
 
-    @Test fun `earnings refresh requests all three employee entities only`() = runBlocking {
+    @Test fun `earnings refresh requests employee entities and visits in both environments`() = runBlocking {
         http.enqueue(fixture("full-sync.json"))
         remote.loadFullSyncBundle(includeStations = false, includeSettings = false,
             includeSupplyCatalog = false, includeWarehouseStock = false)
-        assertEquals("employees,employee_station_assignments,employees_transactions",
+        assertEquals("employees,employee_station_assignments,employees_transactions,station_service_visits",
             http.takeRequest().requestUrl!!.queryParameter("entities"))
+    }
+
+    @Test fun `employee refresh imports linked visits in production as well as test`() = runBlocking {
+        val receipt = com.google.gson.JsonParser.parseString(fixture("supply-visit.json"))
+            .asJsonObject.getAsJsonObject("data")
+        val response = com.google.gson.JsonParser.parseString(fixture("full-sync.json")).asJsonObject
+        response.getAsJsonObject("data").add("stationServiceVisits",
+            com.google.gson.JsonArray().apply { add(receipt.getAsJsonObject("visit")) })
+        http.enqueue(response.toString())
+        val bundle = remote.loadFullSyncBundle(includeStations = false, includeSettings = false,
+            includeSupplyCatalog = false, includeWarehouseStock = false)
+        assertEquals(visit.id, bundle.stationServiceVisits.single().id)
+        assertEquals(visit.employeeId, bundle.stationServiceVisits.single().employeeId)
     }
 
     @Test fun `catalog refresh requests only catalog and preserves numeric articles`() = runBlocking {
@@ -255,6 +339,14 @@ class GoogleSheetsRemoteDataSourceTest {
         assertEquals(LOCAL_TIMESTAMP, data["updatedAt"].asString)
         assertFalse(data.has("isSynced"))
         assertFalse(data.has("syncError"))
+    }
+
+    @Test fun `local supplier transactions cannot reach the server`() = runBlocking {
+        val transaction = EmployeeTransactionEntity("local-earning", 2, "EARNING", LOCAL_TIMESTAMP,
+            null, null, null, 2000, "", LOCAL_TIMESTAMP, LOCAL_TIMESTAMP, isLocalOnly = true)
+        val result = remote.syncEmployeeTransactions(listOf(transaction))
+        assertFalse(result.synced)
+        assertEquals(0, http.server.requestCount)
     }
 
     @Test fun `catalog upsert preserves optional strings and caller timestamp`() = runBlocking {

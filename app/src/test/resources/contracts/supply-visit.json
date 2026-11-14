@@ -1,0 +1,7 @@
+{
+  "success": true,
+  "data": {
+    "visit": {"id":"visit-1","employeeId":2,"stationId":7,"completedAt":"2026-11-10T21:30:00.000Z","createdAt":"2026-11-11T00:00:00.000Z","updatedAt":"2026-11-11T00:00:00.000Z"},
+    "earning": {"id":"b7d18d52-0c8c-44cb-a13a-94ae52d009c0","employeeId":2,"type":"EARNING","operationDate":"2026-11-10T21:30:00.000Z","periodFrom":"","periodTo":"","salesCount":"","amount":2000,"comment":"","createdAt":"2026-11-11T00:00:00.000Z","updatedAt":"2026-11-11T00:00:00.000Z","sourceType":"SUPPLY_SERVICE","sourceId":"visit-1"}
+  }
+}
