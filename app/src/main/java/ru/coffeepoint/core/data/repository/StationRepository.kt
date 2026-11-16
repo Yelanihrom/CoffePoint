@@ -1,6 +1,9 @@
 package ru.coffeepoint.core.data.repository
 
 import android.content.Context
+import androidx.room.withTransaction
+import ru.coffeepoint.core.data.local.entity.StationMaintenanceEntity
+import ru.coffeepoint.core.data.mapper.maintenanceDate
 import ru.coffeepoint.core.data.local.DatabaseProvider
 import ru.coffeepoint.core.data.preferences.GoogleSheetsImportPreferences
 import ru.coffeepoint.core.data.mapper.toInventoryEntity
@@ -35,6 +38,7 @@ class StationRepository(
     private val stationDao = db.coffeeStationDao()
     private val inventoryDao = db.stationInventoryDao()
     private val settingsDao = db.stationSettingsDao()
+    private val maintenanceDao = db.stationMaintenanceDao()
     private val googleSheetsSyncManager = GoogleSheetsSyncManager()
     private val googleSheetsImportService = GoogleSheetsImportService(
         db = db,
@@ -42,22 +46,24 @@ class StationRepository(
     private val googleSheetsStationSyncService = GoogleSheetsStationSyncService(
         stationDao = stationDao,
         inventoryDao = inventoryDao,
-        settingsDao = settingsDao
+        settingsDao = settingsDao,
+        maintenanceDao = maintenanceDao
     )
 
     suspend fun refreshBeforeService(stationId: Int, includeWarehouse: Boolean): GoogleSheetsImportResult =
         GoogleSheetsServiceStartImporter(db).refresh(stationId, includeWarehouse)
 
-    suspend fun getStation(id: Int): StationDetail? {
+    suspend fun getStation(id: Int): StationDetail? = db.withTransaction {
 
-        val station = stationDao.getById(id) ?: return null
-        val inventory = inventoryDao.getByStationId(id) ?: return null
-        val settings = settingsDao.getByStationId(id) ?: return null
+        val station = stationDao.getById(id) ?: return@withTransaction null
+        val inventory = inventoryDao.getByStationId(id) ?: return@withTransaction null
+        val settings = settingsDao.getByStationId(id) ?: return@withTransaction null
 
-        return toStationDetail(
+        toStationDetail(
             station,
             inventory,
-            settings
+            settings,
+            maintenanceDao.getByStationId(id)
         )
 
     }
@@ -77,7 +83,8 @@ class StationRepository(
             result += toStationDetail(
                 station,
                 inventory,
-                settings
+                settings,
+                maintenanceDao.getByStationId(station.id)
             )
 
         }
@@ -123,74 +130,90 @@ class StationRepository(
         updateLiquidWasteContainerServiceDate: Boolean = false
     ): Boolean {
 
-        val current = getStation(detail.station.id)
         val updatedAt = currentTimestamp()
         var hasChanges = false
+        db.withTransaction {
+            val current = getStation(detail.station.id)
 
-        if (current == null || current.station.hasContentChanges(detail.station)) {
-            val pendingFullStationSync = when {
-                serviceFieldsOnly || supplyServiceFieldsOnly -> current?.station?.let {
-                    it.pendingFullStationSync ||
-                        (!it.isSynced && !it.pendingServiceOnly && !it.pendingSupplyServiceOnly)
-                } ?: false
-                else -> true
+            if (current == null || current.station.hasContentChanges(detail.station)) {
+                val pendingFullStationSync = when {
+                    serviceFieldsOnly || supplyServiceFieldsOnly -> current?.station?.let {
+                        it.pendingFullStationSync ||
+                            (!it.isSynced && !it.pendingServiceOnly && !it.pendingSupplyServiceOnly)
+                    } ?: false
+                    else -> true
+                }
+                stationDao.insert(
+                    detail.copy(
+                        station = detail.station.copy(
+                            updatedAt = if (serviceFieldsOnly || supplyServiceFieldsOnly) {
+                                current?.station?.updatedAt.orEmpty()
+                            } else {
+                                updatedAt
+                            },
+                            isSynced = false,
+                            syncError = false,
+                            syncErrorType = GoogleSheetsSyncDefaults.noErrorType,
+                            pendingServiceOnly = serviceFieldsOnly ||
+                                current?.station?.pendingServiceOnly == true,
+                            pendingFullStationSync = pendingFullStationSync,
+                            pendingSupplyServiceOnly = supplyServiceFieldsOnly ||
+                                current?.station?.pendingSupplyServiceOnly == true,
+                            pendingMixersServiceDate =
+                                (supplyServiceFieldsOnly && updateMixersServiceDate) ||
+                                    current?.station?.pendingMixersServiceDate == true,
+                            pendingLiquidWasteContainerServiceDate =
+                                (supplyServiceFieldsOnly && updateLiquidWasteContainerServiceDate) ||
+                                    current?.station?.pendingLiquidWasteContainerServiceDate == true
+                        )
+                    ).toStationEntity()
+                )
+                hasChanges = true
             }
-            stationDao.insert(
-                detail.copy(
-                    station = detail.station.copy(
-                        updatedAt = if (serviceFieldsOnly || supplyServiceFieldsOnly) {
-                            current?.station?.updatedAt.orEmpty()
-                        } else {
-                            updatedAt
-                        },
-                        isSynced = false,
-                        syncError = false,
-                        syncErrorType = GoogleSheetsSyncDefaults.noErrorType,
-                        pendingServiceOnly = serviceFieldsOnly ||
-                            current?.station?.pendingServiceOnly == true,
-                        pendingFullStationSync = pendingFullStationSync,
-                        pendingSupplyServiceOnly = supplyServiceFieldsOnly ||
-                            current?.station?.pendingSupplyServiceOnly == true,
-                        pendingMixersServiceDate =
-                            (supplyServiceFieldsOnly && updateMixersServiceDate) ||
-                                current?.station?.pendingMixersServiceDate == true,
-                        pendingLiquidWasteContainerServiceDate =
-                            (supplyServiceFieldsOnly && updateLiquidWasteContainerServiceDate) ||
-                                current?.station?.pendingLiquidWasteContainerServiceDate == true
-                    )
-                ).toStationEntity()
-            )
-            hasChanges = true
-        }
 
-        if (current == null || current.inventory.hasContentChanges(detail.inventory)) {
-            inventoryDao.insert(
-                detail.copy(
-                    inventory = detail.inventory.copy(
-                        updatedAt = updatedAt,
-                        isSynced = false,
-                        syncError = false,
-                        syncErrorType = GoogleSheetsSyncDefaults.noErrorType
-                    )
-                ).toInventoryEntity()
-            )
-            hasChanges = true
-        }
+            val maintenance = maintenanceDao.getByStationId(detail.station.id).associateBy { it.nodeType }
+            maintenanceDao.upsertAll(TechServiceNode.entries.map { node ->
+                val previous = maintenance[node.name] ?: StationMaintenanceEntity(detail.station.id, node.name)
+                val date = detail.station.maintenanceDate(node)
+                if (current == null || current.station.maintenanceDate(node) != date) {
+                    hasChanges = true
+                    previous.copy(lastServiceDate = date,
+                        salesAfterService = if (supplyServiceFieldsOnly) 0L else null,
+                        salesUpdatedAt = "", updatedAt = java.time.Instant.now().toString(),
+                        isSynced = false, syncError = false, syncErrorType = "",
+                        pendingFullStationSync = previous.pendingFullStationSync || !supplyServiceFieldsOnly)
+                } else previous
+            })
 
-        if (current == null || current.settings.hasContentChanges(detail.settings)) {
-            settingsDao.insert(
-                detail.copy(
-                    settings = detail.settings.copy(
-                        updatedAt = updatedAt,
-                        isSynced = false,
-                        syncError = false,
-                        syncErrorType = GoogleSheetsSyncDefaults.noErrorType
-                    )
-                ).toSettingsEntity()
-            )
-            hasChanges = true
-        }
+            if (current == null || current.inventory.hasContentChanges(detail.inventory)) {
+                inventoryDao.insert(
+                    detail.copy(
+                        inventory = detail.inventory.copy(
+                            updatedAt = updatedAt,
+                            isSynced = false,
+                            syncError = false,
+                            syncErrorType = GoogleSheetsSyncDefaults.noErrorType
+                        )
+                    ).toInventoryEntity()
+                )
+                hasChanges = true
+            }
 
+            if (current == null || current.settings.hasContentChanges(detail.settings)) {
+                settingsDao.insert(
+                    detail.copy(
+                        settings = detail.settings.copy(
+                            updatedAt = updatedAt,
+                            isSynced = false,
+                            syncError = false,
+                            syncErrorType = GoogleSheetsSyncDefaults.noErrorType
+                        )
+                    ).toSettingsEntity()
+                )
+                hasChanges = true
+            }
+
+        }
         if (serviceFieldsOnly && syncImmediately) {
             return googleSheetsStationSyncService.syncOperatorServiceFields(
                 detail.station.id
@@ -219,6 +242,7 @@ class StationRepository(
         val conflict = GoogleSheetsSyncErrorType.CONFLICT.storageValue
 
         stationDao.markConflictsAsResolvedForImport(conflict)
+        maintenanceDao.markConflictsAsResolvedForImport(conflict)
         inventoryDao.markConflictsAsResolvedForImport(conflict)
         settingsDao.markConflictsAsResolvedForImport(conflict)
         db.supplyCatalogDao().markConflictsAsResolvedForImport(conflict)
@@ -340,49 +364,25 @@ class StationRepository(
     suspend fun updateTechServiceDate(
         stationId: Int,
         node: TechServiceNode,
-        serviceDate: String
+        serviceDate: String,
+        resetSales: Boolean = false
     ): Boolean {
-
-        val detail = getStation(stationId) ?: return false
-
-        val station = when (node) {
-            TechServiceNode.LIQUID_WASTE_CONTAINER ->
-                detail.station.copy(
-                    liquidWasteContainerServiceDate = serviceDate
-                )
-
-            TechServiceNode.BREW_UNIT ->
-                detail.station.copy(
-                    brewUnitServiceDate = serviceDate
-                )
-
-            TechServiceNode.COFFEE_GRINDER ->
-                detail.station.copy(
-                    coffeeGrinderServiceDate = serviceDate
-                )
-
-            TechServiceNode.MIXERS ->
-                detail.station.copy(
-                    mixersServiceDate = serviceDate
-                )
-
-            TechServiceNode.EXPANSION_TANK ->
-                detail.station.copy(
-                    expansionTankServiceDate = serviceDate
-                )
-
-            TechServiceNode.EXHAUST ->
-                detail.station.copy(
-                    exhaustServiceDate = serviceDate
-                )
+        val now = java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MILLIS)
+        val zone = java.time.ZoneId.of("Europe/Moscow")
+        val date = java.time.LocalDate.parse(serviceDate, java.time.format.DateTimeFormatter.ofPattern("dd.MM.uuuu"))
+        require(!date.isAfter(now.atZone(zone).toLocalDate()))
+        val anchor = if (resetSales && date == now.atZone(zone).toLocalDate()) now else date.atStartOfDay(zone).toInstant()
+        db.withTransaction {
+            checkNotNull(stationDao.getById(stationId))
+            val previous = maintenanceDao.get(stationId, node.name) ?: StationMaintenanceEntity(stationId, node.name)
+            maintenanceDao.upsert(previous.copy(lastServiceDate = anchor.toString(),
+                salesAfterService = if (resetSales) 0L else previous.salesAfterService,
+                salesUpdatedAt = if (resetSales) now.toString() else previous.salesUpdatedAt,
+                updatedAt = now.toString(), isSynced = false, syncError = false, syncErrorType = "",
+                pendingResetSales = resetSales, pendingFullStationSync = false))
         }
-
-        return saveStation(
-            detail = detail.copy(
-                station = station
-            ),
-            syncImmediately = true
-        )
+        googleSheetsSyncManager.enqueueBackgroundSync(appContext)
+        return googleSheetsStationSyncService.syncSupplyServiceFields(stationId)
 
     }
 

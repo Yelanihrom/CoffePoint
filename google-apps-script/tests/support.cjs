@@ -74,19 +74,22 @@ function createHarness(properties = {SYNC_TOKEN: 'test-token', VENDISTA_TOKEN: '
     Sheets: {Spreadsheets: {batchUpdate(body) {
       if (context.failAtomicBatch) throw new Error('Injected Sheets API failure');
       const prepared = body.requests.map(request => {
-        const value = request.appendCells;
-        const sheet = Object.values(sheets).find(s => s.getSheetId() === value.sheetId);
+        const value = request.appendCells || request.updateCells;
+        const sheet = Object.values(sheets).find(s => s.getSheetId() === (value.sheetId ?? value.range?.sheetId));
         if (!sheet) throw new Error('Missing sheet');
-        return {sheet, rows: value.rows.map(row => row.values.map(cell => {
+        return {sheet, range:value.range, rows: value.rows.map(row => row.values.map(cell => {
           const raw = cell.userEnteredValue.numberValue ?? cell.userEnteredValue.stringValue;
           return cell.userEnteredFormat?.numberFormat?.type === 'DATE_TIME'
             ? new Date(Math.round((raw - 25569) * 86400000) - 3 * 3600000) : raw;
         }))};
       });
-      prepared.forEach(({sheet, rows}) => rows.forEach(row => sheet.appendRow(row)));
+      prepared.forEach(({sheet, rows, range}) => rows.forEach((row,i) => {
+        if (range) sheet.getRange(range.startRowIndex+i+1,range.startColumnIndex+1,1,row.length).setValues([row]);
+        else sheet.appendRow(row);
+      }));
       atomicBatches.push(body);
     }}},
-    LockService: {getScriptLock: () => lock},
+    LockService: {getScriptLock: () => lock, getUserLock: () => ({waitLock() {}, releaseLock() {}})},
     Logger: {log() {}},
     Utilities: {getUuid: () => require('node:crypto').randomUUID(), sleep: delay => sleeps.push(delay),
       parseDate(text, timeZone) {
@@ -95,6 +98,13 @@ function createHarness(properties = {SYNC_TOKEN: 'test-token', VENDISTA_TOKEN: '
       },
       formatDate(date, timeZone, pattern) {
         if (pattern === 'Z' && timeZone === 'Europe/Moscow') return '+0300';
+        if (pattern === "yyyy-MM-dd'T'HH:mm:ss" || pattern === 'yyyy-MM-dd HH:mm:ss') {
+          const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+            timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+          }).formatToParts(date).map(part => [part.type, part.value]));
+          return `${parts.year}-${parts.month}-${parts.day}${pattern.includes("'T'") ? 'T' : ' '}${parts.hour}:${parts.minute}:${parts.second}`;
+        }
         if (pattern !== 'yyyy-MM-dd') throw new Error('Unexpected date pattern in test: ' + pattern);
         return new Intl.DateTimeFormat('en-CA', {timeZone, year: 'numeric', month: '2-digit', day: '2-digit'})
           .format(date);
@@ -107,7 +117,7 @@ function createHarness(properties = {SYNC_TOKEN: 'test-token', VENDISTA_TOKEN: '
     }},
   });
   for (const name of ['Config.gs', 'Response.gs', 'Router.gs', 'Auth.gs', 'SheetsRepository.gs',
-    'StationSales.gs', 'VendistaClient.gs', 'SalesAnalytics.gs', 'SupplyServiceVisits.gs']) {
+    'StationSales.gs', 'MaintenanceSales.gs', 'StationMaintenance.gs', 'VendistaClient.gs', 'SalesAnalytics.gs', 'SupplyServiceVisits.gs', 'DailyEarnings.gs']) {
     vm.runInContext(fs.readFileSync(path.join(scriptRoot, name), 'utf8'), context, {filename: name});
   }
   const config = vm.runInContext('({CONFIG, SHEETS})', context);

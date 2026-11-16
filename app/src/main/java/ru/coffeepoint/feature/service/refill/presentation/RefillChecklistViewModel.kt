@@ -1,4 +1,4 @@
-package ru.coffeepoint.feature.service.presentation
+package ru.coffeepoint.feature.service.refill.presentation
 
 import android.app.Application
 import android.net.Uri
@@ -17,7 +17,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class ServiceStep2ViewModel(
+class RefillChecklistViewModel(
     application: Application
 ) : AndroidViewModel(application) {
 

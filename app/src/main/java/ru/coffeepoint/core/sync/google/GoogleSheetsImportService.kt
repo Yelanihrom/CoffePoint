@@ -6,6 +6,7 @@ import ru.coffeepoint.core.data.local.AppDatabase
 import ru.coffeepoint.core.data.mapper.toInventoryEntity
 import ru.coffeepoint.core.data.mapper.toSettingsEntity
 import ru.coffeepoint.core.data.mapper.toStationEntity
+import ru.coffeepoint.core.data.mapper.importMaintenance
 
 class GoogleSheetsImportService(
     private val db: AppDatabase,
@@ -16,6 +17,7 @@ class GoogleSheetsImportService(
     private val settingsDao = db.stationSettingsDao()
     private val supplyCatalogDao = db.supplyCatalogDao()
     private val warehouseStockDao = db.warehouseStockDao()
+    private val maintenanceDao = db.stationMaintenanceDao()
 
     suspend fun importFullSync(
         includeSupplyCatalog: Boolean = true,
@@ -45,13 +47,16 @@ class GoogleSheetsImportService(
 
         try {
             db.withTransaction {
+                if (hasUnsyncedChanges(includeSupplyCatalog)) return@withTransaction false
                 if (includeEmployeeData) EmployeeDataImporter(db).import(remoteData)
                 inventoryDao.deleteAll()
                 settingsDao.deleteAll()
-                stationDao.deleteAll()
+                val remoteIds = remoteStations.map { it.station.id }.toSet()
+                stationDao.getAll().filter { it.id !in remoteIds }.forEach { stationDao.deleteById(it.id) }
 
                 remoteStations.forEach { detail ->
                     stationDao.insert(detail.toStationEntity())
+                    maintenanceDao.importMaintenance(detail.station.id, remoteData.stationMaintenance)
                     inventoryDao.insert(detail.toInventoryEntity())
                     settingsDao.insert(detail.toSettingsEntity())
                 }
@@ -62,7 +67,8 @@ class GoogleSheetsImportService(
                 }
 
                 warehouseStockDao.insertAll(remoteData.warehouseStock)
-            }
+                true
+            }.let { applied -> if (!applied) return GoogleSheetsImportResult.SkippedPendingChanges }
         } catch (cancellation: kotlin.coroutines.cancellation.CancellationException) { throw cancellation }
         catch (error: Exception) {
             return GoogleSheetsImportResult.Error(error)
@@ -75,6 +81,7 @@ class GoogleSheetsImportService(
         includeSupplyCatalog: Boolean
     ): Boolean {
         return stationDao.getUnsynced().isNotEmpty() ||
+            maintenanceDao.getUnsynced().isNotEmpty() ||
             inventoryDao.getUnsynced().isNotEmpty() ||
             settingsDao.getUnsynced().isNotEmpty() ||
             (includeSupplyCatalog && supplyCatalogDao.getUnsynced().isNotEmpty()) ||

@@ -42,6 +42,7 @@ import ru.coffeepoint.feature.station.model.isFullySynced
 import ru.coffeepoint.feature.station.model.isSyncPending
 import ru.coffeepoint.feature.station.model.visitScheduleText
 import ru.coffeepoint.shared.component.SyncStatusIcon
+import ru.coffeepoint.feature.station.model.ServiceIntervals
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -52,6 +53,7 @@ fun StationCard(
     showStationStatus: Boolean,
     showTerminalInfo: Boolean,
     showSupplyOperatorTechService: Boolean = false,
+    serviceIntervals: ServiceIntervals = ServiceIntervals(),
     onSupplyItemClick: (SupplyItem) -> Unit = {},
     onClick: () -> Unit = {}
 ) {
@@ -142,7 +144,7 @@ fun StationCard(
                             onSupplyItemClick = onSupplyItemClick
                         )
                         if (showSupplyOperatorTechService) {
-                            SupplyOperatorTechServiceInfo(detail)
+                            SupplyOperatorTechServiceInfo(detail, serviceIntervals)
                         }
                     }
                 }
@@ -286,10 +288,11 @@ private fun SupplyInfo(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SupplyOperatorTechServiceInfo(
-    detail: StationDetail
+    detail: StationDetail,
+    intervals: ServiceIntervals
 ) {
 
-    val techServiceItems = detail.supplyOperatorTechServiceDashboardItems()
+    val techServiceItems = detail.supplyOperatorTechServiceDashboardItems(intervals)
 
     Spacer(modifier = Modifier.height(12.dp))
 

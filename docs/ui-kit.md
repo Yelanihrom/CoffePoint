@@ -13,17 +13,27 @@
 | Компонент | Когда использовать | Реализация |
 | --- | --- | --- |
 | `AppMenuItem` | Строка подраздела с иконкой и стрелкой; настройки и меню аналитики | [AppMenuItem.kt](../app/src/main/java/ru/coffeepoint/shared/component/AppMenuItem.kt) |
+| `AppNumberInput` | Целочисленное поле с цифровой клавиатурой; пределы склада и сроки обслуживания | [AppNumberInput.kt](../app/src/main/java/ru/coffeepoint/shared/component/AppNumberInput.kt) |
 | `AppPeriodSelector` | Пара полей «С / По» для периода; заработок и аналитика | [AppPeriodSelector.kt](../app/src/main/java/ru/coffeepoint/shared/component/AppPeriodSelector.kt) |
 | `AppPeriodDateField` | Одиночное поле даты в том же стиле | [AppPeriodSelector.kt](../app/src/main/java/ru/coffeepoint/shared/component/AppPeriodSelector.kt) |
 | `AppDialog`, `AppDialogActions`, `AppDialogButton` | Окна и их действия | [AppDialogs.kt](../app/src/main/java/ru/coffeepoint/shared/component/AppDialogs.kt) |
 | `AppDatePickerDialog`, `AppTimePickerDialog` | Подтверждение выбора даты/времени | [AppDialogs.kt](../app/src/main/java/ru/coffeepoint/shared/component/AppDialogs.kt) |
 | `SyncSendingOverlay` | Блокирующая загрузка или сохранение данных на активном экране | [SyncSendingFeedback.kt](../app/src/main/java/ru/coffeepoint/shared/component/SyncSendingFeedback.kt) |
 | `ChecklistRow` (service) | Чекбокс с раскрывающейся инструкцией, предупреждением и выделением подзаголовка | [ChecklistRow.kt](../app/src/main/java/ru/coffeepoint/feature/service/component/ChecklistRow.kt) |
+| `ServiceStockCounters` (service) | Общие секции счётчиков заправки и снабжения; состояние, цвета и подписи задаёт процесс | [ServiceStockCounters.kt](../app/src/main/java/ru/coffeepoint/feature/service/component/ServiceStockCounters.kt) |
 
 `ChecklistRow` сохраняет прежний отступ раскрытия по умолчанию (52dp).
 В снабженческом чек-листе `hintStartPadding=12.dp` выравнивает текст по левому
 краю чекбокса с учётом его внутреннего отступа. `hintEmphasis` выделяет заданный фрагмент жирным без Markdown
 и без изменения остального текста. Настройки оператора при этом не меняются.
+
+## Числовой ввод
+
+`AppNumberInput` переиспользует вид прежнего поля пределов склада: минимальная
+высота 54dp, `titleMedium`/Bold, центрирование числа, одна строка и цифровая
+клавиатура. Принимает строковый черновик, необязательную подпись, `isError` и
+`enabled`; фильтрует нецифровые символы. Диапазон и сохранение определяет feature.
+Пустое значение не заменяется нулём внутри общего компонента.
 
 ## Выбор периода
 

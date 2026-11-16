@@ -29,6 +29,7 @@ class SupplierServiceCompletionTest {
             StationSettings(cupsMax = 12, lidsMax = 6, coffeeMax = 6, milkMax = 10, chocolateMax = 10, toppingMax = 10)
         )
         db.coffeeStationDao().insert(station.toStationEntity())
+        db.stationMaintenanceDao().upsertAll(station.station.toMaintenanceEntities())
         db.stationInventoryDao().insert(station.toInventoryEntity())
         db.stationSettingsDao().insert(station.toSettingsEntity())
         db.warehouseStockDao().insert(WarehouseStockEntity("cups", 20))
@@ -52,8 +53,13 @@ class SupplierServiceCompletionTest {
             assertNull(visit.createdAt)
             assertFalse(visit.isSynced)
             assertFalse(visit.syncError)
-            assertEquals(before.copy(mixersServiceDate = "11.11.2026", isSynced = false,
+            assertEquals(before.copy(isSynced = false,
                 pendingSupplyServiceOnly = true, pendingMixersServiceDate = true), db.coffeeStationDao().getById(7))
+            val mixer = db.stationMaintenanceDao().get(7, TechServiceNode.MIXERS.name)!!
+            assertEquals(completedAt.toString(), mixer.lastServiceDate)
+            assertEquals(0L, mixer.salesAfterService)
+            assertFalse(mixer.isSynced)
+            assertEquals("01.11.2026", db.stationMaintenanceDao().get(7, TechServiceNode.BREW_UNIT.name)!!.lastServiceDate)
             assertEquals(inventory, db.stationInventoryDao().getByStationId(7))
             assertEquals(settings, db.stationSettingsDao().getByStationId(7))
             assertEquals(warehouse, db.warehouseStockDao().getAll())
@@ -82,12 +88,13 @@ class SupplierServiceCompletionTest {
             assertEquals(first.await(), second.await())
             val original = db.stationServiceVisitDao().getById("visit-1")!!
             val originalEarning = db.employeeTransactionDao().getAll().single()
-            val station = db.coffeeStationDao().getById(7)!!.copy(mixersServiceDate = "12.11.2026")
-            db.coffeeStationDao().insert(station)
+            val mixer = db.stationMaintenanceDao().get(7, TechServiceNode.MIXERS.name)!!.copy(
+                lastServiceDate = "12.11.2026", salesAfterService = 100L)
+            db.stationMaintenanceDao().upsert(mixer)
             val repeated = SupplierServiceCompletionRepository(db, true).completeLocally(
                 "visit-1", 7, UserRole.SUPPLY_OPERATOR, completedAt.plusSeconds(86400))
             assertEquals(original, repeated)
-            assertEquals(station, db.coffeeStationDao().getById(7))
+            assertEquals(mixer, db.stationMaintenanceDao().get(7, TechServiceNode.MIXERS.name))
             assertEquals(1, db.stationServiceVisitDao().getByEmployee(2).size)
             assertEquals(listOf(originalEarning), db.employeeTransactionDao().getAll())
         } finally { db.close() }
@@ -134,7 +141,7 @@ class SupplierServiceCompletionTest {
                     .completeLocally("visit-1", 7, role, completedAt))
                 assertTrue(db.stationServiceVisitDao().getUnsynced().isEmpty())
                 assertTrue(db.employeeTransactionDao().getAll().isEmpty())
-                assertEquals("11.11.2026", db.coffeeStationDao().getById(7)!!.mixersServiceDate)
+                assertEquals(completedAt.toString(), db.stationMaintenanceDao().get(7, TechServiceNode.MIXERS.name)!!.lastServiceDate)
             } finally { db.close() }
         }
     }

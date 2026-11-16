@@ -4,6 +4,8 @@ import android.util.Log
 import ru.coffeepoint.core.data.local.entity.EmployeeEntity
 import ru.coffeepoint.core.data.local.entity.StationServiceVisitEntity
 import java.time.Instant
+import ru.coffeepoint.core.data.local.entity.StationMaintenanceEntity
+import ru.coffeepoint.core.data.mapper.withMaintenance
 import ru.coffeepoint.core.data.local.entity.EmployeeStationAssignmentEntity
 import ru.coffeepoint.core.data.local.entity.EmployeeTransactionEntity
 import ru.coffeepoint.core.data.local.entity.SupplyCatalogEntity
@@ -88,38 +90,23 @@ class GoogleSheetsRemoteDataSource(
         )
     }
 
-    suspend fun syncSupplyServiceFields(
-        station: CoffeeStation,
-        updateMixers: Boolean,
-        updateLiquidWasteContainer: Boolean
-    ): GoogleSheetsEntitySyncResult {
-        if (!GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) {
-            return GoogleSheetsEntitySyncResult.error(
-                GoogleSheetsSyncErrorType.CONNECTION
-            )
+    suspend fun syncMaintenance(rows: List<StationMaintenanceEntity>): GoogleSheetsEntitySyncResult {
+        if (rows.isEmpty()) return GoogleSheetsEntitySyncResult.skipped()
+        return syncEntity("maintenance") {
+            check(GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) { "Unable to resolve host: sync disabled" }
+            require(rows.map { it.stationId }.distinct().size == 1)
+            require(rows.map { it.nodeType }.distinct().size == rows.size)
+            request("complete_service", "station_maintenance", mapOf(
+                "id" to rows.first().stationId,
+                "maintenance" to rows.map { row ->
+                    val reset = row.pendingResetSales
+                    val date = row.lastServiceDate
+                    mapOf("nodeType" to row.nodeType, "lastServiceDate" to date,
+                        "resetSales" to reset, "updatedAt" to
+                            (ru.coffeepoint.core.data.mapper.maintenanceInstant(row.updatedAt)
+                                ?: error("Missing maintenance timestamp")).toString())
+                }))
         }
-        if (!updateMixers && !updateLiquidWasteContainer) {
-            return GoogleSheetsEntitySyncResult.skipped()
-        }
-
-        val data = buildMap<String, Any> {
-            put("id", station.id)
-            if (updateMixers) put("mixersServiceDate", station.mixersServiceDate)
-            if (updateLiquidWasteContainer) {
-                put("liquidWasteContainerServiceDate", station.liquidWasteContainerServiceDate)
-            }
-        }
-
-        return syncEntity(
-            tag = "supply service fields",
-            block = {
-                request(
-                    action = "complete_service",
-                    entity = "coffee_station",
-                    data = data
-                )
-            }
-        )
     }
 
     suspend fun syncStationDetail(
@@ -194,19 +181,22 @@ class GoogleSheetsRemoteDataSource(
             url = webAppUrl,
             action = "full_sync",
             token = syncToken,
-            entities = if (includeWarehouse) "coffee_station,station_inventory,warehouse_stock"
-                else "coffee_station,station_inventory",
+            entities = if (includeWarehouse) "coffee_station,station_inventory,station_maintenance,warehouse_stock"
+                else "coffee_station,station_inventory,station_maintenance",
             stationId = stationId
         )
         check(response.success) { response.error?.message ?: "Service start refresh failed" }
         val data = checkNotNull(response.data) { "Missing service start data" }
-        val station = data.stations.single { it.intValue("id") == stationId }.toStation()
+        val maintenance = parseMaintenance(data.stationMaintenance.orEmpty())
+        requireCompleteMaintenance(listOf(stationId), maintenance)
+        val station = data.stations.single { it.intValue("id") == stationId }.toStation().withMaintenance(maintenance)
         val inventoryRow = data.inventories.single { it.intValue("stationId") == stationId }
         check(listOf("cups", "lids", "coffee", "milk", "chocolate", "topping", "sugar", "stirrers", "garbageBags")
             .all { inventoryRow[it] != null }) { "Incomplete station inventory" }
         val inventory = inventoryRow.toInventory()
         return ServiceStartSnapshot(station, inventory,
-            if (includeWarehouse) data.warehouseStock.map { it.toWarehouseStockEntity() } else emptyList())
+            if (includeWarehouse) data.warehouseStock.map { it.toWarehouseStockEntity() } else emptyList(),
+            maintenance)
     }
 
     suspend fun loadFullSync(
@@ -247,6 +237,7 @@ class GoogleSheetsRemoteDataSource(
                     if (includeStations) {
                         add("coffee_station")
                         add("station_inventory")
+                        add("station_maintenance")
                         if (includeSettings) add("station_settings")
                     }
                     if (includeSupplyCatalog) add("supply_catalog")
@@ -266,6 +257,8 @@ class GoogleSheetsRemoteDataSource(
         }
 
         val data = response.data ?: return GoogleSheetsFullSyncBundle()
+        val maintenance = if (includeStations) parseMaintenance(data.stationMaintenance.orEmpty()) else emptyList()
+        if (includeStations) requireCompleteMaintenance(data.stations.map { it.intValue("id") }, maintenance)
         val inventoriesByStationId = data.inventories.associateBy {
             it.intValue("stationId")
         }
@@ -279,7 +272,7 @@ class GoogleSheetsRemoteDataSource(
                 val inventoryRow = inventoriesByStationId[stationId] ?: return@mapNotNull null
 
                 StationDetail(
-                    station = stationRow.toStation(),
+                    station = stationRow.toStation().withMaintenance(maintenance.filter { it.stationId == stationId }),
                     inventory = inventoryRow.toInventory(),
                     settings = if (includeSettings) {
                         settingsByStationId[stationId]?.toSettings()
@@ -302,6 +295,7 @@ class GoogleSheetsRemoteDataSource(
 
         return GoogleSheetsFullSyncBundle(
             stations = stations,
+            stationMaintenance = maintenance,
             supplyCatalog = data.supplyCatalog.map { row ->
                 row.toSupplyCatalogEntity()
             },
@@ -573,12 +567,6 @@ class GoogleSheetsRemoteDataSource(
             "rentPaidUntil" to station.rentPaidUntil,
             "excludeFromSupplyPlanning" to station.excludeFromSupplyPlanning,
             "excludeFromOperatorEarnings" to station.excludeFromOperatorEarnings,
-            "liquidWasteContainerServiceDate" to station.liquidWasteContainerServiceDate,
-            "brewUnitServiceDate" to station.brewUnitServiceDate,
-            "coffeeGrinderServiceDate" to station.coffeeGrinderServiceDate,
-            "mixersServiceDate" to station.mixersServiceDate,
-            "expansionTankServiceDate" to station.expansionTankServiceDate,
-            "exhaustServiceDate" to station.exhaustServiceDate,
             "machinePhotoPath" to station.machinePhotoPath,
             "overviewPhotoPath" to station.overviewPhotoPath,
             "updatedAt" to station.updatedAt.requireSyncTimestamp("coffee_station")
@@ -726,13 +714,6 @@ class GoogleSheetsRemoteDataSource(
             excludeFromSupplyPlanning = booleanValue("excludeFromSupplyPlanning"),
             excludeFromOperatorEarnings =
                 booleanValue("excludeFromOperatorEarnings"),
-            liquidWasteContainerServiceDate =
-                dateValue("liquidWasteContainerServiceDate"),
-            brewUnitServiceDate = dateValue("brewUnitServiceDate"),
-            coffeeGrinderServiceDate = dateValue("coffeeGrinderServiceDate"),
-            mixersServiceDate = dateValue("mixersServiceDate"),
-            expansionTankServiceDate = dateValue("expansionTankServiceDate"),
-            exhaustServiceDate = dateValue("exhaustServiceDate"),
             machinePhotoPath = stringValue("machinePhotoPath").ifBlank { null },
             overviewPhotoPath = stringValue("overviewPhotoPath").ifBlank { null },
             updatedAt = timestampValue("updatedAt"),
@@ -976,6 +957,31 @@ class GoogleSheetsRemoteDataSource(
         }
     }
 
+    private fun requireCompleteMaintenance(ids: List<Int>, rows: List<StationMaintenanceEntity>) {
+        ids.forEach { id -> check(rows.count { it.stationId == id } == 6) { "Incomplete station maintenance" } }
+    }
+
+    private fun parseMaintenance(rows: List<Map<String, Any?>>): List<StationMaintenanceEntity> {
+        val keys = mutableSetOf<Pair<Int, String>>()
+        return rows.map { row ->
+            val id = row.intValue("stationId")
+            val node = row.stringValue("nodeType")
+            require(id > 0 && ru.coffeepoint.feature.station.model.TechServiceNode.entries.any { it.name == node }) {
+                "Invalid maintenance key"
+            }
+            require(keys.add(id to node)) { "Duplicate maintenance key" }
+            val value = row["salesAfterService"]?.toString()?.trim().orEmpty()
+            val count = if (value.isEmpty()) null else (value.toBigDecimalOrNull()?.let {
+                try { it.longValueExact().takeIf { count -> count >= 0 } }
+                catch (_: ArithmeticException) { null }
+            } ?: error("Invalid maintenance sales count"))
+            StationMaintenanceEntity(
+                stationId = id, nodeType = node, lastServiceDate = row.stringValue("lastServiceDate"),
+                salesAfterService = count, salesUpdatedAt = row.stringValue("salesUpdatedAt"),
+                updatedAt = row.stringValue("updatedAt"))
+        }
+    }
+
     private fun Map<String, Any?>.dateValue(key: String): String {
         return formatGoogleDate(
             value = stringValue(key),
@@ -1144,6 +1150,7 @@ private class GoogleSheetsSyncException(
 
 data class GoogleSheetsFullSyncBundle(
     val stations: List<StationDetail> = emptyList(),
+    val stationMaintenance: List<ru.coffeepoint.core.data.local.entity.StationMaintenanceEntity> = emptyList(),
     val supplyCatalog: List<SupplyCatalogEntity> = emptyList(),
     val warehouseStock: List<WarehouseStockEntity> = emptyList(),
     val employees: List<EmployeeEntity> = emptyList(),

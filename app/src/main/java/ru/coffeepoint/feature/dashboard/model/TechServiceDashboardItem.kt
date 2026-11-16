@@ -3,31 +3,22 @@
 import ru.coffeepoint.feature.station.model.StationDetail
 import ru.coffeepoint.core.auth.UserRole
 import ru.coffeepoint.core.notification.NotificationOption
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Locale
-import java.util.TimeZone
-import java.util.concurrent.TimeUnit
-
-private const val MIXERS_SERVICE_INTERVAL_DAYS = 30
-private const val LIQUID_WASTE_CONTAINER_SERVICE_INTERVAL_DAYS = 180
-private const val BREW_UNIT_SERVICE_INTERVAL_DAYS = 180
-private const val EXHAUST_SERVICE_INTERVAL_DAYS = 720
-private const val EXPANSION_TANK_SERVICE_INTERVAL_DAYS = 360
-private const val COFFEE_GRINDER_SERVICE_INTERVAL_DAYS = 720
+import ru.coffeepoint.feature.station.model.ServiceIntervals
+import ru.coffeepoint.feature.station.model.TechServiceNode
+import ru.coffeepoint.feature.station.model.isServiceDue
 
 data class TechServiceDashboardItem(
     val title: String,
     val serviceIntervalDays: Int
 )
 
-fun StationDetail.techServiceDashboardItems(): List<TechServiceDashboardItem> {
+fun StationDetail.techServiceDashboardItems(intervals: ServiceIntervals = ServiceIntervals()): List<TechServiceDashboardItem> {
 
-    return allTechServiceDashboardItems()
+    return allTechServiceDashboardItems(intervals)
         .filter { item ->
-            isTechServiceOverdue(
+            isServiceDue(
                 date = item.date,
-                serviceIntervalDays = item.serviceIntervalDays
+                intervalDays = item.serviceIntervalDays
             )
         }
         .map { item ->
@@ -39,8 +30,8 @@ fun StationDetail.techServiceDashboardItems(): List<TechServiceDashboardItem> {
 
 }
 
-fun StationDetail.supplyOperatorTechServiceDashboardItems(): List<TechServiceDashboardItem> {
-    return techServiceDashboardItems()
+fun StationDetail.supplyOperatorTechServiceDashboardItems(intervals: ServiceIntervals = ServiceIntervals()): List<TechServiceDashboardItem> {
+    return techServiceDashboardItems(intervals)
         .filter { item ->
             item.title == "Миксеры"
         }
@@ -48,48 +39,49 @@ fun StationDetail.supplyOperatorTechServiceDashboardItems(): List<TechServiceDas
 
 fun StationDetail.supplyAttentionTechServiceDashboardItems(
     role: UserRole?,
+    intervals: ServiceIntervals = ServiceIntervals(),
     isEnabled: (NotificationOption) -> Boolean = { role != null && it.defaultEnabled(role) }
 ): List<TechServiceDashboardItem> {
     if (role == null || role == UserRole.OPERATOR) return emptyList()
-    return techServiceDashboardItems().filter { item ->
+    return techServiceDashboardItems(intervals).filter { item ->
         NotificationOption.entries.any { option ->
             option.nodeTitle == item.title && option.availableFor(role) && isEnabled(option)
         }
     }
 }
 
-private fun StationDetail.allTechServiceDashboardItems(): List<TechServiceDashboardSourceItem> {
+private fun StationDetail.allTechServiceDashboardItems(intervals: ServiceIntervals): List<TechServiceDashboardSourceItem> {
 
     return listOf(
         TechServiceDashboardSourceItem(
             title = "Миксеры",
             date = station.mixersServiceDate,
-            serviceIntervalDays = MIXERS_SERVICE_INTERVAL_DAYS
+            serviceIntervalDays = intervals[TechServiceNode.MIXERS]
         ),
         TechServiceDashboardSourceItem(
             title = "Контейнер жидких отходов",
             date = station.liquidWasteContainerServiceDate,
-            serviceIntervalDays = LIQUID_WASTE_CONTAINER_SERVICE_INTERVAL_DAYS
+            serviceIntervalDays = intervals[TechServiceNode.LIQUID_WASTE_CONTAINER]
         ),
         TechServiceDashboardSourceItem(
             title = "Узел заваривания кофе",
             date = station.brewUnitServiceDate,
-            serviceIntervalDays = BREW_UNIT_SERVICE_INTERVAL_DAYS
+            serviceIntervalDays = intervals[TechServiceNode.BREW_UNIT]
         ),
         TechServiceDashboardSourceItem(
             title = "Вытяжка",
             date = station.exhaustServiceDate,
-            serviceIntervalDays = EXHAUST_SERVICE_INTERVAL_DAYS
+            serviceIntervalDays = intervals[TechServiceNode.EXHAUST]
         ),
         TechServiceDashboardSourceItem(
             title = "Расширительный бочок",
             date = station.expansionTankServiceDate,
-            serviceIntervalDays = EXPANSION_TANK_SERVICE_INTERVAL_DAYS
+            serviceIntervalDays = intervals[TechServiceNode.EXPANSION_TANK]
         ),
         TechServiceDashboardSourceItem(
             title = "Кофемолка",
             date = station.coffeeGrinderServiceDate,
-            serviceIntervalDays = COFFEE_GRINDER_SERVICE_INTERVAL_DAYS
+            serviceIntervalDays = intervals[TechServiceNode.COFFEE_GRINDER]
         )
     )
 
@@ -100,51 +92,3 @@ private data class TechServiceDashboardSourceItem(
     val date: String,
     val serviceIntervalDays: Int
 )
-
-private fun isTechServiceOverdue(
-    date: String,
-    serviceIntervalDays: Int
-): Boolean {
-
-    val serviceDate = parseDateToMillis(date) ?: return false
-    val dueDate = serviceDate + TimeUnit.DAYS.toMillis(
-        serviceIntervalDays.toLong()
-    )
-
-    return dueDate <= todayStartMillis()
-
-}
-
-private fun parseDateToMillis(
-    date: String
-): Long? {
-
-    if (date.isBlank()) return null
-
-    return dateFormatter().parse(date)?.time
-
-}
-
-private fun todayStartMillis(): Long {
-
-    return Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply {
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-    }.timeInMillis
-
-}
-
-private fun dateFormatter(): SimpleDateFormat {
-
-    return SimpleDateFormat(
-        "dd.MM.yyyy",
-        Locale.getDefault()
-    ).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
-        isLenient = false
-    }
-
-}
-

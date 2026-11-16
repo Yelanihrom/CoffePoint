@@ -57,11 +57,12 @@ class StationServiceVisitDatabaseTest {
                 it.execSQL("ALTER TABLE employees_transactions DROP COLUMN sourceType")
                 it.execSQL("ALTER TABLE employees_transactions DROP COLUMN sourceId")
                 it.execSQL("ALTER TABLE employees_transactions DROP COLUMN isLocalOnly")
+                it.restoreVersion38MaintenanceColumns()
                 it.version = 35
             }
             val migrated = Room.databaseBuilder(context, AppDatabase::class.java, name)
                 .addMigrations(DatabaseProvider.MIGRATION_35_36, DatabaseProvider.MIGRATION_36_37,
-                    DatabaseProvider.MIGRATION_37_38).build()
+                    DatabaseProvider.MIGRATION_37_38, DatabaseProvider.MIGRATION_38_39, DatabaseProvider.MIGRATION_39_40).build()
             try {
                 assertEquals(employee, migrated.employeeDao().getById(2))
                 assertEquals(listOf(oldPayment), migrated.employeeTransactionDao().getAll())

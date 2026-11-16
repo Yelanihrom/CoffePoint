@@ -3,6 +3,24 @@ const {test} = require('node:test');
 const {createHarness, schema} = require('./support.cjs');
 
 const oldTimestamp = '2026-10-18T10:07:00';
+test('maintenance is a read-only full_sync collection with station filtering and empty counters', () => {
+  const app = createHarness();
+  app.sheets.station_maintenance.seed([
+    {stationId: 7, nodeType: 'MIXERS', lastServiceDate: '16.11.2026', salesAfterService: ''},
+    {stationId: 8, nodeType: 'MIXERS', salesAfterService: 0},
+  ]);
+  const before = JSON.stringify(app.sheets);
+  const result = app.call('GET', {action: 'full_sync', entities: 'station_maintenance', stationId: '7'});
+  assert.equal(result.success, true);
+  assert.equal(result.data.stationMaintenance.length, 1);
+  assert.equal(result.data.stationMaintenance[0].salesAfterService, '');
+  const all = app.call('GET', {action: 'full_sync', entities: 'station_maintenance'});
+  assert.equal(all.data.stationMaintenance[1].salesAfterService, 0);
+  assert.equal(JSON.stringify(app.sheets), before);
+  assert.equal(app.call('POST', {action: 'upsert', entity: 'station_maintenance',
+    data: {stationId: 7, nodeType: 'MIXERS', salesAfterService: 99}}).success, false);
+  assert.equal(JSON.stringify(app.sheets), before);
+});
 const newTimestamp = '2026-10-19T10:07:00';
 const warehouse = (itemType, quantity, updatedAt = newTimestamp) =>
   ({itemType, quantity, minQuantity: 2, maxQuantity: 12, updatedAt});
@@ -111,7 +129,7 @@ test('full_sync without entities returns all response collections', () => {
   assert.equal(result.success, true);
   assert.deepEqual(Object.keys(result.data).sort(), Object.values(schema).map(s => s.responseKey).sort());
   for (const [key, rows] of Object.entries(result.data)) {
-    assert.equal(rows.length, key === 'stationServiceVisits' ? 0 : 1);
+    assert.equal(rows.length, key === 'stationServiceVisits' ? 0 : key === 'stationMaintenance' ? 6 : 1);
   }
   assert.equal(result.data.stations[0].salesAfterService, 54);
   assert.equal(result.data.warehouseStock[0].minQuantity, 24);
@@ -268,11 +286,12 @@ test('operator completion changes exactly the three service and sales columns', 
 test('supplier completion changes only the selected maintenance nodes', () => {
   const app = createHarness();
   const before = app.sheets.coffee_station.object();
-  const result = app.call('POST', {action: 'complete_service', entity: 'coffee_station',
-    data: {id: 7, mixersServiceDate: '2026-10-19', liquidWasteContainerServiceDate: '2026-10-19'}});
+  const result = app.call('POST', {action: 'complete_service', entity: 'station_maintenance',
+    data: {id: 7, maintenance:['MIXERS','LIQUID_WASTE_CONTAINER'].map(nodeType => ({nodeType,
+      lastServiceDate:'2026-10-19T10:00:00Z',updatedAt:'2026-10-19T10:00:00Z',resetSales:true}))}});
   assert.equal(result.success, true);
-  assert.deepEqual(app.sheets.coffee_station.object(), {...before,
-    mixersServiceDate: '2026-10-19', liquidWasteContainerServiceDate: '2026-10-19'});
+  assert.deepEqual(app.sheets.coffee_station.object(), before);
+  assert.equal(app.sheets.station_maintenance.object().salesAfterService,0);
 });
 
 test('Russian service dates keep day month and full year before generic date parsing', () => {
@@ -309,12 +328,13 @@ test('supplier November 9 completion replaces September 27 in text Date and ISO 
   for (const current of ['27.09.2026', new Date('2026-09-27T00:00:00+03:00'),
     '2026-09-27T00:00:00+03:00']) {
     const app = createHarness();
-    const before = {...app.sheets.coffee_station.object(), mixersServiceDate: current};
-    app.sheets.coffee_station.seed([before]);
-    const request = {action: 'complete_service', entity: 'coffee_station',
-      data: {id: before.id, mixersServiceDate: '09.11.2026'}};
+    app.sheets.station_maintenance.seed([{stationId:7,nodeType:'MIXERS',lastServiceDate:current,
+      updatedAt:'2026-09-27T00:00:00Z',salesAfterService:''}]);
+    const request = {action: 'complete_service', entity: 'station_maintenance',
+      data: {id:7,maintenance:[{nodeType:'MIXERS',lastServiceDate:'2026-11-09T10:00:00Z',
+        updatedAt:'2026-11-09T10:00:00Z',resetSales:true}]}};
     assert.equal(app.call('POST', request).success, true);
-    assert.deepEqual(app.sheets.coffee_station.object(), {...before, mixersServiceDate: '09.11.2026'});
+    assert.equal(app.sheets.station_maintenance.object().lastServiceDate.toISOString(),'2026-11-09T10:00:00.000Z');
     assert.equal(app.call('POST', request).success, true, 'Same date retry must remain safe');
   }
 });
@@ -323,12 +343,13 @@ test('supplier completion still rejects a genuinely newer mixer date', () => {
   for (const current of ['10.11.2026', new Date('2026-11-10T00:00:00+03:00'),
     '2026-11-10T00:00:00+03:00']) {
     const app = createHarness();
-    const before = {...app.sheets.coffee_station.object(), mixersServiceDate: current};
-    app.sheets.coffee_station.seed([before]);
-    const result = app.call('POST', {action: 'complete_service', entity: 'coffee_station',
-      data: {id: before.id, mixersServiceDate: '09.11.2026'}});
+    app.sheets.station_maintenance.seed([{stationId:7,nodeType:'MIXERS',lastServiceDate:current,updatedAt:'2026-11-10T00:00:00Z'}]);
+    const before=JSON.stringify(app.sheets.station_maintenance);
+    const result = app.call('POST', {action: 'complete_service', entity: 'station_maintenance',
+      data: {id:7,maintenance:[{nodeType:'MIXERS',lastServiceDate:'2026-11-09T10:00:00Z',
+        updatedAt:'2026-11-09T10:00:00Z',resetSales:true}]}});
     assert.equal(result.error.status, 409);
-    assert.deepEqual(app.sheets.coffee_station.object(), before);
+    assert.equal(JSON.stringify(app.sheets.station_maintenance), before);
     assert.equal(app.lock.held, false);
   }
 });

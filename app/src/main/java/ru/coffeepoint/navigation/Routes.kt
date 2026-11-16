@@ -9,6 +9,7 @@ sealed class Routes(val route: String) {
     data object ManagerHome : Routes("manager_home")
 
     data object NotificationSettings : Routes("notification_settings")
+    data object ServiceIntervalSettings : Routes("service_interval_settings")
 
     data object Settings : Routes("settings")
 

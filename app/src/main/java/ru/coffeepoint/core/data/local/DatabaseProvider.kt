@@ -56,7 +56,9 @@ object DatabaseProvider {
                     MIGRATION_34_35,
                     MIGRATION_35_36,
                     MIGRATION_36_37,
-                    MIGRATION_37_38
+                    MIGRATION_37_38,
+                    MIGRATION_38_39,
+                    MIGRATION_39_40
                 )
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onOpen(db: SupportSQLiteDatabase) {
@@ -70,6 +72,66 @@ object DatabaseProvider {
 
         }
 
+    }
+
+    internal val MIGRATION_39_40 = object : Migration(39, 40) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE station_maintenance ADD COLUMN pendingResetSales INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("""UPDATE station_maintenance SET pendingResetSales = 1,
+                lastServiceDate = salesUpdatedAt WHERE isSynced = 0 AND salesAfterService = 0 AND salesUpdatedAt <> ''""")
+        }
+    }
+
+    internal val MIGRATION_38_39 = object : Migration(38, 39) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Rebuild the parent without its six dates before creating foreign-key children.
+            db.execSQL("""CREATE TABLE coffee_station_new (
+                id INTEGER NOT NULL PRIMARY KEY, name TEXT NOT NULL, terminalId INTEGER,
+                address TEXT NOT NULL, visitDays TEXT NOT NULL, visitTimeFrom TEXT NOT NULL,
+                visitTimeTo TEXT NOT NULL, lastServiceDate TEXT NOT NULL, salesAfterService INTEGER NOT NULL,
+                rentPaidUntil TEXT NOT NULL, excludeFromSupplyPlanning INTEGER NOT NULL,
+                excludeFromOperatorEarnings INTEGER NOT NULL, machinePhotoPath TEXT, overviewPhotoPath TEXT,
+                updatedAt TEXT NOT NULL, isSynced INTEGER NOT NULL, syncError INTEGER NOT NULL,
+                syncErrorType TEXT NOT NULL, pendingServiceOnly INTEGER NOT NULL,
+                pendingFullStationSync INTEGER NOT NULL, pendingSupplyServiceOnly INTEGER NOT NULL,
+                pendingMixersServiceDate INTEGER NOT NULL, pendingLiquidWasteContainerServiceDate INTEGER NOT NULL
+            )""")
+            val columns = """id, name, terminalId, address, visitDays, visitTimeFrom, visitTimeTo,
+                lastServiceDate, salesAfterService, rentPaidUntil, excludeFromSupplyPlanning,
+                excludeFromOperatorEarnings, machinePhotoPath, overviewPhotoPath, updatedAt,
+                isSynced, syncError, syncErrorType, pendingServiceOnly, pendingFullStationSync,
+                pendingSupplyServiceOnly, pendingMixersServiceDate, pendingLiquidWasteContainerServiceDate"""
+            db.execSQL("INSERT INTO coffee_station_new ($columns) SELECT $columns FROM coffee_station")
+            db.execSQL("""CREATE TEMP TABLE maintenance_migration AS SELECT * FROM coffee_station""")
+            db.execSQL("DROP TABLE coffee_station")
+            db.execSQL("ALTER TABLE coffee_station_new RENAME TO coffee_station")
+            db.execSQL("""CREATE TABLE station_maintenance (
+                stationId INTEGER NOT NULL, nodeType TEXT NOT NULL, lastServiceDate TEXT NOT NULL,
+                salesAfterService INTEGER, salesUpdatedAt TEXT NOT NULL, updatedAt TEXT NOT NULL,
+                isSynced INTEGER NOT NULL, syncError INTEGER NOT NULL, syncErrorType TEXT NOT NULL,
+                pendingFullStationSync INTEGER NOT NULL, PRIMARY KEY (stationId, nodeType),
+                FOREIGN KEY (stationId) REFERENCES coffee_station (id) ON DELETE CASCADE
+            )""")
+            db.execSQL("CREATE INDEX index_station_maintenance_stationId ON station_maintenance (stationId)")
+            val full = "(pendingFullStationSync = 1 OR (isSynced = 0 AND pendingServiceOnly = 0 AND pendingSupplyServiceOnly = 0))"
+            val fields = listOf(
+                Triple("MIXERS", "mixersServiceDate", "pendingMixersServiceDate = 1"),
+                Triple("LIQUID_WASTE_CONTAINER", "liquidWasteContainerServiceDate", "pendingLiquidWasteContainerServiceDate = 1"),
+                Triple("BREW_UNIT", "brewUnitServiceDate", "0"),
+                Triple("COFFEE_GRINDER", "coffeeGrinderServiceDate", "0"),
+                Triple("EXPANSION_TANK", "expansionTankServiceDate", "0"),
+                Triple("EXHAUST", "exhaustServiceDate", "0")
+            )
+            fields.forEach { (node, date, pending) ->
+                val dirty = "($full OR $pending)"
+                db.execSQL("""INSERT INTO station_maintenance SELECT id, '$node', $date, NULL, '', updatedAt,
+                    CASE WHEN $dirty THEN 0 ELSE 1 END,
+                    CASE WHEN $dirty THEN syncError ELSE 0 END,
+                    CASE WHEN $dirty THEN syncErrorType ELSE '' END,
+                    CASE WHEN $full THEN 1 ELSE 0 END FROM maintenance_migration""")
+            }
+            db.execSQL("DROP TABLE maintenance_migration")
+        }
     }
 
     internal val MIGRATION_37_38 = object : Migration(37, 38) {

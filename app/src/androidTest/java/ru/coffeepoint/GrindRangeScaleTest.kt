@@ -13,7 +13,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Rule
 import org.junit.Test
-import ru.coffeepoint.feature.service.ui.GrindRangeScale
+import ru.coffeepoint.feature.service.supply.ui.GrindRangeScale
 import ru.coffeepoint.ui.theme.CoffeePointTheme
 
 class GrindRangeScaleTest {

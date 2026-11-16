@@ -5,7 +5,7 @@ import androidx.room.withTransaction
 import ru.coffeepoint.core.data.local.DatabaseProvider
 import ru.coffeepoint.core.data.local.AppDatabase
 import ru.coffeepoint.core.data.mapper.toInventoryEntity
-import ru.coffeepoint.feature.service.model.warehouseShortages
+import ru.coffeepoint.feature.service.supply.model.warehouseShortages
 import ru.coffeepoint.feature.station.model.StationDetail
 import ru.coffeepoint.feature.station.model.StationInventory
 import java.time.Instant

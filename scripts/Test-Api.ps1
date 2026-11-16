@@ -17,7 +17,7 @@ if ($JavaHome) {
 
 Push-Location $repoRoot
 try {
-    & $NodePath --test google-apps-script/tests/http-contract.test.cjs scripts/tests/docs.test.cjs scripts/tests/test-backend.test.cjs scripts/tests/release.test.cjs
+    & $NodePath --test 'google-apps-script/tests/*.test.cjs' scripts/tests/docs.test.cjs scripts/tests/test-backend.test.cjs scripts/tests/release.test.cjs
     if ($LASTEXITCODE -ne 0) { throw 'Node regression tests failed.' }
     & $NodePath scripts/docs.cjs --check
     if ($LASTEXITCODE -ne 0) { throw 'Documentation checks failed.' }

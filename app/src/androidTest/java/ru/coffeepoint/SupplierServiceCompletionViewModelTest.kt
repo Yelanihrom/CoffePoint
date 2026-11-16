@@ -15,7 +15,7 @@ import org.junit.Test
 import ru.coffeepoint.core.auth.UserRole
 import ru.coffeepoint.core.data.local.DatabaseProvider
 import ru.coffeepoint.core.data.mapper.*
-import ru.coffeepoint.feature.service.presentation.SupplyServiceStep2ViewModel
+import ru.coffeepoint.feature.service.supply.presentation.SupplyChecklistViewModel
 import ru.coffeepoint.feature.station.model.*
 import kotlin.random.Random
 
@@ -39,12 +39,12 @@ class SupplierServiceCompletionViewModelTest {
                 db.stationSettingsDao().insert(detail.toSettingsEntity())
             }
             val model = withContext(Dispatchers.Main) {
-                SupplyServiceStep2ViewModel(app, state).also { it.loadStation(stationId) }
+                SupplyChecklistViewModel(app, state).also { it.loadStation(stationId) }
             }
             withTimeout(10000) {
                 while (!withContext(Dispatchers.Main) { model.checklist.size == 2 }) delay(20)
             }
-            suspend fun finishAndAwaitError(vm: SupplyServiceStep2ViewModel) {
+            suspend fun finishAndAwaitError(vm: SupplyChecklistViewModel) {
                 withContext(Dispatchers.Main) {
                     vm.finishSupplyService(stationId, UserRole.SUPPLY_OPERATOR) { fail("Offline sync must not succeed") }
                 }
@@ -62,7 +62,7 @@ class SupplierServiceCompletionViewModelTest {
             finishAndAwaitError(model)
             val restored = withContext(Dispatchers.Main) {
                 val restoredState = SavedStateHandle(state.keys().associateWith { state.get<Any?>(it) })
-                SupplyServiceStep2ViewModel(app, restoredState).also { it.loadStation(stationId) }
+                SupplyChecklistViewModel(app, restoredState).also { it.loadStation(stationId) }
             }
             finishAndAwaitError(restored)
             assertEquals(listOf(original), db.stationServiceVisitDao().getByStation(stationId))

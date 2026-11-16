@@ -1,8 +1,7 @@
 package ru.coffeepoint.core.data.local.dao
 
 import androidx.room.Dao
-import androidx.room.Insert
-import androidx.room.OnConflictStrategy
+import androidx.room.Upsert
 import androidx.room.Query
 import ru.coffeepoint.core.data.local.entity.CoffeeStationEntity
 
@@ -27,10 +26,10 @@ interface CoffeeStationDao {
     @Query("SELECT MAX(id) FROM coffee_station")
     suspend fun getMaxId(): Int?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insert(entity: CoffeeStationEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertAll(entities: List<CoffeeStationEntity>)
 
     @Query("UPDATE coffee_station SET isSynced = :isSynced, syncError = :syncError, syncErrorType = :syncErrorType WHERE id = :id")

@@ -24,11 +24,13 @@ import ru.coffeepoint.feature.dashboard.ui.DashboardScreen
 import ru.coffeepoint.feature.dashboard.ui.ManagerHomeScreen
 import ru.coffeepoint.feature.settings.ui.NotificationSettingsScreen
 import ru.coffeepoint.feature.settings.ui.SettingsScreen
+import ru.coffeepoint.feature.settings.ui.ServiceIntervalSettingsScreen
 import ru.coffeepoint.feature.earnings.ui.MonthlyEarningsScreen
-import ru.coffeepoint.feature.service.ui.ServiceStep1Screen
-import ru.coffeepoint.feature.service.ui.ServiceStep2Screen
-import ru.coffeepoint.feature.service.ui.GrindControlScreen
-import ru.coffeepoint.feature.service.ui.SupplyServiceStep2Screen
+import ru.coffeepoint.feature.service.refill.ui.RefillStockScreen
+import ru.coffeepoint.feature.service.refill.ui.RefillChecklistScreen
+import ru.coffeepoint.feature.service.supply.ui.GrindControlScreen
+import ru.coffeepoint.feature.service.supply.ui.SupplyChecklistScreen
+import ru.coffeepoint.feature.service.supply.ui.SupplyStockScreen
 import ru.coffeepoint.feature.station.ui.StationCreateScreen
 import ru.coffeepoint.feature.station.ui.StationScreen
 import ru.coffeepoint.feature.station.ui.StationSettingsScreen
@@ -166,7 +168,8 @@ fun AppNavigation(
             if (selectedRole == UserRole.MANAGER) {
                 SettingsScreen(
                     onBack = { navController.popBackStack() },
-                    onOpenNotifications = { navController.navigate(Routes.NotificationSettings.route) }
+                    onOpenNotifications = { navController.navigate(Routes.NotificationSettings.route) },
+                    onOpenServiceIntervals = { navController.navigate(Routes.ServiceIntervalSettings.route) }
                 )
             }
         }
@@ -174,6 +177,12 @@ fun AppNavigation(
         composable(Routes.NotificationSettings.route) {
             if (selectedRole == UserRole.MANAGER) {
                 NotificationSettingsScreen(onBack = { navController.popBackStack() })
+            }
+        }
+
+        composable(Routes.ServiceIntervalSettings.route) {
+            if (selectedRole == UserRole.MANAGER) {
+                ServiceIntervalSettingsScreen(onBack = { navController.popBackStack() })
             }
         }
 
@@ -470,7 +479,7 @@ fun AppNavigation(
 
             val stationId = it.arguments?.getInt("stationId") ?: 0
 
-            ServiceStep1Screen(
+            RefillStockScreen(
                 stationId = stationId,
                 role = selectedRole ?: UserRole.OPERATOR,
                 onBack = {
@@ -495,41 +504,14 @@ fun AppNavigation(
         ) {
 
             val stationId = it.arguments?.getInt("stationId") ?: 0
-            val role = selectedRole ?: UserRole.OPERATOR
-            val isSupplyServiceFlow = role == UserRole.SUPPLY_OPERATOR ||
-                role == UserRole.MANAGER
-
-            ServiceStep1Screen(
+            SupplyStockScreen(
                 stationId = stationId,
-                role = role,
                 onBack = {
                     navController.popBackStack()
                 },
                 onNext = {
-                    if (isSupplyServiceFlow) {
-                        navController.navigate(
-                            Routes.GrindControl.createRoute(stationId)
-                        )
-                    } else {
-                        navController.navigate(Routes.Dashboard.route) {
-                            popUpTo(Routes.Dashboard.route) {
-                                inclusive = true
-                            }
-                        }
-                    }
-                },
-                stepLabel = if (isSupplyServiceFlow) {
-                    "Шаг 1 из 4"
-                } else {
-                    "Пополнение запасов"
-                },
-                isSupplyServiceFlow = isSupplyServiceFlow,
-                actionText = if (isSupplyServiceFlow) {
-                    "Далее"
-                } else {
-                    "Завершить пополнение"
-                },
-                syncImmediatelyOnSave = true
+                    navController.navigate(Routes.GrindControl.createRoute(stationId))
+                }
             )
 
         }
@@ -568,7 +550,7 @@ fun AppNavigation(
 
             val stationId = it.arguments?.getInt("stationId") ?: 0
 
-            SupplyServiceStep2Screen(
+            SupplyChecklistScreen(
                 stationId = stationId,
                 role = selectedRole ?: UserRole.OPERATOR,
                 onBack = {
@@ -596,7 +578,7 @@ fun AppNavigation(
 
             val stationId = it.arguments?.getInt("stationId") ?: 0
 
-            ServiceStep2Screen(
+            RefillChecklistScreen(
                 stationId = stationId,
                 onBack = {
                     navController.popBackStack()

@@ -17,6 +17,11 @@ const CONFIG = {
 };
 
 const SHEETS = {
+  STATION_MAINTENANCE: {
+    name: 'station_maintenance',
+    key: 'stationId,nodeType',
+    headers: ['stationId', 'nodeType', 'lastServiceDate', 'salesAfterService', 'salesUpdatedAt', 'updatedAt'],
+  },
   NOTIFICATION_SETTINGS: {
     name: 'notification_settings',
     key: 'role',
@@ -43,12 +48,6 @@ const SHEETS = {
       'rentPaidUntil',
       'excludeFromSupplyPlanning',
       'excludeFromOperatorEarnings',
-      'liquidWasteContainerServiceDate',
-      'brewUnitServiceDate',
-      'coffeeGrinderServiceDate',
-      'mixersServiceDate',
-      'expansionTankServiceDate',
-      'exhaustServiceDate',
       'machinePhotoPath',
       'overviewPhotoPath',
       'machinePhotoUrl',

@@ -5,6 +5,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import ru.coffeepoint.core.data.local.entity.WarehouseStockEntity
+import ru.coffeepoint.core.data.local.entity.StationMaintenanceEntity
 import ru.coffeepoint.core.data.mapper.toInventoryEntity
 import ru.coffeepoint.core.data.mapper.toStationEntity
 import ru.coffeepoint.feature.station.model.*
@@ -42,6 +43,24 @@ class ServiceStartImporterTest {
             assertEquals(GoogleSheetsImportResult.SkippedPendingChanges, importer.refresh(7, false))
             assertFalse(store.applied)
         }
+    }
+
+    @Test fun `pending node prevents network even if station itself is synced`() = runBlocking {
+        val store = Store()
+        store.state = store.state.copy(maintenance = listOf(StationMaintenanceEntity(7, "MIXERS", isSynced = false)))
+        val importer = GoogleSheetsServiceStartImporter(store) { _, _ -> error("Must not request") }
+        assertEquals(GoogleSheetsImportResult.SkippedPendingChanges, importer.refresh(7, false))
+        assertFalse(store.applied)
+    }
+
+    @Test fun `node change while request runs prevents replacement`() = runBlocking {
+        val store = Store()
+        val importer = GoogleSheetsServiceStartImporter(store) { _, _ ->
+            store.state = store.state.copy(maintenance = listOf(StationMaintenanceEntity(7, "MIXERS", isSynced = false)))
+            snapshot
+        }
+        assertEquals(GoogleSheetsImportResult.SkippedPendingChanges, importer.refresh(7, true))
+        assertFalse(store.applied)
     }
 
     @Test fun `operator ignores pending warehouse but supplier protects it`() = runBlocking {

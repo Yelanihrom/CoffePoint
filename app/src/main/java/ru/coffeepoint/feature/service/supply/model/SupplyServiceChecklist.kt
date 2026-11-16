@@ -1,4 +1,6 @@
-package ru.coffeepoint.feature.service.model
+package ru.coffeepoint.feature.service.supply.model
+
+import ru.coffeepoint.feature.service.model.ServiceChecklistItem
 
 enum class SupplyServiceTask { MIXERS, SYSTEM_TEST }
 

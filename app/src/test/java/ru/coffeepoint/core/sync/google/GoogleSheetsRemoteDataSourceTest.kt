@@ -21,6 +21,38 @@ import java.net.UnknownHostException
 import java.net.InetAddress
 
 class GoogleSheetsRemoteDataSourceTest {
+    @Test fun `maintenance read keeps blank distinct from zero and rejects invalid rows`(): Unit = runBlocking {
+        fun response(rows: String): String {
+            val json = com.google.gson.JsonParser.parseString(fixture("full-sync.json")).asJsonObject
+            val parsed = com.google.gson.JsonParser.parseString(rows).asJsonArray
+            json.getAsJsonObject("data").getAsJsonArray("stationMaintenance")
+                .filter { it.asJsonObject["nodeType"].asString != "MIXERS" }.forEach { parsed.add(it) }
+            json.getAsJsonObject("data").add("stationMaintenance", parsed)
+            return json.toString()
+        }
+        for ((raw, expected) in listOf("\"\"" to null, "null" to null, "0" to 0L, "123" to 123L)) {
+            http.enqueue(response("""[{"stationId":7,"nodeType":"MIXERS","salesAfterService":$raw}]"""))
+            assertEquals(expected, remote.loadFullSyncBundle().stationMaintenance.first().salesAfterService)
+            http.takeRequest()
+        }
+        for (row in listOf(
+            """{"stationId":7,"nodeType":"MIXERS","salesAfterService":-1}""",
+            """{"stationId":7,"nodeType":"MIXERS","salesAfterService":1.5}""",
+            """{"stationId":7,"nodeType":"UNKNOWN"}""",
+            """{"stationId":0,"nodeType":"MIXERS"}""")) {
+            http.enqueue(response("[$row]"))
+            try { remote.loadFullSyncBundle(); fail("Invalid maintenance accepted") }
+            catch (_: IllegalArgumentException) { }
+            catch (_: IllegalStateException) { }
+            http.takeRequest()
+        }
+        val row = """{"stationId":7,"nodeType":"MIXERS"}"""
+        http.enqueue(response("[$row,$row]"))
+        try { remote.loadFullSyncBundle(); fail("Duplicate maintenance accepted") }
+        catch (_: IllegalArgumentException) { }
+        http.takeRequest()
+    }
+
     @Test fun `notification settings use a selective read and a narrow partial upsert`() = runBlocking {
         val rows = ru.coffeepoint.core.auth.UserRole.entries.map { role -> buildMap<String, Any?> {
             put("role", role.name)
@@ -116,7 +148,7 @@ class GoogleSheetsRemoteDataSourceTest {
         val request = http.takeRequest().requestUrl!!
         assertEquals("full_sync", request.queryParameter("action"))
         assertEquals("7", request.queryParameter("stationId"))
-        assertEquals("coffee_station,station_inventory", request.queryParameter("entities"))
+        assertEquals("coffee_station,station_inventory,station_maintenance", request.queryParameter("entities"))
         assertEquals(7, snapshot.station.id)
         assertEquals(6, snapshot.inventory.cups)
         assertTrue(snapshot.warehouse.isEmpty())
@@ -126,7 +158,7 @@ class GoogleSheetsRemoteDataSourceTest {
         http.enqueue(fixture("full-sync.json"))
         val snapshot = remote.loadServiceStart(7, includeWarehouse = true)
         val request = http.takeRequest().requestUrl!!
-        assertEquals("coffee_station,station_inventory,warehouse_stock", request.queryParameter("entities"))
+        assertEquals("coffee_station,station_inventory,station_maintenance,warehouse_stock", request.queryParameter("entities"))
         assertEquals("7", request.queryParameter("stationId"))
         assertEquals(36, snapshot.warehouse.single().quantity)
     }
@@ -135,7 +167,9 @@ class GoogleSheetsRemoteDataSourceTest {
         for (response in listOf(
             """{"success":true,"data":{"stations":[],"inventories":[]}}""",
             """{"success":false,"error":{"status":500,"message":"Unavailable"}}""",
-            fixture("full-sync.json").replace("\"cups\":6,", "")
+            com.google.gson.JsonParser.parseString(fixture("full-sync.json")).asJsonObject.apply {
+                getAsJsonObject("data").getAsJsonArray("inventories")[0].asJsonObject.remove("cups")
+            }.toString()
         )) {
             http.enqueue(response)
             try { remote.loadServiceStart(7, false); fail("Incomplete data accepted") }
@@ -170,7 +204,7 @@ class GoogleSheetsRemoteDataSourceTest {
     @Test fun `dashboard import selects stations inventory settings and warehouse`() = runBlocking {
         http.enqueue(fixture("full-sync.json"))
         remote.loadFullSyncBundle(includeSupplyCatalog = false, includeEmployeeData = false)
-        assertEquals("coffee_station,station_inventory,station_settings,warehouse_stock",
+        assertEquals("coffee_station,station_inventory,station_maintenance,station_settings,warehouse_stock",
             http.takeRequest().requestUrl!!.queryParameter("entities"))
     }
 
@@ -228,23 +262,27 @@ class GoogleSheetsRemoteDataSourceTest {
 
     @Test fun `supplier completion sends only checked maintenance nodes`() = runBlocking {
         http.enqueue()
-        val result = remote.syncSupplyServiceFields(detail().station, true, false)
+        val result = remote.syncMaintenance(listOf(StationMaintenanceEntity(7,"MIXERS",
+            "2026-10-19T10:00:00Z",0L,"2026-10-19T10:00:00Z","2026-10-19T10:00:00Z",pendingResetSales=true)))
         assertTrue(result.synced)
         val body = http.takeRequest().jsonBody()
         assertEquals("complete_service", body["action"].asString)
-        assertEquals(setOf("id", "mixersServiceDate"), body.getAsJsonObject("data").keySet())
-        assertEquals("2026-10-19", body.getAsJsonObject("data")["mixersServiceDate"].asString)
+        assertEquals(setOf("id", "maintenance"), body.getAsJsonObject("data").keySet())
+        val node = body.getAsJsonObject("data").getAsJsonArray("maintenance").single().asJsonObject
+        assertEquals("2026-10-19T10:00:00Z", node["lastServiceDate"].asString)
+        assertTrue(node["resetSales"].asBoolean)
     }
 
     @Test fun `supplier can send both maintenance nodes without operator fields`() = runBlocking {
         http.enqueue()
-        remote.syncSupplyServiceFields(detail().station, true, true)
-        assertEquals(setOf("id", "mixersServiceDate", "liquidWasteContainerServiceDate"),
+        remote.syncMaintenance(listOf("MIXERS","BREW_UNIT").map { StationMaintenanceEntity(7,it,
+            "19.10.2026",updatedAt="2026-10-19T10:00:00Z") })
+        assertEquals(setOf("id", "maintenance"),
             http.takeRequest().jsonBody().getAsJsonObject("data").keySet())
     }
 
     @Test fun `supplier without checked nodes makes no request`() = runBlocking {
-        val result = remote.syncSupplyServiceFields(detail().station, false, false)
+        val result = remote.syncMaintenance(emptyList())
         assertFalse(result.synced)
         assertEquals(GoogleSheetsSyncErrorType.NONE, result.errorType)
         assertEquals(0, http.server.requestCount)

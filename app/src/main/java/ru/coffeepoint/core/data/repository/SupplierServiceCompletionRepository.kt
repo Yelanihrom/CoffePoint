@@ -6,6 +6,8 @@ import ru.coffeepoint.core.auth.UserRole
 import ru.coffeepoint.core.data.local.AppDatabase
 import ru.coffeepoint.core.data.local.entity.StationServiceVisitEntity
 import ru.coffeepoint.core.data.local.entity.EmployeeTransactionEntity
+import ru.coffeepoint.core.data.local.entity.StationMaintenanceEntity
+import ru.coffeepoint.feature.station.model.TechServiceNode
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -36,10 +38,8 @@ class SupplierServiceCompletionRepository(
                 .singleOrNull()?.takeIf { allowLocalSupplier || !it.isLocalOnly }
                 ?: throw LocalSupplierUnavailableException()
         } else null
-        val serviceDate = completedAt.atZone(ZoneId.of("Europe/Moscow"))
-            .format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+        val serviceDate = completedAt.truncatedTo(java.time.temporal.ChronoUnit.MILLIS).toString()
         db.coffeeStationDao().insert(station.copy(
-            mixersServiceDate = serviceDate,
             isSynced = false,
             syncError = false,
             syncErrorType = "",
@@ -47,6 +47,14 @@ class SupplierServiceCompletionRepository(
                 (!station.isSynced && !station.pendingServiceOnly && !station.pendingSupplyServiceOnly),
             pendingSupplyServiceOnly = true,
             pendingMixersServiceDate = true
+        ))
+        val maintenanceDao = db.stationMaintenanceDao()
+        val mixer = maintenanceDao.get(stationId, TechServiceNode.MIXERS.name)
+            ?: StationMaintenanceEntity(stationId, TechServiceNode.MIXERS.name)
+        maintenanceDao.upsert(mixer.copy(
+            lastServiceDate = serviceDate, salesAfterService = 0L,
+            salesUpdatedAt = serviceDate, updatedAt = serviceDate,
+            isSynced = false, syncError = false, syncErrorType = "", pendingResetSales = true
         ))
         supplier?.let {
             val timestamp = completedAt.truncatedTo(java.time.temporal.ChronoUnit.MILLIS).toString()

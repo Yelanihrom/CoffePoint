@@ -1,4 +1,4 @@
-package ru.coffeepoint.feature.service.presentation
+package ru.coffeepoint.feature.service.supply.presentation
 
 import android.app.Application
 import androidx.compose.runtime.getValue
@@ -15,14 +15,14 @@ import ru.coffeepoint.core.data.repository.LocalSupplierUnavailableException
 import ru.coffeepoint.core.data.local.DatabaseProvider
 import ru.coffeepoint.core.auth.UserRole
 import ru.coffeepoint.core.sync.google.GoogleSheetsSyncManager
-import ru.coffeepoint.feature.service.model.SupplyServiceChecklistItem
-import ru.coffeepoint.feature.service.model.buildSupplyServiceChecklist
-import ru.coffeepoint.feature.service.model.canFinishSupplyService
+import ru.coffeepoint.feature.service.supply.model.SupplyServiceChecklistItem
+import ru.coffeepoint.feature.service.supply.model.buildSupplyServiceChecklist
+import ru.coffeepoint.feature.service.supply.model.canFinishSupplyService
 import ru.coffeepoint.feature.station.model.syncErrorDialogMessage
 import java.util.UUID
 import kotlin.coroutines.cancellation.CancellationException
 
-class SupplyServiceStep2ViewModel(
+class SupplyChecklistViewModel(
     application: Application,
     private val savedStateHandle: SavedStateHandle
 ) : AndroidViewModel(application) {
