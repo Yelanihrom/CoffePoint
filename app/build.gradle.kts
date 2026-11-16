@@ -37,8 +37,8 @@ android {
         applicationId = "ru.coffeepoint"
         minSdk = 26
         targetSdk = 37
-        versionCode = 25
-        versionName = "1.0.25"
+        versionCode = 26
+        versionName = "1.0.26"
         manifestPlaceholders["appLabel"] = "@string/app_name"
         manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher"
         manifestPlaceholders["appRoundIcon"] = "@mipmap/ic_launcher_round"
