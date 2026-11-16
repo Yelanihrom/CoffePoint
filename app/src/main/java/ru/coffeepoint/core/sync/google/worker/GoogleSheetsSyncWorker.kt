@@ -8,6 +8,7 @@ import ru.coffeepoint.core.data.repository.EmployeeSyncRepository
 import ru.coffeepoint.core.data.repository.StationRepository
 import ru.coffeepoint.core.data.repository.WarehouseStockRepository
 import ru.coffeepoint.core.data.repository.NotificationSettingsRepository
+import ru.coffeepoint.core.data.repository.ServiceIntervalRepository
 import ru.coffeepoint.core.sync.google.GoogleSheetsEntitySyncResult
 import ru.coffeepoint.core.sync.google.GoogleSheetsSyncErrorType
 
@@ -33,7 +34,8 @@ class GoogleSheetsSyncWorker(
                     .syncPendingGoogleSheets(),
                 "employees" to EmployeeSyncRepository(applicationContext)
                     .syncEmployeeData(),
-                "notification settings" to NotificationSettingsRepository(applicationContext).syncPending()
+                "notification settings" to NotificationSettingsRepository(applicationContext).syncPending(),
+                "maintenance settings" to ServiceIntervalRepository(applicationContext).syncPending()
             )
 
             results.forEach { (entity, result) ->

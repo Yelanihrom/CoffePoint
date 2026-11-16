@@ -623,10 +623,12 @@ private fun StationDetail.managerServiceItems(intervals: ServiceIntervals): List
         )
     ).map { item ->
         item.copy(
-            isOverdue = isServiceDue(
+            isOverdue = item.node?.let { node -> isServiceDue(
                 date = item.date,
-                intervalDays = item.serviceIntervalDays
-            )
+                intervalDays = item.serviceIntervalDays,
+                salesAfterService = station.maintenanceSales[node],
+                salesLimit = intervals.salesLimit(node)
+            ) } ?: false
         )
     }
 }

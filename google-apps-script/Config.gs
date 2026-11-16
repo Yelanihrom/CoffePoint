@@ -17,6 +17,11 @@ const CONFIG = {
 };
 
 const SHEETS = {
+  MAINTENANCE_SETTINGS: {
+    name: 'maintenance_settings',
+    key: 'nodeType',
+    headers: ['nodeType', 'intervalDays', 'salesLimit', 'updatedAt'],
+  },
   STATION_MAINTENANCE: {
     name: 'station_maintenance',
     key: 'stationId,nodeType',

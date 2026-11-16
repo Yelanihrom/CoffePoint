@@ -41,5 +41,22 @@ class ServiceIntervalsTest {
             }
         }
         assertThrows(IllegalArgumentException::class.java) { ServiceIntervals(emptyMap()) }
+        assertThrows(IllegalArgumentException::class.java) {
+            ServiceIntervals(salesLimits = ServiceIntervals().salesLimits + (TechServiceNode.MIXERS to -1L))
+        }
+        assertThrows(IllegalArgumentException::class.java) { ServiceIntervals(salesLimits = emptyMap()) }
+    }
+
+    @Test fun salesThresholdIncludesBoundaryAndIgnoresUnknownOrDisabledCounters() {
+        val today = LocalDate.of(2026, 11, 17)
+        for (count in listOf(null, -1L, 0L, 499L)) {
+            assertFalse(isServiceDue("17.11.2026", 30, today, count, 500))
+        }
+        for (count in listOf(500L, 501L, Long.MAX_VALUE)) {
+            assertTrue(isServiceDue("17.11.2026", 30, today, count, 500))
+            assertFalse(isServiceDue("17.11.2026", 30, today, count, 0))
+        }
+        assertTrue(isServiceDue("01.01.2026", 30, today, null, 500))
+        assertTrue(isServiceDue("", 30, today, 500, 500))
     }
 }

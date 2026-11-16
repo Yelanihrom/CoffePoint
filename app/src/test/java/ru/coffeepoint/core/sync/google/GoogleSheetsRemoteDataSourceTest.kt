@@ -21,6 +21,34 @@ import java.net.UnknownHostException
 import java.net.InetAddress
 
 class GoogleSheetsRemoteDataSourceTest {
+    @Test fun `maintenance rules use selective read and one narrow batch`() = runBlocking {
+        http.enqueue(fixture("full-sync.json"))
+        val rows = remote.loadMaintenanceSettings()
+        assertEquals(6, rows.size)
+        assertEquals("maintenance_settings", http.takeRequest().requestUrl!!.queryParameter("entities"))
+        http.enqueue("{\"success\":true}")
+        assertTrue(remote.syncMaintenanceSettings(rows.take(2)).synced)
+        val body = http.takeRequest().jsonBody()
+        assertEquals("upsert_batch", body["action"].asString)
+        assertEquals("maintenance_settings", body["entity"].asString)
+        val items = body.getAsJsonObject("data").getAsJsonArray("items")
+        assertEquals(2, items.size())
+        assertEquals(setOf("nodeType", "intervalDays", "salesLimit", "updatedAt"), items[0].asJsonObject.keySet())
+    }
+
+    @Test fun `maintenance batch preserves network and conflict result types`() = runBlocking {
+        http.enqueue(fixture("full-sync.json"))
+        val rows = remote.loadMaintenanceSettings()
+        http.takeRequest()
+        http.enqueue("{\"success\":false,\"error\":{\"status\":409,\"message\":\"Conflict\"}}")
+        assertEquals(GoogleSheetsSyncErrorType.CONFLICT, remote.syncMaintenanceSettings(rows).errorType)
+        http.takeRequest()
+        val offline = dataSource(OkHttpClient.Builder().dns(object : Dns {
+            override fun lookup(hostname: String): List<InetAddress> = throw UnknownHostException("offline")
+        }).build())
+        assertEquals(GoogleSheetsSyncErrorType.CONNECTION, offline.syncMaintenanceSettings(rows).errorType)
+    }
+
     @Test fun `maintenance read keeps blank distinct from zero and rejects invalid rows`(): Unit = runBlocking {
         fun response(rows: String): String {
             val json = com.google.gson.JsonParser.parseString(fixture("full-sync.json")).asJsonObject

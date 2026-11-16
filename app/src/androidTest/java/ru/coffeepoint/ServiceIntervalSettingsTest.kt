@@ -22,7 +22,9 @@ import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
 import ru.coffeepoint.core.auth.UserRole
-import ru.coffeepoint.core.data.preferences.ServiceIntervalPreferences
+import androidx.room.Room
+import ru.coffeepoint.core.data.local.AppDatabase
+import ru.coffeepoint.core.data.repository.ServiceIntervalRepository
 import ru.coffeepoint.feature.dashboard.component.StationCard
 import ru.coffeepoint.feature.dashboard.model.*
 import ru.coffeepoint.feature.settings.presentation.ServiceIntervalSettingsViewModel
@@ -51,12 +53,15 @@ class ServiceIntervalSettingsTest {
         var saved = false
         compose.setContent {
             var values by remember { mutableStateOf(ServiceIntervals().values.mapValues { it.value.toString() }) }
+            var sales by remember { mutableStateOf(ServiceIntervals().salesLimits.mapValues { it.value.toString() }) }
             CoffeePointTheme {
                 val density = LocalDensity.current
                 CompositionLocalProvider(LocalDensity provides Density(density.density, 1.3f)) {
                     Box(Modifier.width(320.dp)) {
                         ServiceIntervalSettingsContent(values, { node, value -> values = values + (node to value) },
-                            { saved = true }, {}, values.values.all { (it.toIntOrNull() ?: 0) > 0 })
+                            { saved = true }, {}, values.values.all { (it.toIntOrNull() ?: 0) > 0 } &&
+                                sales.values.all { (it.toLongOrNull() ?: -1L) >= 0 },
+                            salesValues = sales, onSalesChange = { node, value -> sales = sales + (node to value) })
                     }
                 }
             }
@@ -66,6 +71,10 @@ class ServiceIntervalSettingsTest {
         compose.onNodeWithTag("service_days_MIXERS").performTextReplacement("0")
         compose.onNodeWithText("СОХРАНИТЬ").assertIsNotEnabled()
         compose.onNodeWithTag("service_days_MIXERS").performTextReplacement("45")
+        compose.onNodeWithTag("service_sales_MIXERS").performTextReplacement("9999999999999999999")
+        compose.onNodeWithText("СОХРАНИТЬ").assertIsNotEnabled()
+        compose.onNodeWithTag("service_sales_MIXERS").performTextReplacement("500")
+        compose.onNodeWithTag("service_sales_MIXERS").assertTextContains("500")
         compose.onNodeWithText("СОХРАНИТЬ").performClick()
         compose.runOnIdle { assertTrue(saved) }
         Espresso.closeSoftKeyboard()
@@ -76,41 +85,40 @@ class ServiceIntervalSettingsTest {
     }
 
     @Test fun savedIntervalsPersistAndCardAndNotificationSelectionUseThem() {
-        val prefs = context.getSharedPreferences("service_intervals", 0)
-        val original = prefs.all
-        val store = ServiceIntervalPreferences(prefs)
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
+        val store = ServiceIntervalRepository(db)
         try {
-            store.save(ServiceIntervals())
+            runBlocking { store.save(ServiceIntervals()) }
             val detail = StationDetail(CoffeeStation(7, "Test station", lastServiceDate = "", salesAfterService = 0,
                 mixersServiceDate = LocalDate.now(ZoneOffset.UTC).minusDays(20).format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))),
                 StationInventory(0, 0, 0, 0, 0, 0, 0, 0),
                 StationSettings(cupsMax = 0, lidsMax = 0, coffeeMax = 0, milkMax = 0, chocolateMax = 0, toppingMax = 0))
             compose.setContent {
-                val intervals = rememberServiceIntervals()
+                val intervals = rememberServiceIntervals(store)
                 CoffeePointTheme { StationCard(detail, DashboardMode.SUPPLY, false, false, false,
                     showSupplyOperatorTechService = true, serviceIntervals = intervals) }
             }
             compose.onNodeWithText("Обслуживание не требуется").assertIsDisplayed()
-            compose.runOnIdle { store.save(ServiceIntervals(ServiceIntervals().values + (TechServiceNode.MIXERS to 10))) }
+            runBlocking { store.save(ServiceIntervals(ServiceIntervals().values + (TechServiceNode.MIXERS to 10))) }
             compose.waitUntil { compose.onAllNodesWithText("Миксеры").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Миксеры").assertIsDisplayed()
-            val restored = ServiceIntervalPreferences(prefs).read()
+            val restored = runBlocking { store.read() }
             assertEquals(10, restored[TechServiceNode.MIXERS])
             assertEquals(listOf("Миксеры"), detail.supplyAttentionTechServiceDashboardItems(UserRole.MANAGER, restored) { true }.map { it.title })
             assertTrue(detail.supplyAttentionTechServiceDashboardItems(UserRole.OPERATOR, restored) { true }.isEmpty())
             assertTrue(detail.supplyAttentionTechServiceDashboardItems(UserRole.MANAGER, restored) { false }.isEmpty())
         } finally {
-            prefs.edit().clear().apply { original.forEach { (key, value) -> if (value is Int) putInt(key, value) } }.commit()
+            db.close()
         }
     }
 
     @Test fun viewModelValidatesAndOnlyPersistsOnSave() = runBlocking {
-        val prefs = context.getSharedPreferences("service_intervals", 0)
-        val original = prefs.all
-        val store = ServiceIntervalPreferences(prefs)
+        val db = Room.inMemoryDatabaseBuilder(context, AppDatabase::class.java).build()
+        val store = ServiceIntervalRepository(db, send = { ru.coffeepoint.core.sync.google.GoogleSheetsEntitySyncResult.success() })
         try {
             store.save(ServiceIntervals())
-            val model = ServiceIntervalSettingsViewModel(context.applicationContext as Application)
+            val model = ServiceIntervalSettingsViewModel(context.applicationContext as Application, store)
+            withTimeout(10000) { while (model.loading) delay(20) }
             model.update(TechServiceNode.MIXERS, "0")
             assertFalse(model.valid)
             model.update(TechServiceNode.MIXERS, "")
@@ -118,17 +126,24 @@ class ServiceIntervalSettingsTest {
             model.update(TechServiceNode.MIXERS, "9999999999")
             assertFalse(model.valid)
             model.update(TechServiceNode.MIXERS, "45")
+            model.updateSales(TechServiceNode.MIXERS, "9999999999999999999")
+            assertFalse(model.valid)
+            model.updateSales(TechServiceNode.MIXERS, "9007199254740992")
+            assertFalse(model.valid)
+            model.updateSales(TechServiceNode.MIXERS, "500")
             assertTrue(model.valid && model.changed)
             assertEquals(30, store.read()[TechServiceNode.MIXERS])
             var saved = false
             compose.runOnIdle { model.save { saved = true } }
             withTimeout(10000) { while (!saved) delay(20) }
             assertEquals(45, store.read()[TechServiceNode.MIXERS])
-            val reopened = ServiceIntervalSettingsViewModel(context.applicationContext as Application)
+            assertEquals(500L, store.read().salesLimit(TechServiceNode.MIXERS))
+            val reopened = ServiceIntervalSettingsViewModel(context.applicationContext as Application, store)
+            withTimeout(10000) { while (reopened.loading) delay(20) }
             assertEquals("45", reopened.values[TechServiceNode.MIXERS])
             assertFalse(reopened.changed)
         } finally {
-            prefs.edit().clear().apply { original.forEach { (key, value) -> if (value is Int) putInt(key, value) } }.commit()
+            db.close()
         }
     }
 }

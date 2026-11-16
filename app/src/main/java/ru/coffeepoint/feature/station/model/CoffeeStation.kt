@@ -58,5 +58,7 @@ data class CoffeeStation(
 
     val pendingMixersServiceDate: Boolean = false,
 
-    val pendingLiquidWasteContainerServiceDate: Boolean = false
+    val pendingLiquidWasteContainerServiceDate: Boolean = false,
+
+    val maintenanceSales: Map<TechServiceNode, Long?> = emptyMap()
 )

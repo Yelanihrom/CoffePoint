@@ -18,7 +18,7 @@ import ru.coffeepoint.feature.dashboard.model.supplyItems
 import ru.coffeepoint.feature.dashboard.model.supplyAttentionTechServiceDashboardItems
 import ru.coffeepoint.feature.station.model.StationDetail
 import ru.coffeepoint.feature.warehouse.model.WarehouseStockItem
-import ru.coffeepoint.core.data.preferences.ServiceIntervalPreferences
+import ru.coffeepoint.core.data.repository.ServiceIntervalRepository
 
 class StationAttentionNotification(
     private val context: Context
@@ -87,12 +87,12 @@ class StationAttentionNotification(
 
     }
 
-    fun showServiceAttentionIfNeeded(stations: List<StationDetail>) {
+    suspend fun showServiceAttentionIfNeeded(stations: List<StationDetail>) {
         if (!canShowForSupplyRole()) return
 
         val role = RolePreferences(context).getSelectedRole()
         val settings = NotificationSettings(context)
-        val intervals = ServiceIntervalPreferences(context).read()
+        val intervals = ServiceIntervalRepository(context).read()
         val lines = stations.mapNotNull { detail ->
             val items = detail.supplyAttentionTechServiceDashboardItems(role, intervals) { option ->
                 settings.isEnabled(role, option)

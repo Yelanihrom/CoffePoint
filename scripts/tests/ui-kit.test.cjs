@@ -103,6 +103,6 @@ test('station and dashboard share maintenance intervals and due-date calculation
     assert.match(text, /\bisServiceDue\s*\(/);
   }
   const notification = fs.readFileSync(path.join(source, 'core/notification/StationAttentionNotification.kt'), 'utf8');
-  assert.match(notification, /ServiceIntervalPreferences\(context\)\.read\(\)/);
+  assert.match(notification, /ServiceIntervalRepository\(context\)\.read\(\)/);
   assert.match(notification, /supplyAttentionTechServiceDashboardItems\(role, intervals\)/);
 });

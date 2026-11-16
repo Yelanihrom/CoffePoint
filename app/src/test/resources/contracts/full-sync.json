@@ -156,6 +156,14 @@
         "sourceId": ""
       }
     ],
+    "maintenanceSettings": [
+      {"nodeType": "LIQUID_WASTE_CONTAINER", "intervalDays": 180, "salesLimit": 0, "updatedAt": "2026-11-17T08:00:00Z"},
+      {"nodeType": "BREW_UNIT", "intervalDays": 180, "salesLimit": 0, "updatedAt": "2026-11-17T08:00:00Z"},
+      {"nodeType": "COFFEE_GRINDER", "intervalDays": 720, "salesLimit": 0, "updatedAt": "2026-11-17T08:00:00Z"},
+      {"nodeType": "MIXERS", "intervalDays": 30, "salesLimit": 0, "updatedAt": "2026-11-17T08:00:00Z"},
+      {"nodeType": "EXPANSION_TANK", "intervalDays": 360, "salesLimit": 0, "updatedAt": "2026-11-17T08:00:00Z"},
+      {"nodeType": "EXHAUST", "intervalDays": 720, "salesLimit": 0, "updatedAt": "2026-11-17T08:00:00Z"}
+    ],
     "stationServiceVisits": [],
     "notificationSettings": [
       {

@@ -14,7 +14,7 @@ Features сгруппированы по задачам пользователя
 | [warehouse](warehouse) | Склад, пополнение, настройка пределов | `ui/WarehouseStockScreen.kt`, `presentation/WarehouseStockViewModel.kt` |
 | [supplycatalog](supplycatalog) | Варианты закупки и краткая информация | `ui/SupplyCatalogScreen.kt`, `presentation/SupplyCatalogEditViewModel.kt` |
 | [earnings](earnings) | Начисления, выплаты, взаиморасчёт | `ui/MonthlyEarningsScreen.kt`, `presentation/MonthlyEarningsViewModel.kt` |
-| [settings](settings) | Меню настроек, уведомления по ролям и узлам, локальные сроки обслуживания | `ui/SettingsScreen.kt`, `ui/NotificationSettingsScreen.kt`, `ui/ServiceIntervalSettingsScreen.kt`; хранение — `core/notification/NotificationSettings` и `core/data/preferences/ServiceIntervalPreferences` |
+| [settings](settings) | Меню настроек, уведомления по ролям и узлам, сроки и лимиты продаж | `ui/SettingsScreen.kt`, `ui/NotificationSettingsScreen.kt`, `ui/ServiceIntervalSettingsScreen.kt`; хранение — `core/notification/NotificationSettings` и Room через `core/data/repository/ServiceIntervalRepository` |
 | [camera](camera) | Камера и локальные фото; сохранённый временно отключённый сценарий | Не удалять без отдельного изменения процесса |
 
 В `ui` размещается Compose, в `presentation` — состояние и действия экрана,
