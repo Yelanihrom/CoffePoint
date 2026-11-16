@@ -12,6 +12,22 @@ function kotlinFiles(dir) {
   });
 }
 
+test('refill and supply have independent screens and reuse stock counters', () => {
+  for (const relative of ['refill/ui/RefillStockScreen.kt', 'supply/ui/SupplyStockScreen.kt']) {
+    const text = fs.readFileSync(path.join(source, 'feature/service', relative), 'utf8');
+    assert.match(text, /ServiceStockCounters\(/);
+    assert.match(text, /SyncSendingOverlay\(/);
+    assert.doesNotMatch(text, /isSupplyServiceFlow/);
+  }
+  for (const [process, other] of [['refill', 'supply'], ['supply', 'refill']]) {
+    for (const file of kotlinFiles(path.join(source, 'feature/service', process))) {
+      assert.ok(!fs.readFileSync(file, 'utf8').includes(`import ru.coffeepoint.feature.service.${other}.`),
+        `${process} must not depend on ${other}: ${file}`);
+    }
+  }
+  assert.equal(fs.existsSync(path.join(source, 'feature/service/presentation/ServiceStep1ViewModel.kt')), false);
+});
+
 test('screens use the shared dialog kit instead of independent dialog layouts', () => {
   const offenders = kotlinFiles(source).filter(file => {
     if (file === path.join(source, 'shared/component/AppDialogs.kt')) return false;
@@ -67,4 +83,26 @@ test('foreground data operations reuse the blocking loader', () => {
     assert.match(text, /\bSyncSendingOverlay\s*\(/);
     assert.doesNotMatch(text, /\b(?:CircularProgressIndicator|LinearProgressIndicator|BlockingLoaderOverlay)\s*\(/);
   }
+});
+
+test('warehouse and service intervals reuse the numeric input', () => {
+  for (const relative of ['feature/warehouse/ui/WarehouseStockSettingsScreen.kt',
+    'feature/settings/ui/ServiceIntervalSettingsScreen.kt']) {
+    const text = fs.readFileSync(path.join(source, relative), 'utf8');
+    assert.match(text, /import ru\.coffeepoint\.shared\.component\.AppNumberInput/);
+    assert.match(text, /\bAppNumberInput\s*\(/);
+    assert.doesNotMatch(text, /\bOutlinedTextField\s*\(/);
+  }
+  assert.ok(fs.readFileSync(path.join(root, 'docs/ui-kit.md'), 'utf8').includes('AppNumberInput'));
+});
+
+test('station and dashboard share maintenance intervals and due-date calculation', () => {
+  for (const relative of ['feature/station/ui/StationScreen.kt', 'feature/dashboard/model/TechServiceDashboardItem.kt']) {
+    const text = fs.readFileSync(path.join(source, relative), 'utf8');
+    assert.doesNotMatch(text, /const val \w+SERVICE_INTERVAL_DAYS/);
+    assert.match(text, /\bisServiceDue\s*\(/);
+  }
+  const notification = fs.readFileSync(path.join(source, 'core/notification/StationAttentionNotification.kt'), 'utf8');
+  assert.match(notification, /ServiceIntervalPreferences\(context\)\.read\(\)/);
+  assert.match(notification, /supplyAttentionTechServiceDashboardItems\(role, intervals\)/);
 });

@@ -16,6 +16,7 @@ function getFullSyncData(entities, stationId) {
     stations: readRequested(SHEETS.COFFEE_STATION, 'id'),
     inventories: readRequested(SHEETS.STATION_INVENTORY, 'stationId'),
     settings: readRequested(SHEETS.STATION_SETTINGS, 'stationId'),
+    stationMaintenance: readRequested(SHEETS.STATION_MAINTENANCE, 'stationId'),
     supplyCatalog: requestedEntities.has(SHEETS.SUPPLY_CATALOG.name)
       ? readSheet(SHEETS.SUPPLY_CATALOG)
       : [],
@@ -43,6 +44,7 @@ function parseEntities(entities) {
       SHEETS.COFFEE_STATION.name,
       SHEETS.STATION_INVENTORY.name,
       SHEETS.STATION_SETTINGS.name,
+      SHEETS.STATION_MAINTENANCE.name,
       SHEETS.SUPPLY_CATALOG.name,
       SHEETS.WAREHOUSE_STOCK.name,
       SHEETS.EMPLOYEES.name,
@@ -69,6 +71,10 @@ function upsertEntities(entityName, dataItems) {
   if (!Array.isArray(dataItems) || dataItems.length === 0) {
     throw createHttpError(400, 'Missing batch items');
   }
+  if (entityName === SHEETS.COFFEE_STATION.name && dataItems.some(data => data &&
+      Object.keys(data).some(key => /^(mixers|liquidWasteContainer|brewUnit|coffeeGrinder|expansionTank|exhaust)ServiceDate$/.test(key)))) {
+    throw createHttpError(400, 'Node maintenance must use complete_service maintenance');
+  }
 
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -76,7 +82,7 @@ function upsertEntities(entityName, dataItems) {
   try {
     const sheetConfig = findSheetConfig(entityName);
     const sheet = getSheet(sheetConfig.name);
-    const headers = ensureHeaders(sheet, sheetConfig.headers);
+    const headers = readHeaders(sheet, sheetConfig.headers);
     const seenKeys = new Set();
     const preparedRows = dataItems.map((data) => {
       if (!data || typeof data !== 'object' || Array.isArray(data)) {
@@ -178,6 +184,12 @@ function upsertEntities(entityName, dataItems) {
 }
 
 function updateStationServiceFields(data) {
+  if (data && Object.prototype.hasOwnProperty.call(data, 'maintenance')) {
+    return updateStationMaintenance(data);
+  }
+  if (data && Object.keys(data).some(key => /^(mixers|liquidWasteContainer|brewUnit|coffeeGrinder|expansionTank|exhaust)ServiceDate$/.test(key))) {
+    throw createHttpError(400, 'Use complete_service maintenance');
+  }
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
 
@@ -193,12 +205,6 @@ function updateStationServiceFields(data) {
     const hasOperatorFields = Object.prototype.hasOwnProperty.call(payload, 'lastServiceDate') ||
       Object.prototype.hasOwnProperty.call(payload, 'salesAfterService') ||
       Object.prototype.hasOwnProperty.call(payload, 'salesUpdatedAt');
-    const serviceFields = [
-      'mixersServiceDate',
-      'liquidWasteContainerServiceDate',
-    ].filter(function(field) {
-      return Object.prototype.hasOwnProperty.call(payload, field);
-    });
 
     if (stationId === undefined || stationId === null || stationId === '') {
       throw createHttpError(400, 'Missing key field: id');
@@ -207,7 +213,7 @@ function updateStationServiceFields(data) {
         (!lastServiceDate || !salesUpdatedAt || salesAfterService === undefined)) {
       throw createHttpError(400, 'Missing service fields');
     }
-    if (!hasOperatorFields && serviceFields.length === 0) {
+    if (!hasOperatorFields) {
       throw createHttpError(400, 'Missing service fields');
     }
 
@@ -226,14 +232,6 @@ function updateStationServiceFields(data) {
       ]]);
     }
 
-    serviceFields.forEach(function(field) {
-      assertServiceDateIsNotOlder_(sheet, headers, rowIndex, field, payload[field]);
-      const column = headers.indexOf(field) + 1;
-      if (!column) {
-        throw createHttpError(500, 'Missing service column: ' + field);
-      }
-      sheet.getRange(rowIndex, column).setValue(normalizeCellValue(payload[field]));
-    });
   } finally {
     lock.releaseLock();
   }
@@ -256,12 +254,6 @@ function assertServiceDateIsNotOlder_(sheet, headers, rowIndex, field, incomingV
 function preserveNewerServiceDates_(headers, currentValues, incomingValues) {
   [
     'lastServiceDate',
-    'liquidWasteContainerServiceDate',
-    'brewUnitServiceDate',
-    'coffeeGrinderServiceDate',
-    'mixersServiceDate',
-    'expansionTankServiceDate',
-    'exhaustServiceDate',
   ].forEach(function(field) {
     const index = headers.indexOf(field);
     if (index < 0) return;

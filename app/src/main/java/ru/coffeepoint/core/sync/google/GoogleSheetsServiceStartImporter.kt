@@ -11,19 +11,24 @@ import ru.coffeepoint.core.data.mapper.toStationDetail
 import ru.coffeepoint.core.data.mapper.toStationEntity
 import ru.coffeepoint.feature.station.model.CoffeeStation
 import ru.coffeepoint.feature.station.model.StationInventory
+import ru.coffeepoint.core.data.local.entity.StationMaintenanceEntity
+import ru.coffeepoint.core.data.mapper.importMaintenance
 
 data class ServiceStartSnapshot(
     val station: CoffeeStation,
     val inventory: StationInventory,
-    val warehouse: List<WarehouseStockEntity>
+    val warehouse: List<WarehouseStockEntity>,
+    val maintenance: List<StationMaintenanceEntity> = emptyList()
 )
 
 data class ServiceStartLocalState(
     val station: CoffeeStationEntity,
     val inventory: StationInventoryEntity,
-    val warehouse: List<WarehouseStockEntity>
+    val warehouse: List<WarehouseStockEntity>,
+    val maintenance: List<StationMaintenanceEntity> = emptyList()
 ) {
-    val hasPendingChanges: Boolean get() = !station.isSynced || !inventory.isSynced || warehouse.any { !it.isSynced }
+    val hasPendingChanges: Boolean get() = !station.isSynced || !inventory.isSynced ||
+        warehouse.any { !it.isSynced } || maintenance.any { !it.isSynced }
 }
 
 interface ServiceStartStore {
@@ -65,7 +70,8 @@ private class RoomServiceStartStore(private val db: AppDatabase) : ServiceStartS
         val station = db.coffeeStationDao().getById(stationId) ?: return null
         val inventory = db.stationInventoryDao().getByStationId(stationId) ?: return null
         return ServiceStartLocalState(station, inventory,
-            if (includeWarehouse) db.warehouseStockDao().getAll() else emptyList())
+            if (includeWarehouse) db.warehouseStockDao().getAll() else emptyList(),
+            db.stationMaintenanceDao().getByStationId(stationId))
     }
 
     override suspend fun read(stationId: Int, includeWarehouse: Boolean) = db.withTransaction {
@@ -79,9 +85,10 @@ private class RoomServiceStartStore(private val db: AppDatabase) : ServiceStartS
         }
         val settings = db.stationSettingsDao().getByStationId(before.station.id)
             ?: return@withTransaction GoogleSheetsImportResult.Empty
-        val detail = toStationDetail(before.station, before.inventory, settings).copy(
+        val detail = toStationDetail(before.station, before.inventory, settings, before.maintenance).copy(
             station = fresh.station, inventory = fresh.inventory)
         db.coffeeStationDao().insert(detail.toStationEntity())
+        db.stationMaintenanceDao().importMaintenance(fresh.station.id, fresh.maintenance)
         db.stationInventoryDao().insert(detail.toInventoryEntity())
         if (includeWarehouse) db.warehouseStockDao().insertAll(fresh.warehouse)
         GoogleSheetsImportResult.Success

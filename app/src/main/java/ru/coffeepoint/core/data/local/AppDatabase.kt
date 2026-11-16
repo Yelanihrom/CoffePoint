@@ -20,6 +20,8 @@ import ru.coffeepoint.core.data.local.entity.StationSettingsEntity
 import ru.coffeepoint.core.data.local.entity.SupplyCatalogEntity
 import ru.coffeepoint.core.data.local.entity.WarehouseStockEntity
 import ru.coffeepoint.core.data.local.entity.StationServiceVisitEntity
+import ru.coffeepoint.core.data.local.entity.StationMaintenanceEntity
+import ru.coffeepoint.core.data.local.dao.StationMaintenanceDao
 
 @Database(
     entities = [
@@ -32,8 +34,9 @@ import ru.coffeepoint.core.data.local.entity.StationServiceVisitEntity
         EmployeeStationAssignmentEntity::class,
         EmployeeTransactionEntity::class,
         StationServiceVisitEntity::class,
+        StationMaintenanceEntity::class,
     ],
-    version = 38,
+    version = 40,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -55,5 +58,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun employeeTransactionDao(): EmployeeTransactionDao
 
     abstract fun stationServiceVisitDao(): StationServiceVisitDao
+
+    abstract fun stationMaintenanceDao(): StationMaintenanceDao
 
 }

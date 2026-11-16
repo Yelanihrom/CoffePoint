@@ -1,4 +1,4 @@
-package ru.coffeepoint.feature.service.model
+package ru.coffeepoint.feature.service.supply.model
 
 import org.junit.Assert.*
 import org.junit.Test

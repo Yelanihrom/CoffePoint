@@ -16,8 +16,8 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import org.junit.Rule
 import org.junit.Test
 import ru.coffeepoint.feature.service.component.ChecklistRow
-import ru.coffeepoint.feature.service.model.buildSupplyServiceChecklist
-import ru.coffeepoint.feature.service.model.canFinishSupplyService
+import ru.coffeepoint.feature.service.supply.model.buildSupplyServiceChecklist
+import ru.coffeepoint.feature.service.supply.model.canFinishSupplyService
 import ru.coffeepoint.shared.component.AppDialogButton
 import ru.coffeepoint.ui.theme.CoffeePointTheme
 

@@ -31,18 +31,6 @@ data class CoffeeStationEntity(
 
     val excludeFromOperatorEarnings: Boolean,
 
-    val liquidWasteContainerServiceDate: String,
-
-    val brewUnitServiceDate: String,
-
-    val coffeeGrinderServiceDate: String,
-
-    val mixersServiceDate: String,
-
-    val expansionTankServiceDate: String,
-
-    val exhaustServiceDate: String,
-
     val machinePhotoPath: String?,
 
     val overviewPhotoPath: String?,

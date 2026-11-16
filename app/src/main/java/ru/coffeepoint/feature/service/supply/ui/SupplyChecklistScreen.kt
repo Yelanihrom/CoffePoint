@@ -1,4 +1,4 @@
-﻿package ru.coffeepoint.feature.service.ui
+package ru.coffeepoint.feature.service.supply.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,8 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ru.coffeepoint.feature.service.component.ChecklistRow
-import ru.coffeepoint.feature.service.presentation.ServiceStep1ViewModel
-import ru.coffeepoint.feature.service.presentation.SupplyServiceStep2ViewModel
+import ru.coffeepoint.feature.service.presentation.ServiceStationViewModel
+import ru.coffeepoint.feature.service.supply.presentation.SupplyChecklistViewModel
 import ru.coffeepoint.shared.component.BottomActionBar
 import ru.coffeepoint.shared.component.SyncSendingErrorDialog
 import ru.coffeepoint.shared.component.SyncSendingOverlay
@@ -34,18 +34,18 @@ import ru.coffeepoint.core.auth.UserRole
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SupplyServiceStep2Screen(
+fun SupplyChecklistScreen(
     stationId: Int,
     role: UserRole,
     onBack: () -> Unit,
     onFinish: () -> Unit
 ) {
 
-    val stationViewModel: ServiceStep1ViewModel = viewModel()
+    val stationViewModel: ServiceStationViewModel = viewModel()
     stationViewModel.loadStation(stationId)
     val station = stationViewModel.station ?: return
 
-    val viewModel: SupplyServiceStep2ViewModel = viewModel()
+    val viewModel: SupplyChecklistViewModel = viewModel()
     viewModel.loadStation(stationId)
 
     if (viewModel.isSaving) {

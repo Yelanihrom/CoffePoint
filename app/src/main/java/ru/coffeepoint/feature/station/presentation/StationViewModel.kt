@@ -160,6 +160,7 @@ class StationViewModel(
     fun updateTechServiceDate(
         node: TechServiceNode,
         date: String,
+        resetSales: Boolean,
         onSuccess: () -> Unit,
         onError: () -> Unit
     ) {
@@ -179,7 +180,8 @@ class StationViewModel(
             val synced = repository.updateTechServiceDate(
                 stationId = currentStation.station.id,
                 node = node,
-                serviceDate = date
+                serviceDate = date,
+                resetSales = resetSales
             )
 
             station = repository.getStation(

@@ -20,7 +20,8 @@ import ru.coffeepoint.core.data.local.entity.WarehouseStockEntity
 import ru.coffeepoint.core.data.mapper.*
 import ru.coffeepoint.core.data.repository.SupplierRefillRepository
 import ru.coffeepoint.core.data.repository.SupplierRefillSaveResult
-import ru.coffeepoint.feature.service.ui.ServiceStep1Screen
+import ru.coffeepoint.feature.service.supply.ui.SupplyStockScreen
+import ru.coffeepoint.feature.service.refill.ui.RefillStockScreen
 import ru.coffeepoint.feature.station.model.*
 import ru.coffeepoint.feature.warehouse.model.WarehouseItemType
 import ru.coffeepoint.ui.theme.CoffeePointTheme
@@ -90,7 +91,7 @@ class SupplierRefillInstrumentedTest {
         } finally { db.close() }
     }
 
-    @Test fun supplierCanReviewAndCorrectWithoutChangingAddedQuantity(): Unit = runBlocking {
+    @Test fun supplierVerifiesBeforeRefillAndRetryDoesNotWriteOffTwice(): Unit = runBlocking {
         assumeTrue(BuildConfig.IS_TEST_ENVIRONMENT && context.packageName.endsWith(".ci"))
         assumeTrue(BuildConfig.TEST_SHEETS_WEB_APP_URL.isBlank())
         val db = DatabaseProvider.getDatabase(context)
@@ -101,39 +102,35 @@ class SupplierRefillInstrumentedTest {
             seed(db, 20)
             compose.setContent {
                 CoffeePointTheme {
-                    ServiceStep1Screen(908070, UserRole.SUPPLY_OPERATOR, onBack = {}, onNext = { nextSteps++ },
-                        isSupplyServiceFlow = true, syncImmediatelyOnSave = true)
+                    SupplyStockScreen(908070, onBack = {}, onNext = { nextSteps++ })
                 }
             }
-            compose.waitUntil(10000) { compose.onAllNodesWithText("Сколько добавили?").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText("Склад").assertIsDisplayed()
-            compose.onNodeWithText("Шаг 1 из 4 · Пополнение").assertIsDisplayed()
-            compose.onNodeWithText("Проверить и указать фактические остатки после пополнения").assertDoesNotExist()
-            compose.onNodeWithText("8").assertIsDisplayed()
-            compose.onNodeWithText("8 / 20").assertDoesNotExist()
-            compose.onNodeWithText("Добавлено / На складе").assertDoesNotExist()
-            screenshot("supplier-refill-added.png")
-            compose.onNodeWithText("ПРОВЕРИТЬ ОСТАТКИ").performClick()
-            compose.waitUntil(10000) { compose.onAllNodesWithText("Остаток после пополнения").fetchSemanticsNodes().isNotEmpty() }
-            compose.onNodeWithText("Шаг 2 из 4 · Проверка остатков").assertIsDisplayed()
-            compose.onNodeWithText("Проверить и указать фактические остатки после пополнения").assertIsDisplayed()
-            compose.onNodeWithText("Источник: Склад").assertDoesNotExist()
-            compose.onNodeWithText("Пополнено: 0").assertDoesNotExist()
+            compose.waitUntil(10000) { compose.onAllNodesWithText("Шаг 1 из 4 · Проверка остатков").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("Склад").assertDoesNotExist()
+            compose.onNodeWithText("Проверить и указать фактические остатки до пополнения").assertIsDisplayed()
+            compose.onNode(hasText("4") and hasAnyAncestor(hasTestTag("stock-cups"))).assertIsDisplayed()
             compose.onNodeWithTag("stock-lids").assertExists()
             compose.onNode(hasText("-") and hasAnyAncestor(hasTestTag("stock-cups"))).performClick()
-            compose.onNodeWithText("11").assertIsDisplayed()
-            val added = compose.onNodeWithText("Пополнено: 8").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-            compose.onNodeWithText("Добавлено: 8").assertDoesNotExist()
-            compose.onNodeWithText("Ожидалось: 12").assertDoesNotExist()
-            val correction = compose.onNodeWithText("Корректировка: -1").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-            assertTrue(added.bottom < correction.top)
-            screenshot("supplier-refill-review.png")
-            compose.onNodeWithContentDescription("Назад").performClick()
-            compose.onNodeWithText("Шаг 1 из 4 · Пополнение").assertIsDisplayed()
-            compose.onNodeWithText("8").assertIsDisplayed()
+            compose.onNodeWithText("Корректировка: -1").assertIsDisplayed()
+            assertEquals(4, db.stationInventoryDao().getByStationId(908070)!!.cups)
+            screenshot("supplier-refill-verification.png")
+            compose.onNodeWithText("ДАЛЕЕ").performClick()
+            compose.onNodeWithText("Шаг 2 из 4 · Пополнение").assertIsDisplayed()
+            compose.onNodeWithText("Сколько добавили?").assertIsDisplayed()
+            compose.onNodeWithText("Склад").assertIsDisplayed()
+            compose.onNode(hasText("9") and hasAnyAncestor(hasTestTag("stock-cups"))).assertIsDisplayed()
+            compose.onNode(hasText("-") and hasAnyAncestor(hasTestTag("stock-cups"))).performClick()
+            compose.onNodeWithText("После пополнения: 11").assertIsDisplayed()
             compose.onNodeWithText("8 / 20").assertDoesNotExist()
-            compose.onNodeWithText("ПРОВЕРИТЬ ОСТАТКИ").performClick()
-            compose.onNodeWithText("11").assertIsDisplayed()
+            screenshot("supplier-refill-added.png")
+            compose.onNodeWithContentDescription("Назад").performClick()
+            compose.onNodeWithText("Шаг 1 из 4 · Проверка остатков").assertIsDisplayed()
+            compose.onNode(hasText("3") and hasAnyAncestor(hasTestTag("stock-cups"))).assertIsDisplayed()
+            compose.onNodeWithText("ДАЛЕЕ").performClick()
+            compose.onNode(hasText("8") and hasAnyAncestor(hasTestTag("stock-cups"))).assertIsDisplayed()
+            compose.onNodeWithText("8 / 20").assertDoesNotExist()
+            assertEquals(4, db.stationInventoryDao().getByStationId(908070)!!.cups)
+            assertEquals(20, db.warehouseStockDao().getAll().single { it.itemType == "cups" }.quantity)
             compose.onNodeWithText("ДАЛЕЕ").performClick()
             compose.waitUntil(15000) {
                 compose.onAllNodesWithText("Изменения сохранены на устройстве").fetchSemanticsNodes().isNotEmpty()
@@ -155,6 +152,66 @@ class SupplierRefillInstrumentedTest {
             db.stationSettingsDao().deleteByStationId(908070)
             db.coffeeStationDao().deleteById(908070)
             // This test runs only in the isolated CI package and never launches background sync.
+            db.openHelper.writableDatabase.execSQL("DELETE FROM warehouse_stock")
+            db.warehouseStockDao().insertAll(oldStock)
+        }
+    }
+
+    @Test fun verificationIsAllowedWithShortageAndExternalPurchaseUnblocksRefill(): Unit = runBlocking {
+        assumeTrue(BuildConfig.IS_TEST_ENVIRONMENT && BuildConfig.TEST_SHEETS_WEB_APP_URL.isBlank())
+        val db = DatabaseProvider.getDatabase(context)
+        check(db.coffeeStationDao().getById(908070) == null)
+        val oldStock = db.warehouseStockDao().getAll()
+        try {
+            seed(db, 7)
+            compose.setContent { CoffeePointTheme { SupplyStockScreen(908070, {}, {}) } }
+            compose.waitUntil(10000) { compose.onAllNodesWithText("Шаг 1 из 4 · Проверка остатков").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("Не хватает остатков на складе").assertDoesNotExist()
+            compose.onNodeWithText("ДАЛЕЕ").assertIsEnabled().performClick()
+            compose.onNodeWithText("Шаг 2 из 4 · Пополнение").assertIsDisplayed()
+            compose.onNodeWithText("Не хватает остатков на складе").assertIsDisplayed()
+            compose.onNodeWithText("ДАЛЕЕ").assertIsNotEnabled()
+            compose.onNodeWithText("Склад").performClick()
+            compose.onNodeWithText("Сторонняя закупка").performClick()
+            compose.onNodeWithText("ДАЛЕЕ").assertIsEnabled()
+            compose.onNodeWithText("Не хватает остатков на складе").assertDoesNotExist()
+            assertEquals(4, db.stationInventoryDao().getByStationId(908070)!!.cups)
+            assertEquals(7, db.warehouseStockDao().getAll().single { it.itemType == "cups" }.quantity)
+        } finally {
+            WorkManager.getInstance(context).cancelAllWork().result.get()
+            db.stationInventoryDao().deleteByStationId(908070)
+            db.stationSettingsDao().deleteByStationId(908070)
+            db.coffeeStationDao().deleteById(908070)
+            db.openHelper.writableDatabase.execSQL("DELETE FROM warehouse_stock")
+            db.warehouseStockDao().insertAll(oldStock)
+        }
+    }
+
+    @Test fun operatorRefillKeepsOwnTwoStepFlowAndDoesNotWriteOffWarehouse(): Unit = runBlocking {
+        assumeTrue(BuildConfig.IS_TEST_ENVIRONMENT && BuildConfig.TEST_SHEETS_WEB_APP_URL.isBlank())
+        val db = DatabaseProvider.getDatabase(context)
+        check(db.coffeeStationDao().getById(908070) == null)
+        val oldStock = db.warehouseStockDao().getAll()
+        var nextSteps = 0
+        try {
+            seed(db, 20)
+            compose.setContent {
+                CoffeePointTheme { RefillStockScreen(908070, UserRole.OPERATOR, {}, { nextSteps++ }) }
+            }
+            compose.waitUntil(10000) { compose.onAllNodesWithText("Шаг 1 из 2").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("Источник списания").assertDoesNotExist()
+            repeat(10) { compose.onNode(hasText("+") and hasAnyAncestor(hasTestTag("stock-cups"))).performClick() }
+            compose.onNode(hasText("12") and hasAnyAncestor(hasTestTag("stock-cups"))).assertIsDisplayed()
+            compose.onNodeWithText("ДАЛЕЕ").performClick()
+            compose.waitUntil(10000) { nextSteps == 1 }
+            assertEquals(12, db.stationInventoryDao().getByStationId(908070)!!.cups)
+            assertEquals(20, db.warehouseStockDao().getAll().single { it.itemType == "cups" }.quantity)
+            assertEquals("", db.coffeeStationDao().getById(908070)!!.lastServiceDate)
+        } finally {
+            WorkManager.getInstance(context).cancelAllWork().result.get()
+            db.stationInventoryDao().deleteByStationId(908070)
+            db.stationSettingsDao().deleteByStationId(908070)
+            db.coffeeStationDao().deleteById(908070)
             db.openHelper.writableDatabase.execSQL("DELETE FROM warehouse_stock")
             db.warehouseStockDao().insertAll(oldStock)
         }

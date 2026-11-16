@@ -48,7 +48,8 @@ class StationAttentionWorker(
         val stations = stationRepository.getStations()
         val notification = StationAttentionNotification(applicationContext)
 
-        notification.showSupplyAttentionIfNeeded(stations)
+        notification.showCriticalStockAttentionIfNeeded(stations)
+        notification.showServiceAttentionIfNeeded(stations)
         notification.showWarehouseStockAttentionIfNeeded(warehouseStockRepository.getItems())
         notification.showRefillAttentionIfNeeded(stations)
 

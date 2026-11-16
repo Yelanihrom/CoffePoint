@@ -18,6 +18,7 @@ import ru.coffeepoint.feature.dashboard.model.supplyItems
 import ru.coffeepoint.feature.dashboard.model.supplyAttentionTechServiceDashboardItems
 import ru.coffeepoint.feature.station.model.StationDetail
 import ru.coffeepoint.feature.warehouse.model.WarehouseStockItem
+import ru.coffeepoint.core.data.preferences.ServiceIntervalPreferences
 
 class StationAttentionNotification(
     private val context: Context
@@ -57,7 +58,7 @@ class StationAttentionNotification(
 
     }
 
-    fun showSupplyAttentionIfNeeded(
+    fun showCriticalStockAttentionIfNeeded(
         stations: List<StationDetail>
     ) {
 
@@ -65,52 +66,47 @@ class StationAttentionNotification(
 
         val role = RolePreferences(context).getSelectedRole()
         val settings = NotificationSettings(context)
-
         val lines = stations.mapNotNull { detail ->
             val criticalSupplyItems = detail.supplyItems()
                 .filter { item -> item.isCritical && settings.isEnabled(role, NotificationOption.CRITICAL_STOCK) }
 
-            val techServiceItems = detail.supplyAttentionTechServiceDashboardItems(role) { option ->
-                settings.isEnabled(role, option)
-            }
+            if (criticalSupplyItems.isEmpty()) return@mapNotNull null
 
-            if (criticalSupplyItems.isEmpty() && techServiceItems.isEmpty()) {
-                return@mapNotNull null
-            }
-
-            val parts = buildList {
-                if (criticalSupplyItems.isNotEmpty()) {
-                    add(
-                        "критично ${
-                            criticalSupplyItems.joinToString(", ") { item ->
-                                "${item.title} ${item.value}"
-                            }
-                        }"
-                    )
-                }
-
-                if (techServiceItems.isNotEmpty()) {
-                    add(
-                        "обслужить ${
-                            techServiceItems.joinToString(", ") { item ->
-                                item.title
-                            }
-                        }"
-                    )
-                }
-            }
-
-            "${detail.station.notificationLabel()}: ${parts.joinToString("; ")}"
+            "${detail.station.notificationLabel()}: ${criticalSupplyItems.joinToString(", ") { item ->
+                "${item.title} ${item.value}"
+            }}"
         }
 
         if (lines.isEmpty()) return
 
         show(
-            notificationId = SUPPLY_NOTIFICATION_ID,
-            title = "Требуется снабжение",
+            notificationId = CRITICAL_STOCK_NOTIFICATION_ID,
+            title = "Нужно пополнить станции",
             text = lines.joinToString("\n")
         )
 
+    }
+
+    fun showServiceAttentionIfNeeded(stations: List<StationDetail>) {
+        if (!canShowForSupplyRole()) return
+
+        val role = RolePreferences(context).getSelectedRole()
+        val settings = NotificationSettings(context)
+        val intervals = ServiceIntervalPreferences(context).read()
+        val lines = stations.mapNotNull { detail ->
+            val items = detail.supplyAttentionTechServiceDashboardItems(role, intervals) { option ->
+                settings.isEnabled(role, option)
+            }
+            if (items.isEmpty()) return@mapNotNull null
+            "${detail.station.notificationLabel()}: ${items.joinToString(", ") { it.title }}"
+        }
+        if (lines.isEmpty()) return
+
+        show(
+            notificationId = SERVICE_NOTIFICATION_ID,
+            title = "Требуется обслуживание узлов",
+            text = lines.joinToString("\n")
+        )
     }
 
     fun showWarehouseStockAttentionIfNeeded(
@@ -230,8 +226,9 @@ class StationAttentionNotification(
         const val CHANNEL_ID = "sales_refresh"
         const val CHANNEL_NAME = "Обновление данных"
         const val REFILL_NOTIFICATION_ID = 1001
-        const val SUPPLY_NOTIFICATION_ID = 1002
+        const val CRITICAL_STOCK_NOTIFICATION_ID = 1002
         const val WAREHOUSE_STOCK_NOTIFICATION_ID = 1003
+        const val SERVICE_NOTIFICATION_ID = 1004
 
     }
 

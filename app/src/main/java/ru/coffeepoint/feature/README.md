@@ -10,11 +10,11 @@ Features сгруппированы по задачам пользователя
 | [dashboard](dashboard) | Список станций, меню управляющего, карточки, поставка и фильтры | `ui/DashboardScreen.kt`, `presentation/DashboardViewModel.kt` |
 | [analytics](analytics) | Меню продаж и истории обслуживаний, только для Управляющего | `ui/AnalyticsMenuScreen.kt`, `ui/SalesAnalyticsScreen.kt`, `ui/ServiceVisitHistoryScreen.kt` |
 | [station](station) | Станция, создание, настройки, отображение остатков | `ui/StationScreen.kt`, `presentation/StationViewModel.kt` |
-| [service](service) | Заправка оператора, снабженческий процесс, контроль помола | `presentation/ServiceStep1ViewModel.kt`, отдельные ViewModel последующих шагов |
+| [service](service) | Раздельные процессы заправки и снабжения | `refill/` — заправка; `supply/` — сверка, пополнение, помол и чек-лист; [границы процессов](service/README.md) |
 | [warehouse](warehouse) | Склад, пополнение, настройка пределов | `ui/WarehouseStockScreen.kt`, `presentation/WarehouseStockViewModel.kt` |
 | [supplycatalog](supplycatalog) | Варианты закупки и краткая информация | `ui/SupplyCatalogScreen.kt`, `presentation/SupplyCatalogEditViewModel.kt` |
 | [earnings](earnings) | Начисления, выплаты, взаиморасчёт | `ui/MonthlyEarningsScreen.kt`, `presentation/MonthlyEarningsViewModel.kt` |
-| [settings](settings) | Меню настроек и вложенные локальные уведомления по ролям и узлам | `ui/SettingsScreen.kt`, `ui/NotificationSettingsScreen.kt`, хранение — `core/notification/NotificationSettings` |
+| [settings](settings) | Меню настроек, уведомления по ролям и узлам, локальные сроки обслуживания | `ui/SettingsScreen.kt`, `ui/NotificationSettingsScreen.kt`, `ui/ServiceIntervalSettingsScreen.kt`; хранение — `core/notification/NotificationSettings` и `core/data/preferences/ServiceIntervalPreferences` |
 | [camera](camera) | Камера и локальные фото; сохранённый временно отключённый сценарий | Не удалять без отдельного изменения процесса |
 
 В `ui` размещается Compose, в `presentation` — состояние и действия экрана,

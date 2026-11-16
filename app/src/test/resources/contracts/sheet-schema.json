@@ -1,12 +1,183 @@
 {
-  "coffee_station": {"key":"id","responseKey":"stations","headers":["id","name","terminalId","address","visitDays","visitTimeFrom","visitTimeTo","lastServiceDate","salesAfterService","salesUpdatedAt","rentPaidUntil","excludeFromSupplyPlanning","excludeFromOperatorEarnings","liquidWasteContainerServiceDate","brewUnitServiceDate","coffeeGrinderServiceDate","mixersServiceDate","expansionTankServiceDate","exhaustServiceDate","machinePhotoPath","overviewPhotoPath","machinePhotoUrl","overviewPhotoUrl","updatedAt"]},
-  "station_inventory": {"key":"stationId","responseKey":"inventories","headers":["stationId","cups","lids","coffee","milk","chocolate","topping","sugar","stirrers","garbageBags","updatedAt"]},
-  "station_settings": {"key":"stationId","responseKey":"settings","headers":["stationId","cupsMin","cupsMax","lidsMin","lidsMax","coffeeMin","coffeeMax","milkMin","milkMax","chocolateMin","chocolateMax","toppingMin","toppingMax","sugarMin","sugarMax","stirrersMin","stirrersMax","garbageBagsMin","garbageBagsMax","updatedAt"]},
-  "supply_catalog": {"key":"id","responseKey":"supplyCatalog","headers":["id","itemType","title","supplier","article","url","maxPrice","isActive","priority","comment","updatedAt"]},
-  "warehouse_stock": {"key":"itemType","responseKey":"warehouseStock","headers":["itemType","quantity","minQuantity","maxQuantity","updatedAt"]},
-  "employees": {"key":"id","responseKey":"employees","headers":["id","name","role","workStartDate","isActive","createdAt","updatedAt"]},
-  "employee_station_assignments": {"key":"id","responseKey":"employeeStationAssignments","headers":["id","employeeId","stationId","validFrom","validTo","createdAt","updatedAt"]},
-  "employees_transactions": {"key":"id","responseKey":"employeeTransactions","headers":["id","employeeId","type","operationDate","periodFrom","periodTo","salesCount","amount","comment","createdAt","updatedAt","sourceType","sourceId"]},
-  "station_service_visits": {"key":"id","responseKey":"stationServiceVisits","headers":["id","employeeId","stationId","completedAt","createdAt","updatedAt"]},
-  "notification_settings": {"key":"role","responseKey":"notificationSettings","headers":["role","refillEnabled","criticalStockEnabled","warehouseEnabled","mixersEnabled","liquidWasteContainerEnabled","brewUnitEnabled","exhaustEnabled","expansionTankEnabled","coffeeGrinderEnabled","updatedAt"]}
+  "station_maintenance": {
+    "key": "stationId,nodeType",
+    "responseKey": "stationMaintenance",
+    "headers": [
+      "stationId",
+      "nodeType",
+      "lastServiceDate",
+      "salesAfterService",
+      "salesUpdatedAt",
+      "updatedAt"
+    ]
+  },
+  "coffee_station": {
+    "key": "id",
+    "responseKey": "stations",
+    "headers": [
+      "id",
+      "name",
+      "terminalId",
+      "address",
+      "visitDays",
+      "visitTimeFrom",
+      "visitTimeTo",
+      "lastServiceDate",
+      "salesAfterService",
+      "salesUpdatedAt",
+      "rentPaidUntil",
+      "excludeFromSupplyPlanning",
+      "excludeFromOperatorEarnings",
+      "machinePhotoPath",
+      "overviewPhotoPath",
+      "machinePhotoUrl",
+      "overviewPhotoUrl",
+      "updatedAt"
+    ]
+  },
+  "station_inventory": {
+    "key": "stationId",
+    "responseKey": "inventories",
+    "headers": [
+      "stationId",
+      "cups",
+      "lids",
+      "coffee",
+      "milk",
+      "chocolate",
+      "topping",
+      "sugar",
+      "stirrers",
+      "garbageBags",
+      "updatedAt"
+    ]
+  },
+  "station_settings": {
+    "key": "stationId",
+    "responseKey": "settings",
+    "headers": [
+      "stationId",
+      "cupsMin",
+      "cupsMax",
+      "lidsMin",
+      "lidsMax",
+      "coffeeMin",
+      "coffeeMax",
+      "milkMin",
+      "milkMax",
+      "chocolateMin",
+      "chocolateMax",
+      "toppingMin",
+      "toppingMax",
+      "sugarMin",
+      "sugarMax",
+      "stirrersMin",
+      "stirrersMax",
+      "garbageBagsMin",
+      "garbageBagsMax",
+      "updatedAt"
+    ]
+  },
+  "supply_catalog": {
+    "key": "id",
+    "responseKey": "supplyCatalog",
+    "headers": [
+      "id",
+      "itemType",
+      "title",
+      "supplier",
+      "article",
+      "url",
+      "maxPrice",
+      "isActive",
+      "priority",
+      "comment",
+      "updatedAt"
+    ]
+  },
+  "warehouse_stock": {
+    "key": "itemType",
+    "responseKey": "warehouseStock",
+    "headers": [
+      "itemType",
+      "quantity",
+      "minQuantity",
+      "maxQuantity",
+      "updatedAt"
+    ]
+  },
+  "employees": {
+    "key": "id",
+    "responseKey": "employees",
+    "headers": [
+      "id",
+      "name",
+      "role",
+      "workStartDate",
+      "isActive",
+      "createdAt",
+      "updatedAt"
+    ]
+  },
+  "employee_station_assignments": {
+    "key": "id",
+    "responseKey": "employeeStationAssignments",
+    "headers": [
+      "id",
+      "employeeId",
+      "stationId",
+      "validFrom",
+      "validTo",
+      "createdAt",
+      "updatedAt"
+    ]
+  },
+  "employees_transactions": {
+    "key": "id",
+    "responseKey": "employeeTransactions",
+    "headers": [
+      "id",
+      "employeeId",
+      "type",
+      "operationDate",
+      "periodFrom",
+      "periodTo",
+      "salesCount",
+      "amount",
+      "comment",
+      "createdAt",
+      "updatedAt",
+      "sourceType",
+      "sourceId"
+    ]
+  },
+  "station_service_visits": {
+    "key": "id",
+    "responseKey": "stationServiceVisits",
+    "headers": [
+      "id",
+      "employeeId",
+      "stationId",
+      "completedAt",
+      "createdAt",
+      "updatedAt"
+    ]
+  },
+  "notification_settings": {
+    "key": "role",
+    "responseKey": "notificationSettings",
+    "headers": [
+      "role",
+      "refillEnabled",
+      "criticalStockEnabled",
+      "warehouseEnabled",
+      "mixersEnabled",
+      "liquidWasteContainerEnabled",
+      "brewUnitEnabled",
+      "exhaustEnabled",
+      "expansionTankEnabled",
+      "coffeeGrinderEnabled",
+      "updatedAt"
+    ]
+  }
 }

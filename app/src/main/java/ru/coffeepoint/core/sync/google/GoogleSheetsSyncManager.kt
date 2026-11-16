@@ -32,17 +32,8 @@ class GoogleSheetsSyncManager(
         return remoteDataSource.syncOperatorServiceFields(station)
     }
 
-    suspend fun syncSupplyServiceFields(
-        station: CoffeeStation,
-        updateMixers: Boolean,
-        updateLiquidWasteContainer: Boolean
-    ): GoogleSheetsEntitySyncResult {
-        return remoteDataSource.syncSupplyServiceFields(
-            station = station,
-            updateMixers = updateMixers,
-            updateLiquidWasteContainer = updateLiquidWasteContainer
-        )
-    }
+    suspend fun syncMaintenance(rows: List<ru.coffeepoint.core.data.local.entity.StationMaintenanceEntity>) =
+        remoteDataSource.syncMaintenance(rows)
 
     suspend fun syncStationDetail(
         detail: StationDetail,

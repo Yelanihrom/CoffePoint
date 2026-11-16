@@ -4,281 +4,104 @@ import android.util.Log
 import ru.coffeepoint.core.data.local.dao.CoffeeStationDao
 import ru.coffeepoint.core.data.local.dao.StationInventoryDao
 import ru.coffeepoint.core.data.local.dao.StationSettingsDao
+import ru.coffeepoint.core.data.local.dao.StationMaintenanceDao
+import ru.coffeepoint.core.data.local.entity.StationMaintenanceEntity
 import ru.coffeepoint.core.data.mapper.toStationDetail
 
 class GoogleSheetsStationSyncService(
     private val stationDao: CoffeeStationDao,
     private val inventoryDao: StationInventoryDao,
     private val settingsDao: StationSettingsDao,
+    private val maintenanceDao: StationMaintenanceDao,
     private val syncManager: GoogleSheetsSyncManager = GoogleSheetsSyncManager()
 ) {
-
     suspend fun syncPendingStations(): GoogleSheetsEntitySyncResult {
-        val stationIds = pendingStationIds()
-
-        if (stationIds.isEmpty()) {
-            Log.d(
-                TAG,
-                "Google Sheets sync skipped: no pending changes"
-            )
-            return GoogleSheetsEntitySyncResult.success()
-        }
-
-        Log.d(
-            TAG,
-            "Google Sheets sync pending stations: ${stationIds.joinToString()}"
-        )
-
-        stationIds.forEach { stationId ->
-            syncStation(stationId)
-        }
-
-        val remainingErrors = buildList {
-            addAll(stationDao.getUnsynced().map { it.syncErrorType })
-            addAll(inventoryDao.getUnsynced().map { it.syncErrorType })
-            addAll(settingsDao.getUnsynced().map { it.syncErrorType })
-        }
-
-        if (remainingErrors.isEmpty()) return GoogleSheetsEntitySyncResult.success()
-
-        val errorType = when {
-            remainingErrors.contains(GoogleSheetsSyncErrorType.CONNECTION.storageValue) ->
-                GoogleSheetsSyncErrorType.CONNECTION
-            remainingErrors.contains(GoogleSheetsSyncErrorType.CONFLICT.storageValue) ->
-                GoogleSheetsSyncErrorType.CONFLICT
+        val ids = (stationDao.getUnsynced().map { it.id } + inventoryDao.getUnsynced().map { it.stationId } +
+            settingsDao.getUnsynced().map { it.stationId } + maintenanceDao.getUnsynced().map { it.stationId }).distinct()
+        ids.forEach { syncStation(it) }
+        val errors = stationDao.getUnsynced().map { it.syncErrorType } + inventoryDao.getUnsynced().map { it.syncErrorType } +
+            settingsDao.getUnsynced().map { it.syncErrorType } + maintenanceDao.getUnsynced().map { it.syncErrorType }
+        if (errors.isEmpty()) return GoogleSheetsEntitySyncResult.success()
+        return GoogleSheetsEntitySyncResult.error(when {
+            GoogleSheetsSyncErrorType.CONNECTION.storageValue in errors -> GoogleSheetsSyncErrorType.CONNECTION
+            GoogleSheetsSyncErrorType.CONFLICT.storageValue in errors -> GoogleSheetsSyncErrorType.CONFLICT
             else -> GoogleSheetsSyncErrorType.UNKNOWN
-        }
-
-        return GoogleSheetsEntitySyncResult.error(errorType)
+        })
     }
 
     suspend fun syncOperatorServiceFields(stationId: Int): Boolean {
         val station = stationDao.getById(stationId) ?: return false
-        val serviceResult = syncManager.syncOperatorServiceFields(
-            toStationDetail(
-                station,
-                inventoryDao.getByStationId(stationId) ?: return false,
-                settingsDao.getByStationId(stationId) ?: return false
-            ).station
-        )
-
-        if (serviceResult.synced) {
-            stationDao.markServiceFieldsSynced(stationId)
-        } else {
-            stationDao.updateSyncStatus(
-                id = stationId,
-                isSynced = false,
-                syncError = true,
-                syncErrorType = serviceResult.errorType.storageValue
-            )
-        }
-
-        return serviceResult.synced
+        val detail = toStationDetail(station, inventoryDao.getByStationId(stationId) ?: return false,
+            settingsDao.getByStationId(stationId) ?: return false, maintenanceDao.getByStationId(stationId))
+        val result = syncManager.syncOperatorServiceFields(detail.station)
+        if (result.synced) stationDao.markServiceFieldsSynced(stationId)
+        else markStationError(stationId, result)
+        return result.synced
     }
 
     suspend fun syncSupplyServiceFields(stationId: Int): Boolean {
-        val station = stationDao.getById(stationId) ?: return false
-        val inventory = inventoryDao.getByStationId(stationId) ?: return false
-        val settings = settingsDao.getByStationId(stationId) ?: return false
-        val serviceResult = syncManager.syncSupplyServiceFields(
-            station = toStationDetail(station, inventory, settings).station,
-            updateMixers = station.pendingMixersServiceDate,
-            updateLiquidWasteContainer = station.pendingLiquidWasteContainerServiceDate
-        )
-
-        if (serviceResult.synced) {
-            stationDao.markSupplyServiceFieldsSynced(stationId)
-        } else {
-            stationDao.updateSyncStatus(
-                id = stationId,
-                isSynced = false,
-                syncError = true,
-                syncErrorType = serviceResult.errorType.storageValue
-            )
-        }
-
-        return serviceResult.synced
+        val rows = maintenanceDao.getByStationId(stationId).filter { !it.isSynced }
+        val result = if (rows.isEmpty()) GoogleSheetsEntitySyncResult.success() else syncManager.syncMaintenance(rows)
+        updateMaintenanceSyncStatus(rows, result)
+        if (result.synced) stationDao.markSupplyServiceFieldsSynced(stationId)
+        else markStationError(stationId, result)
+        return result.synced && maintenanceDao.getByStationId(stationId).none { !it.isSynced }
     }
 
     suspend fun syncStation(stationId: Int): Boolean {
         val station = stationDao.getById(stationId) ?: return false
         val inventory = inventoryDao.getByStationId(stationId) ?: return false
         val settings = settingsDao.getByStationId(stationId) ?: return false
-        val detail = toStationDetail(
-            station,
-            inventory,
-            settings
-        )
+        val rows = maintenanceDao.getByStationId(stationId)
+        val pending = rows.filter { !it.isSynced }
+        val detail = toStationDetail(station, inventory, settings, rows)
+        if (station.isSynced && inventory.isSynced && settings.isSynced && pending.isEmpty()) return true
+        Log.d(TAG, "Sync station=$stationId pendingNodes=${pending.size}")
 
-        if (detail.station.isSynced &&
-            detail.inventory.isSynced &&
-            detail.settings.isSynced
-        ) {
-            return true
+        var stationResult = GoogleSheetsEntitySyncResult.success()
+        if (!station.isSynced && station.pendingServiceOnly) {
+            stationResult = syncManager.syncOperatorServiceFields(detail.station)
+            if (stationResult.synced) stationDao.markServiceFieldsSynced(stationId)
         }
-
-        Log.d(
-            TAG,
-            "Google Sheets sync station=$stationId station=${!detail.station.isSynced} inventory=${!detail.inventory.isSynced} settings=${!detail.settings.isSynced}"
-        )
-
-        val hasPendingServiceFields = detail.station.pendingServiceOnly ||
-            detail.station.pendingSupplyServiceOnly
-        val result = if (!detail.station.isSynced && hasPendingServiceFields) {
-            var serviceResult = GoogleSheetsEntitySyncResult.success()
-
-            if (detail.station.pendingServiceOnly) {
-                serviceResult = syncManager.syncOperatorServiceFields(detail.station)
-                if (serviceResult.synced) {
-                    stationDao.markServiceFieldsSynced(stationId)
-                }
-            }
-
-            if (serviceResult.synced && detail.station.pendingSupplyServiceOnly) {
-                serviceResult = syncManager.syncSupplyServiceFields(
-                    station = detail.station,
-                    updateMixers = detail.station.pendingMixersServiceDate,
-                    updateLiquidWasteContainer = detail.station.pendingLiquidWasteContainerServiceDate
-                )
-                if (serviceResult.synced) {
-                    stationDao.markSupplyServiceFieldsSynced(stationId)
-                }
-            }
-
-            val stationResult = when {
-                !serviceResult.synced -> serviceResult
-                detail.station.pendingFullStationSync -> syncManager.syncStationDetail(
-                    detail = detail,
-                    includeStation = true,
-                    includeInventory = false,
-                    includeSettings = false
-                ).station
-                else -> serviceResult
-            }
-            val relatedResult = syncManager.syncStationDetail(
-                detail = detail,
-                includeStation = false,
-                includeInventory = !detail.inventory.isSynced,
-                includeSettings = !detail.settings.isSynced
-            )
-            relatedResult.copy(station = stationResult)
-        } else {
-            syncManager.syncStationDetail(
-                detail = detail,
-                includeStation = !detail.station.isSynced,
-                includeInventory = !detail.inventory.isSynced,
-                includeSettings = !detail.settings.isSynced
-            )
+        val needsInfo = !station.isSynced && (station.pendingFullStationSync ||
+            (!station.pendingServiceOnly && !station.pendingSupplyServiceOnly))
+        if (stationResult.synced && needsInfo) {
+            stationResult = syncManager.syncStationDetail(detail, true, false, false).station
         }
-
-        updateStationSyncStatus(
-            stationId = stationId,
-            isPending = !detail.station.isSynced,
-            result = result.station
-        )
-        updateInventorySyncStatus(
-            stationId = stationId,
-            isPending = !detail.inventory.isSynced,
-            result = result.inventory
-        )
-        updateSettingsSyncStatus(
-            stationId = stationId,
-            isPending = !detail.settings.isSynced,
-            result = result.settings
-        )
-
-        return (
-            (detail.station.isSynced || result.station.synced) &&
-                (detail.inventory.isSynced || result.inventory.synced) &&
-                (detail.settings.isSynced || result.settings.synced)
-            )
+        // Station info and node acknowledgements have independent versions.
+        val nodeResult = when {
+            !stationResult.synced -> stationResult
+            pending.isEmpty() -> GoogleSheetsEntitySyncResult.success()
+            else -> syncManager.syncMaintenance(pending)
+        }
+        updateMaintenanceSyncStatus(pending, nodeResult)
+        if (!station.isSynced) {
+            if (stationResult.synced && nodeResult.synced) {
+                stationDao.updateSyncStatus(stationId, true, false, "")
+                stationDao.clearPendingServiceOnly(stationId)
+                stationDao.clearPendingFullStationSync(stationId)
+                stationDao.markSupplyServiceFieldsSynced(stationId)
+            } else markStationError(stationId, if (!stationResult.synced) stationResult else nodeResult)
+        }
+        val related = syncManager.syncStationDetail(detail, false, !inventory.isSynced, !settings.isSynced)
+        if (!inventory.isSynced) inventoryDao.updateSyncStatus(stationId, related.inventory.synced,
+            !related.inventory.synced, related.inventory.errorType.storageValue)
+        if (!settings.isSynced) settingsDao.updateSyncStatus(stationId, related.settings.synced,
+            !related.settings.synced, related.settings.errorType.storageValue)
+        return stationResult.synced && nodeResult.synced && (inventory.isSynced || related.inventory.synced) &&
+            (settings.isSynced || related.settings.synced) && maintenanceDao.getByStationId(stationId).none { !it.isSynced }
     }
 
-    private suspend fun pendingStationIds(): List<Int> {
-        val unsyncedStationIds = stationDao.getUnsynced()
-            .map { it.id }
-        val unsyncedInventoryIds = inventoryDao.getUnsynced()
-            .map { it.stationId }
-        val unsyncedSettingsIds = settingsDao.getUnsynced()
-            .map { it.stationId }
-
-        return (
-            unsyncedStationIds +
-                unsyncedInventoryIds +
-                unsyncedSettingsIds
-            ).distinct()
+    private suspend fun markStationError(id: Int, result: GoogleSheetsEntitySyncResult) {
+        stationDao.updateSyncStatus(id, false, true, result.errorType.storageValue)
     }
 
-    private suspend fun updateStationSyncStatus(
-        stationId: Int,
-        isPending: Boolean,
-        result: GoogleSheetsEntitySyncResult
-    ) {
-        if (result.synced) {
-            stationDao.updateSyncStatus(
-                id = stationId,
-                isSynced = true,
-                syncError = false,
-                syncErrorType = GoogleSheetsSyncErrorType.NONE.storageValue
-            )
-            stationDao.clearPendingServiceOnly(stationId)
-            stationDao.clearPendingFullStationSync(stationId)
-        } else if (isPending) {
-            stationDao.updateSyncStatus(
-                id = stationId,
-                isSynced = false,
-                syncError = true,
-                syncErrorType = result.errorType.storageValue
-            )
+    private suspend fun updateMaintenanceSyncStatus(rows: List<StationMaintenanceEntity>, result: GoogleSheetsEntitySyncResult) {
+        rows.forEach { row ->
+            if (result.synced) maintenanceDao.acknowledge(row.stationId, row.nodeType, row.updatedAt, row.lastServiceDate)
+            else maintenanceDao.markError(row.stationId, row.nodeType, row.updatedAt, row.lastServiceDate, result.errorType.storageValue)
         }
     }
 
-    private suspend fun updateInventorySyncStatus(
-        stationId: Int,
-        isPending: Boolean,
-        result: GoogleSheetsEntitySyncResult
-    ) {
-        if (result.synced) {
-            inventoryDao.updateSyncStatus(
-                stationId = stationId,
-                isSynced = true,
-                syncError = false,
-                syncErrorType = GoogleSheetsSyncErrorType.NONE.storageValue
-            )
-        } else if (isPending) {
-            inventoryDao.updateSyncStatus(
-                stationId = stationId,
-                isSynced = false,
-                syncError = true,
-                syncErrorType = result.errorType.storageValue
-            )
-        }
-    }
-
-    private suspend fun updateSettingsSyncStatus(
-        stationId: Int,
-        isPending: Boolean,
-        result: GoogleSheetsEntitySyncResult
-    ) {
-        if (result.synced) {
-            settingsDao.updateSyncStatus(
-                stationId = stationId,
-                isSynced = true,
-                syncError = false,
-                syncErrorType = GoogleSheetsSyncErrorType.NONE.storageValue
-            )
-        } else if (isPending) {
-            settingsDao.updateSyncStatus(
-                stationId = stationId,
-                isSynced = false,
-                syncError = true,
-                syncErrorType = result.errorType.storageValue
-            )
-        }
-    }
-
-    private companion object {
-        const val TAG = "GoogleSheetsSync"
-    }
-
+    private companion object { const val TAG = "GoogleSheetsSync" }
 }

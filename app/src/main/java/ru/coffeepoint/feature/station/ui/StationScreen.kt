@@ -89,14 +89,9 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
-import java.util.concurrent.TimeUnit
-
-private const val MIXERS_SERVICE_INTERVAL_DAYS = 30
-private const val LIQUID_WASTE_CONTAINER_SERVICE_INTERVAL_DAYS = 180
-private const val BREW_UNIT_SERVICE_INTERVAL_DAYS = 180
-private const val EXHAUST_SERVICE_INTERVAL_DAYS = 720
-private const val EXPANSION_TANK_SERVICE_INTERVAL_DAYS = 360
-private const val COFFEE_GRINDER_SERVICE_INTERVAL_DAYS = 720
+import ru.coffeepoint.feature.station.model.ServiceIntervals
+import ru.coffeepoint.feature.station.model.isServiceDue
+import ru.coffeepoint.shared.component.rememberServiceIntervals
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -110,6 +105,7 @@ fun StationScreen(
 ) {
 
     val viewModel: StationViewModel = viewModel()
+    val serviceIntervals = rememberServiceIntervals()
 
     LaunchedEffect(stationId) { viewModel.loadStation(stationId) }
 
@@ -199,7 +195,8 @@ fun StationScreen(
         )
     }
 
-    if (editingTechServiceItem != null && isManager) {
+    var pendingMaintenanceDate by remember { mutableStateOf<String?>(null) }
+    if (editingTechServiceItem != null && isManager && pendingMaintenanceDate == null && !viewModel.isSaving) {
         val item = editingTechServiceItem ?: return
 
         TechServiceDateDialog(
@@ -210,19 +207,22 @@ fun StationScreen(
                 showTechServiceDateError = false
             },
             onSave = { selectedDate ->
-                viewModel.updateTechServiceDate(
-                    node = item.node ?: return@TechServiceDateDialog,
-                    date = selectedDate,
-                    onSuccess = {
-                        editingTechServiceItem = null
-                        showTechServiceDateError = false
-                    },
-                    onError = {
-                        showTechServiceDateError = true
-                    }
-                )
+                pendingMaintenanceDate = selectedDate
             }
         )
+    }
+
+    pendingMaintenanceDate?.let { selectedDate ->
+        val item = editingTechServiceItem
+        if (item?.node != null && isManager && !viewModel.isSaving) {
+            ru.coffeepoint.feature.station.component.MaintenanceResetDialog(selectedDate,
+                onChoice = { reset ->
+                    viewModel.updateTechServiceDate(item.node, selectedDate, reset,
+                        onSuccess = { pendingMaintenanceDate = null; editingTechServiceItem = null; showTechServiceDateError = false },
+                        onError = { pendingMaintenanceDate = null; showTechServiceDateError = true })
+                },
+                onDismiss = { pendingMaintenanceDate = null; editingTechServiceItem = null })
+        }
     }
 
     if (viewModel.isSaving) {
@@ -396,7 +396,7 @@ fun StationScreen(
                 item {
                     if (isManager) {
                         StationServiceCard(
-                            items = detail.managerServiceItems(),
+                            items = detail.managerServiceItems(serviceIntervals),
                             expanded = isServiceSectionExpanded,
                             onToggleExpanded = {
                                 isServiceSectionExpanded = !isServiceSectionExpanded
@@ -407,7 +407,7 @@ fun StationScreen(
                         )
                     } else if (isSupplyOperator) {
                         StationServiceCard(
-                            items = detail.supplyOperatorTechServiceDashboardItems()
+                            items = detail.supplyOperatorTechServiceDashboardItems(serviceIntervals)
                                 .map { item ->
                                     StationServiceItem(
                                         title = item.title,
@@ -577,55 +577,55 @@ private data class StationServiceItem(
     val isOverdue: Boolean = false
 )
 
-private fun StationDetail.managerServiceItems(): List<StationServiceItem> {
+private fun StationDetail.managerServiceItems(intervals: ServiceIntervals): List<StationServiceItem> {
     return listOf(
         StationServiceItem(
             title = "Миксеры",
             node = TechServiceNode.MIXERS,
             date = station.mixersServiceDate,
             iconRes = R.drawable.ic_tech_mixers,
-            serviceIntervalDays = MIXERS_SERVICE_INTERVAL_DAYS
+            serviceIntervalDays = intervals[TechServiceNode.MIXERS]
         ),
         StationServiceItem(
             title = "Кофемолка",
             node = TechServiceNode.COFFEE_GRINDER,
             date = station.coffeeGrinderServiceDate,
             iconRes = R.drawable.ic_tech_coffee_grinder,
-            serviceIntervalDays = COFFEE_GRINDER_SERVICE_INTERVAL_DAYS
+            serviceIntervalDays = intervals[TechServiceNode.COFFEE_GRINDER]
         ),
         StationServiceItem(
             title = "Контейнер жидких отходов",
             node = TechServiceNode.LIQUID_WASTE_CONTAINER,
             date = station.liquidWasteContainerServiceDate,
             iconRes = R.drawable.ic_tech_liquid_waste_container,
-            serviceIntervalDays = LIQUID_WASTE_CONTAINER_SERVICE_INTERVAL_DAYS
+            serviceIntervalDays = intervals[TechServiceNode.LIQUID_WASTE_CONTAINER]
         ),
         StationServiceItem(
             title = "УЗК",
             node = TechServiceNode.BREW_UNIT,
             date = station.brewUnitServiceDate,
             iconRes = R.drawable.ic_tech_brew_unit,
-            serviceIntervalDays = BREW_UNIT_SERVICE_INTERVAL_DAYS
+            serviceIntervalDays = intervals[TechServiceNode.BREW_UNIT]
         ),
         StationServiceItem(
             title = "Вытяжка",
             node = TechServiceNode.EXHAUST,
             date = station.exhaustServiceDate,
             iconRes = R.drawable.ic_tech_exhaust,
-            serviceIntervalDays = EXHAUST_SERVICE_INTERVAL_DAYS
+            serviceIntervalDays = intervals[TechServiceNode.EXHAUST]
         ),
         StationServiceItem(
             title = "Расширительный бочок",
             node = TechServiceNode.EXPANSION_TANK,
             date = station.expansionTankServiceDate,
             iconRes = R.drawable.ic_tech_expansion_tank,
-            serviceIntervalDays = EXPANSION_TANK_SERVICE_INTERVAL_DAYS
+            serviceIntervalDays = intervals[TechServiceNode.EXPANSION_TANK]
         )
     ).map { item ->
         item.copy(
-            isOverdue = isTechServiceOverdue(
+            isOverdue = isServiceDue(
                 date = item.date,
-                serviceIntervalDays = item.serviceIntervalDays
+                intervalDays = item.serviceIntervalDays
             )
         )
     }
@@ -637,22 +637,6 @@ private fun supplyOperatorServiceIconRes(title: String): Int? {
         "Контейнер жидких отходов" -> R.drawable.ic_tech_liquid_waste_container
         else -> null
     }
-}
-
-private fun isTechServiceOverdue(
-    date: String,
-    serviceIntervalDays: Int
-): Boolean {
-
-    if (serviceIntervalDays <= 0) return false
-
-    val serviceDate = parseRentDateToMillis(date) ?: return false
-    val dueDate = serviceDate + TimeUnit.DAYS.toMillis(
-        serviceIntervalDays.toLong()
-    )
-
-    return dueDate <= todayStartMillis()
-
 }
 
 @Composable

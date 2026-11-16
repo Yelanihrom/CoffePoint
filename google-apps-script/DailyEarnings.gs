@@ -178,7 +178,7 @@ function getEmployeesForDailyEarnings_(date, context) {
 function loadVendistaSalesForDate_(date) {
   const dateFrom = date + ' 00:00:00';
   const dateTo = date + ' 23:59:59';
-  return fetchVendistaSales_(dateFrom, dateTo, date).salesByTerminal;
+  return fetchVendistaSales_(dateFrom, dateTo, date);
 }
 
 function hasManualEarningCoveringDate_(transactions, employeeId, date, dailyId) {

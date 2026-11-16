@@ -1,0 +1,17 @@
+{
+  "table": "station_maintenance",
+  "columns": [
+    { "name": "stationId", "type": "INTEGER", "notNull": true, "primaryKey": 1 },
+    { "name": "nodeType", "type": "TEXT", "notNull": true, "primaryKey": 2 },
+    { "name": "lastServiceDate", "type": "TEXT", "notNull": true, "primaryKey": 0 },
+    { "name": "salesAfterService", "type": "INTEGER", "notNull": false, "primaryKey": 0 },
+    { "name": "salesUpdatedAt", "type": "TEXT", "notNull": true, "primaryKey": 0 },
+    { "name": "updatedAt", "type": "TEXT", "notNull": true, "primaryKey": 0 },
+    { "name": "isSynced", "type": "INTEGER", "notNull": true, "primaryKey": 0 },
+    { "name": "syncError", "type": "INTEGER", "notNull": true, "primaryKey": 0 },
+    { "name": "syncErrorType", "type": "TEXT", "notNull": true, "primaryKey": 0 },
+    { "name": "pendingFullStationSync", "type": "INTEGER", "notNull": true, "primaryKey": 0 },
+    { "name": "pendingResetSales", "type": "INTEGER", "notNull": true, "primaryKey": 0 }
+  ],
+  "foreignKey": { "table": "coffee_station", "from": "stationId", "to": "id", "onDelete": "CASCADE" }
+}

@@ -3,6 +3,7 @@ package ru.coffeepoint.core.data.mapper
 import ru.coffeepoint.core.data.local.entity.CoffeeStationEntity
 import ru.coffeepoint.core.data.local.entity.StationInventoryEntity
 import ru.coffeepoint.core.data.local.entity.StationSettingsEntity
+import ru.coffeepoint.core.data.local.entity.StationMaintenanceEntity
 import ru.coffeepoint.core.util.normalizeTime
 import ru.coffeepoint.feature.station.model.CoffeeStation
 import ru.coffeepoint.feature.station.model.StationDetail
@@ -22,12 +23,6 @@ fun StationDetail.toStationEntity() = CoffeeStationEntity(
     rentPaidUntil = station.rentPaidUntil,
     excludeFromSupplyPlanning = station.excludeFromSupplyPlanning,
     excludeFromOperatorEarnings = station.excludeFromOperatorEarnings,
-    liquidWasteContainerServiceDate = station.liquidWasteContainerServiceDate,
-    brewUnitServiceDate = station.brewUnitServiceDate,
-    coffeeGrinderServiceDate = station.coffeeGrinderServiceDate,
-    mixersServiceDate = station.mixersServiceDate,
-    expansionTankServiceDate = station.expansionTankServiceDate,
-    exhaustServiceDate = station.exhaustServiceDate,
     machinePhotoPath = station.machinePhotoPath,
     overviewPhotoPath = station.overviewPhotoPath,
     updatedAt = station.updatedAt,
@@ -87,7 +82,8 @@ fun StationDetail.toSettingsEntity() = StationSettingsEntity(
 fun toStationDetail(
     station: CoffeeStationEntity,
     inventory: StationInventoryEntity,
-    settings: StationSettingsEntity
+    settings: StationSettingsEntity,
+    maintenance: List<StationMaintenanceEntity>
 ): StationDetail {
 
     return StationDetail(
@@ -105,13 +101,6 @@ fun toStationDetail(
             rentPaidUntil = station.rentPaidUntil,
             excludeFromSupplyPlanning = station.excludeFromSupplyPlanning,
             excludeFromOperatorEarnings = station.excludeFromOperatorEarnings,
-            liquidWasteContainerServiceDate =
-                station.liquidWasteContainerServiceDate,
-            brewUnitServiceDate = station.brewUnitServiceDate,
-            coffeeGrinderServiceDate = station.coffeeGrinderServiceDate,
-            mixersServiceDate = station.mixersServiceDate,
-            expansionTankServiceDate = station.expansionTankServiceDate,
-            exhaustServiceDate = station.exhaustServiceDate,
             machinePhotoPath = station.machinePhotoPath,
             overviewPhotoPath = station.overviewPhotoPath,
             updatedAt = station.updatedAt,
@@ -123,7 +112,7 @@ fun toStationDetail(
             pendingSupplyServiceOnly = station.pendingSupplyServiceOnly,
             pendingMixersServiceDate = station.pendingMixersServiceDate,
             pendingLiquidWasteContainerServiceDate = station.pendingLiquidWasteContainerServiceDate
-        ),
+        ).withMaintenance(maintenance),
 
         inventory = StationInventory(
             cups = inventory.cups,

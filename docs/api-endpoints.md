@@ -26,18 +26,18 @@
 | --- | --- | --- | --- | --- |
 | GET | `sales_analytics` | `startDate=yyyy-MM-dd`, необязательный `endDate=yyyy-MM-dd` | Общий итог и продажи по станциям за период, время формирования | Аналитика Управляющего; один серверный отчёт Vendista, без записи в Sheets/Room |
 | GET | `full_sync` | `entities` отсутствует | Все коллекции, включая `stationServiceVisits` и `notificationSettings` | Полная синхронизация |
-| GET | `full_sync` | `coffee_station,station_inventory,station_settings,warehouse_stock` | Станции, серверные продажи, остатки, настройки, склад | Обновление списка станций и фоновый импорт без каталога/сотрудников |
-| GET | `full_sync` | `stationId`, entities=`coffee_station,station_inventory`; для снабжения дополнительно `warehouse_stock` | Только выбранная станция и её остатки; склад целиком только для снабжения | Перед входом в первый шаг, включая оба сценария управляющего; настройки не запрашиваются |
+| GET | `full_sync` | `coffee_station,station_inventory,station_settings,station_maintenance,warehouse_stock` | Станции, серверные продажи, остатки, настройки, узлы, склад | Обновление списка станций и фоновый импорт без каталога/сотрудников |
+| GET | `full_sync` | `stationId`, entities=`coffee_station,station_inventory,station_maintenance`; для снабжения дополнительно `warehouse_stock` | Только выбранная станция, её остатки и узлы; склад целиком только для снабжения | Перед входом в первый шаг, включая оба сценария управляющего; настройки не запрашиваются |
 | GET | `full_sync` | `warehouse_stock` | Только склад и его минимум/максимум | Кнопка обновления склада |
 | GET | `full_sync` | `notification_settings` | `data.notificationSettings`, три строки по ролям | Открытие/обновление настроек, дополнительный GET после импорта станций |
 | GET | `full_sync` | `supply_catalog` | Только каталог | Обновление каталога |
 | GET | `full_sync` | `employees,employee_station_assignments,employees_transactions,station_service_visits` | Сотрудники, привязки, начисления/выплаты и визиты | Экран заработка и синхронизация сотрудников |
 | POST | `complete_supply_visit` | `station_service_visits` | ID визита, сотрудник, станция, время; в ответе визит и начисление | 4-й этап снабженца и очередь исходящего воркера |
-| POST | `upsert` | `coffee_station` | Данные станции и локальный `updatedAt`; `salesAfterService` и `salesUpdatedAt` не отправляются | Создание станции, информация, аренда, ручное изменение дат узлов |
+| POST | `upsert` | `coffee_station` | Данные станции и локальный `updatedAt`; продажи и даты узлов не отправляются | Создание станции, информация, аренда |
 | POST | `upsert` | `station_inventory` | `stationId`, все девять остатков, локальный `updatedAt` | Заправка оператора, пополнение снабженца, повторная и фоновая отправка |
 | POST | `upsert` | `station_settings` | `stationId`, девять пар `Min`/`Max`, локальный `updatedAt` | Настройки станции |
 | POST | `complete_service` | `coffee_station` | `id,lastServiceDate,salesAfterService,salesUpdatedAt` | Завершение заправки оператором; повторная отправка этих полей |
-| POST | `complete_service` | `coffee_station` | `id` и выбранные `mixersServiceDate` / `liquidWasteContainerServiceDate` | Завершение обслуживания узлов снабженцем |
+| POST | `complete_service` | `station_maintenance` | `id,maintenance`: выбранные узлы с `nodeType,lastServiceDate,updatedAt,resetSales` | Завершение обслуживания узлов снабженцем; ручная дата и выбор сброса управляющим |
 | POST | `upsert_batch` | `warehouse_stock` | `data.items`: `itemType,quantity,minQuantity,maxQuantity,updatedAt` | Пополнение/настройки склада, списание со склада, повторная/фоновая отправка. До девяти строк одним запросом |
 | POST | `upsert` | `supply_catalog` | Вариант закупки, включая `id,itemType,title,supplier,article,url,maxPrice,isActive,priority,comment,updatedAt` | Создание и редактирование варианта |
 | POST | `delete` | `supply_catalog` | `data.id` | Удаление варианта. **Есть в Android, отсутствует в локальном `Router.gs`; серверная успешная обработка не покрыта** |
@@ -68,6 +68,22 @@
 локальный тест не проверяет наличие или выполнение реального триггера.
 
 ## Контракты ответов
+
+### Узлы обслуживания
+
+`full_sync` включает `station_maintenance` (также допускает отдельный `entities`
+и фильтр `stationId`), ответ `data.stationMaintenance`: `stationId`, `nodeType`,
+`lastServiceDate`, `salesAfterService`, `salesUpdatedAt`, `updatedAt`.
+Пустое значение счётчика означает неизвестное количество, `0` — известный ноль.
+Общий upsert для этой коллекции не подключён. Android запрашивает её при импорте
+станций и перед обслуживанием; каталог, финансы и склад отдельно её не загружают.
+Даты узлов больше не передаются полями станции. `complete_service` принимает
+`data: {id, maintenance: [{nodeType,lastServiceDate,updatedAt,resetSales}]}`.
+`updatedAt` — стабильная версия изменения (UTC ISO с миллисекундами).
+`resetSales=true` запускает счётчик с 0, `false` сохраняет прежнее значение.
+При повторе той же версии/даты сброс не повторяется. Конфликт любого узла
+отклоняет весь атомарный batch. Старые поля дат в upsert станции отклоняются.
+Переход выполнен только в TEST; production пока использует прежнюю схему.
 
 ### Визиты снабженца
 

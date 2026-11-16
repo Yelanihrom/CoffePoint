@@ -72,6 +72,7 @@ import ru.coffeepoint.feature.dashboard.model.SupplyStockFilter
 import ru.coffeepoint.feature.dashboard.presentation.DashboardViewModel
 import ru.coffeepoint.feature.supplycatalog.component.SupplyCatalogQuickInfoDialog
 import ru.coffeepoint.shared.component.SyncSendingOverlay
+import ru.coffeepoint.shared.component.rememberServiceIntervals
 
 @Composable
 fun DashboardScreen(
@@ -89,6 +90,7 @@ fun DashboardScreen(
 ) {
 
     val viewModel: DashboardViewModel = viewModel()
+    val serviceIntervals = rememberServiceIntervals()
 
     LaunchedEffect(Unit) {
         viewModel.loadStations()
@@ -449,6 +451,7 @@ fun DashboardScreen(
                     showStationStatus = !isSupplyView,
                     showTerminalInfo = isManager && !isSupplyView,
                     showSupplyOperatorTechService = isSupplyView,
+                    serviceIntervals = serviceIntervals,
                     onSupplyItemClick = { item ->
                         quickCatalogItemType = item.itemType
                         quickCatalogQuantityText = item.value
