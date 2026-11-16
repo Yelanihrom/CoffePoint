@@ -16,6 +16,7 @@
 | [SupplierVisitSyncService.kt](SupplierVisitSyncService.kt) | Отправка pending-визитов и подтверждение начисления; согласование local-only сотрудника разрешено только в TEST |
 | [EmployeeDataImporter.kt](EmployeeDataImporter.kt) | Общий транзакционный импорт сотрудников/визитов/финансов без удаления pending-операций |
 | [NotificationSettingsMapper.kt](NotificationSettingsMapper.kt) | Проверка трёх ролей, boolean-флагов и дат; HTTP через RemoteDataSource, локальный pending и отправка — `core/data/repository/NotificationSettingsRepository` |
+| [MaintenanceSettingsMapper.kt](MaintenanceSettingsMapper.kt) | Проверка шести правил узлов и безопасных чисел; `ServiceIntervalRepository` хранит Room/pending, общий исходящий воркер отправляет один пакет |
 | [GoogleSheetsSyncConfig.kt](GoogleSheetsSyncConfig.kt) | URL опубликованного `/exec` и токен клиента |
 | [GoogleSheetsSyncMessages.kt](GoogleSheetsSyncMessages.kt) | Общие сообщения по типу ошибки |
 | [api](api) | Retrofit-интерфейс GET и POST |

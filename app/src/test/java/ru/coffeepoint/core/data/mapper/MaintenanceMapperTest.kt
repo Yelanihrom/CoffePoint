@@ -7,6 +7,21 @@ import ru.coffeepoint.feature.station.model.CoffeeStation
 import ru.coffeepoint.feature.station.model.TechServiceNode
 
 class MaintenanceMapperTest {
+    @Test fun `known node counters reach the dashboard without changing operator sales`() {
+        val rows = station.toMaintenanceEntities().map {
+            when (it.nodeType) {
+                "MIXERS" -> it.copy(salesAfterService = 500)
+                "COFFEE_GRINDER" -> it.copy(salesAfterService = 0)
+                else -> it
+            }
+        }
+        val projected = station.withMaintenance(rows)
+        assertEquals(500L, projected.maintenanceSales[TechServiceNode.MIXERS])
+        assertEquals(0L, projected.maintenanceSales[TechServiceNode.COFFEE_GRINDER])
+        assertNull(projected.maintenanceSales[TechServiceNode.BREW_UNIT])
+        assertEquals(42, projected.salesAfterService)
+    }
+
     @Test fun `counter import preserves unknown pending mismatched and newer local states`() {
         val local = ru.coffeepoint.core.data.local.entity.StationMaintenanceEntity(
             7, "MIXERS", "16.11.2026", salesAfterService = 0L, salesUpdatedAt="2026-11-16T10:00:00Z", updatedAt = "2026-11-16T10:00:00Z")

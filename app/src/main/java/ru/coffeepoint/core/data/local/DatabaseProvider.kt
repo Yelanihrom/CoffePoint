@@ -58,7 +58,9 @@ object DatabaseProvider {
                     MIGRATION_36_37,
                     MIGRATION_37_38,
                     MIGRATION_38_39,
-                    MIGRATION_39_40
+                    MIGRATION_39_40,
+                    MIGRATION_40_41,
+                    MIGRATION_41_42
                 )
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onOpen(db: SupportSQLiteDatabase) {
@@ -72,6 +74,25 @@ object DatabaseProvider {
 
         }
 
+    }
+
+    internal val MIGRATION_41_42 = object : Migration(41, 42) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE maintenance_settings ADD COLUMN updatedAt TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE maintenance_settings ADD COLUMN isSynced INTEGER NOT NULL DEFAULT 1")
+            db.execSQL("ALTER TABLE maintenance_settings ADD COLUMN syncError INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE maintenance_settings ADD COLUMN syncErrorType TEXT NOT NULL DEFAULT ''")
+            // Existing local-only rules must survive the first server import.
+            db.execSQL("UPDATE maintenance_settings SET isSynced = 0, updatedAt = strftime('%Y-%m-%dT%H:%M:%fZ','now')")
+        }
+    }
+
+    internal val MIGRATION_40_41 = object : Migration(40, 41) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("""CREATE TABLE IF NOT EXISTS maintenance_settings (
+                nodeType TEXT NOT NULL PRIMARY KEY, intervalDays INTEGER NOT NULL, salesLimit INTEGER NOT NULL
+            )""")
+        }
     }
 
     internal val MIGRATION_39_40 = object : Migration(39, 40) {

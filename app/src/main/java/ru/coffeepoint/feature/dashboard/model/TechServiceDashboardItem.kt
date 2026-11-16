@@ -18,7 +18,9 @@ fun StationDetail.techServiceDashboardItems(intervals: ServiceIntervals = Servic
         .filter { item ->
             isServiceDue(
                 date = item.date,
-                intervalDays = item.serviceIntervalDays
+                intervalDays = item.serviceIntervalDays,
+                salesAfterService = station.maintenanceSales[item.node],
+                salesLimit = intervals.salesLimit(item.node)
             )
         }
         .map { item ->
@@ -55,31 +57,37 @@ private fun StationDetail.allTechServiceDashboardItems(intervals: ServiceInterva
     return listOf(
         TechServiceDashboardSourceItem(
             title = "Миксеры",
+            node = TechServiceNode.MIXERS,
             date = station.mixersServiceDate,
             serviceIntervalDays = intervals[TechServiceNode.MIXERS]
         ),
         TechServiceDashboardSourceItem(
             title = "Контейнер жидких отходов",
+            node = TechServiceNode.LIQUID_WASTE_CONTAINER,
             date = station.liquidWasteContainerServiceDate,
             serviceIntervalDays = intervals[TechServiceNode.LIQUID_WASTE_CONTAINER]
         ),
         TechServiceDashboardSourceItem(
             title = "Узел заваривания кофе",
+            node = TechServiceNode.BREW_UNIT,
             date = station.brewUnitServiceDate,
             serviceIntervalDays = intervals[TechServiceNode.BREW_UNIT]
         ),
         TechServiceDashboardSourceItem(
             title = "Вытяжка",
+            node = TechServiceNode.EXHAUST,
             date = station.exhaustServiceDate,
             serviceIntervalDays = intervals[TechServiceNode.EXHAUST]
         ),
         TechServiceDashboardSourceItem(
             title = "Расширительный бочок",
+            node = TechServiceNode.EXPANSION_TANK,
             date = station.expansionTankServiceDate,
             serviceIntervalDays = intervals[TechServiceNode.EXPANSION_TANK]
         ),
         TechServiceDashboardSourceItem(
             title = "Кофемолка",
+            node = TechServiceNode.COFFEE_GRINDER,
             date = station.coffeeGrinderServiceDate,
             serviceIntervalDays = intervals[TechServiceNode.COFFEE_GRINDER]
         )
@@ -89,6 +97,7 @@ private fun StationDetail.allTechServiceDashboardItems(intervals: ServiceInterva
 
 private data class TechServiceDashboardSourceItem(
     val title: String,
+    val node: TechServiceNode,
     val date: String,
     val serviceIntervalDays: Int
 )

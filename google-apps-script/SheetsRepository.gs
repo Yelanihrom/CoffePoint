@@ -17,6 +17,8 @@ function getFullSyncData(entities, stationId) {
     inventories: readRequested(SHEETS.STATION_INVENTORY, 'stationId'),
     settings: readRequested(SHEETS.STATION_SETTINGS, 'stationId'),
     stationMaintenance: readRequested(SHEETS.STATION_MAINTENANCE, 'stationId'),
+    maintenanceSettings: requestedEntities.has(SHEETS.MAINTENANCE_SETTINGS.name)
+      ? readMaintenanceSettings_() : [],
     supplyCatalog: requestedEntities.has(SHEETS.SUPPLY_CATALOG.name)
       ? readSheet(SHEETS.SUPPLY_CATALOG)
       : [],
@@ -45,6 +47,7 @@ function parseEntities(entities) {
       SHEETS.STATION_INVENTORY.name,
       SHEETS.STATION_SETTINGS.name,
       SHEETS.STATION_MAINTENANCE.name,
+      SHEETS.MAINTENANCE_SETTINGS.name,
       SHEETS.SUPPLY_CATALOG.name,
       SHEETS.WAREHOUSE_STOCK.name,
       SHEETS.EMPLOYEES.name,
@@ -105,6 +108,13 @@ function upsertEntities(entityName, dataItems) {
       seenKeys.add(normalizedKey);
 
       data = Object.assign({}, data);
+      if (sheetConfig.name === SHEETS.MAINTENANCE_SETTINGS.name) {
+        if (Object.keys(data).some(key => !sheetConfig.headers.includes(key))) {
+          throw createHttpError(400, 'Unknown maintenance setting field');
+        }
+        validateMaintenanceSettings_(data, 400);
+        data.updatedAt = new Date(data.updatedAt);
+      }
       if (sheetConfig.name === SHEETS.NOTIFICATION_SETTINGS.name) {
         if (typeof data.updatedAt !== 'string' ||
             !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(data.updatedAt) ||
@@ -152,6 +162,12 @@ function upsertEntities(entityName, dataItems) {
       if (sheetConfig.name === SHEETS.NOTIFICATION_SETTINGS.name) {
         validateNotificationSettings_(rowToObject(headers, values), 400);
       }
+      if (sheetConfig.name === SHEETS.MAINTENANCE_SETTINGS.name) {
+        const matches = sheet.getLastRow() > 1
+          ? sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues()
+            .filter(row => row[headers.indexOf('nodeType')] === keyValue).length : 0;
+        if (matches > 1) throw createHttpError(409, 'Duplicate maintenance setting');
+      }
 
       return { rowIndex: rowIndex, values: values };
     });
@@ -169,7 +185,7 @@ function upsertEntities(entityName, dataItems) {
         .setNumberFormat('dd.MM.yyyy HH:mm');
     }
     if (sheet.getLastRow() > 1) {
-      if (sheetConfig.name === SHEETS.NOTIFICATION_SETTINGS.name) {
+      if ([SHEETS.NOTIFICATION_SETTINGS.name, SHEETS.MAINTENANCE_SETTINGS.name].includes(sheetConfig.name)) {
         sheet.getRange(2, headers.indexOf('updatedAt') + 1, sheet.getLastRow() - 1, 1)
           .setNumberFormat('yyyy-mm-dd hh:mm:ss');
       }
@@ -353,6 +369,7 @@ function findSheetConfig(entityName) {
     SHEETS.COFFEE_STATION,
     SHEETS.STATION_INVENTORY,
     SHEETS.STATION_SETTINGS,
+    SHEETS.MAINTENANCE_SETTINGS,
     SHEETS.SUPPLY_CATALOG,
     SHEETS.WAREHOUSE_STOCK,
     SHEETS.EMPLOYEES,
@@ -433,6 +450,35 @@ function rowToObject(headers, row) {
     result[header] = row[index];
     return result;
   }, {});
+}
+
+function validateMaintenanceSettings_(row, status) {
+  if (!MAINTENANCE_SALES_CONFIG.nodes.includes(row.nodeType)) {
+    throw createHttpError(status, 'Invalid maintenance node type');
+  }
+  if (!Number.isSafeInteger(row.intervalDays) || row.intervalDays <= 0 || row.intervalDays > 2147483647) {
+    throw createHttpError(status, 'Invalid maintenance intervalDays');
+  }
+  if (!Number.isSafeInteger(row.salesLimit) || row.salesLimit < 0) {
+    throw createHttpError(status, 'Invalid maintenance salesLimit');
+  }
+  const nativeDate = Object.prototype.toString.call(row.updatedAt) === '[object Date]';
+  if (!(nativeDate || (typeof row.updatedAt === 'string' &&
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(row.updatedAt))) ||
+      isNaN(new Date(row.updatedAt).getTime())) {
+    throw createHttpError(status, 'Maintenance settings require ISO UTC updatedAt');
+  }
+}
+
+function readMaintenanceSettings_() {
+  const rows = readSheet(SHEETS.MAINTENANCE_SETTINGS);
+  const nodes = new Set();
+  rows.forEach(function(row) {
+    validateMaintenanceSettings_(row, 500);
+    if (nodes.has(row.nodeType)) throw createHttpError(500, 'Duplicate maintenance setting');
+    nodes.add(row.nodeType);
+  });
+  return rows;
 }
 
 function validateNotificationSettings_(row, status) {

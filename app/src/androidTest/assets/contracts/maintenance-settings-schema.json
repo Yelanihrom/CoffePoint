@@ -1,0 +1,12 @@
+{
+  "table": "maintenance_settings",
+  "columns": [
+    { "name": "nodeType", "type": "TEXT", "notNull": true, "primaryKey": 1 },
+    { "name": "intervalDays", "type": "INTEGER", "notNull": true, "primaryKey": 0 },
+    { "name": "salesLimit", "type": "INTEGER", "notNull": true, "primaryKey": 0 },
+    { "name": "updatedAt", "type": "TEXT", "notNull": true, "primaryKey": 0 },
+    { "name": "isSynced", "type": "INTEGER", "notNull": true, "primaryKey": 0 },
+    { "name": "syncError", "type": "INTEGER", "notNull": true, "primaryKey": 0 },
+    { "name": "syncErrorType", "type": "TEXT", "notNull": true, "primaryKey": 0 }
+  ]
+}

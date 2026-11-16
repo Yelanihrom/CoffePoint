@@ -54,6 +54,9 @@ fun CoffeeStation.withMaintenance(rows: List<StationMaintenanceEntity>): CoffeeS
     val pending = rows.filter { !it.isSynced }
     val error = pending.firstOrNull { it.syncError }
     return copy(
+        maintenanceSales = TechServiceNode.entries.mapNotNull { node ->
+            nodes[node.name]?.salesAfterService?.let { node to it }
+        }.toMap(),
         mixersServiceDate = date(TechServiceNode.MIXERS),
         liquidWasteContainerServiceDate = date(TechServiceNode.LIQUID_WASTE_CONTAINER),
         brewUnitServiceDate = date(TechServiceNode.BREW_UNIT),

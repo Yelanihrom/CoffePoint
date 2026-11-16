@@ -62,7 +62,8 @@ class StationServiceVisitDatabaseTest {
             }
             val migrated = Room.databaseBuilder(context, AppDatabase::class.java, name)
                 .addMigrations(DatabaseProvider.MIGRATION_35_36, DatabaseProvider.MIGRATION_36_37,
-                    DatabaseProvider.MIGRATION_37_38, DatabaseProvider.MIGRATION_38_39, DatabaseProvider.MIGRATION_39_40).build()
+                    DatabaseProvider.MIGRATION_37_38, DatabaseProvider.MIGRATION_38_39, DatabaseProvider.MIGRATION_39_40,
+                    DatabaseProvider.MIGRATION_40_41, DatabaseProvider.MIGRATION_41_42).build()
             try {
                 assertEquals(employee, migrated.employeeDao().getById(2))
                 assertEquals(listOf(oldPayment), migrated.employeeTransactionDao().getAll())

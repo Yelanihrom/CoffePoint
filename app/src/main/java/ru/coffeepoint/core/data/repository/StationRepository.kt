@@ -108,9 +108,10 @@ class StationRepository(
         if (result == GoogleSheetsImportResult.Success) {
             try {
                 NotificationSettingsRepository(appContext).refresh()
+                ServiceIntervalRepository(appContext).refresh()
             } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
             catch (error: Exception) {
-                android.util.Log.w("GoogleSheetsSync", "Notification settings import failed")
+                android.util.Log.w("GoogleSheetsSync", "Settings import failed")
                 return GoogleSheetsImportResult.Error(error)
             }
             googleSheetsImportPreferences.saveLastImportTime(
@@ -401,6 +402,7 @@ private fun CoffeeStation.hasContentChanges(
 ): Boolean {
     return copy(
         salesAfterService = other.salesAfterService,
+        maintenanceSales = other.maintenanceSales,
         updatedAt = "",
         isSynced = true,
         syncError = false,

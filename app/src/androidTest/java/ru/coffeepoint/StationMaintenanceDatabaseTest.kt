@@ -19,6 +19,7 @@ import java.time.Instant
 import java.util.UUID
 
 internal fun SQLiteDatabase.restoreVersion38MaintenanceColumns() {
+    execSQL("DROP TABLE maintenance_settings")
     execSQL("DROP TABLE station_maintenance")
     listOf("mixersServiceDate", "liquidWasteContainerServiceDate", "brewUnitServiceDate",
         "coffeeGrinderServiceDate", "expansionTankServiceDate", "exhaustServiceDate").forEach {
@@ -41,10 +42,11 @@ class StationMaintenanceDatabaseTest {
             }
             SQLiteDatabase.openDatabase(context.getDatabasePath(name).path,null,SQLiteDatabase.OPEN_READWRITE).use {
                 it.execSQL("ALTER TABLE station_maintenance DROP COLUMN pendingResetSales")
+                it.execSQL("DROP TABLE maintenance_settings")
                 it.version=39
             }
             val migrated=Room.databaseBuilder(context,AppDatabase::class.java,name)
-                .addMigrations(DatabaseProvider.MIGRATION_39_40).build()
+                .addMigrations(DatabaseProvider.MIGRATION_39_40, DatabaseProvider.MIGRATION_40_41, DatabaseProvider.MIGRATION_41_42).build()
             try {
                 assertTrue(migrated.stationMaintenanceDao().get(7,"MIXERS")!!.pendingResetSales)
                 assertEquals("2026-11-16T10:00:00Z",migrated.stationMaintenanceDao().get(7,"MIXERS")!!.lastServiceDate)
@@ -93,7 +95,8 @@ class StationMaintenanceDatabaseTest {
                 it.version = 38
             }
             val migrated = Room.databaseBuilder(context, AppDatabase::class.java, name)
-                .addMigrations(DatabaseProvider.MIGRATION_38_39, DatabaseProvider.MIGRATION_39_40).build()
+                .addMigrations(DatabaseProvider.MIGRATION_38_39, DatabaseProvider.MIGRATION_39_40,
+                    DatabaseProvider.MIGRATION_40_41, DatabaseProvider.MIGRATION_41_42).build()
             try {
                 val dao = migrated.stationMaintenanceDao()
                 assertEquals(6, dao.getByStationId(7).size)

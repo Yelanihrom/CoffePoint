@@ -6,6 +6,18 @@
 
 ## Карта файлов
 
+17.11.2026 TEST обновлён до **v24**: добавлен `maintenance_settings`
+(`nodeType,intervalDays,salesLimit,updatedAt`). Чтение — `full_sync` с
+`entities=maintenance_settings`, ответ `data.maintenanceSettings`; запись —
+обычные `upsert` и `upsert_batch`, ключ `nodeType`. Дни — положительный Int,
+лимит продаж — безопасное целое JS ≥ 0 (0 отключает правило). Запись требует
+полного правила и ISO UTC версии `updatedAt`; устаревшая версия возвращает 409.
+Нативные даты листа сериализуются в ISO UTC, отображение — по Москве.
+Неизвестные узлы, дубликаты, дроби и отрицательные значения отклоняются.
+Новых триггеров нет. Android в ветке `test` использует селективное чтение,
+пакетную отправку и общий исходящий воркер; pending защищён от импорта.
+Production v31 не изменён: перед публикацией этого кода нужен новый лист.
+
 Коллекция `station_maintenance` включена в `full_sync` как
 `data.stationMaintenance`, поддерживает `entities` и `stationId`.
 В TEST Apps Script 22 опубликован новый `StationMaintenance.gs`: запись через

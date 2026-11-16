@@ -4,6 +4,8 @@ import android.Manifest
 import android.app.Notification
 import android.app.NotificationManager
 import android.os.Build
+import androidx.room.withTransaction
+import kotlinx.coroutines.runBlocking
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
 import org.junit.Assert.*
@@ -53,7 +55,7 @@ class StationAttentionNotificationTest {
         notifications.showCriticalStockAttentionIfNeeded(stations)
         val stockTimestamp = intervals().getLong("last_shown_1002", 0)
         assertTrue(stockTimestamp > 0)
-        notifications.showServiceAttentionIfNeeded(stations)
+        runBlocking { notifications.showServiceAttentionIfNeeded(stations) }
         assertTrue(intervals().getLong("last_shown_1004", 0) > 0)
         val stock = posted(1002)
         val service = posted(1004)
@@ -104,9 +106,34 @@ class StationAttentionNotificationTest {
         assertTrue(manager.activeNotifications.none { it.id == 1002 || it.id == 1004 })
     }
 
+    @Test fun salesLimitUsesRoomSettingsAndUnknownCountDoesNotNotify(): Unit = runBlocking {
+        val repository = ru.coffeepoint.core.data.repository.ServiceIntervalRepository(context)
+        val db = ru.coffeepoint.core.data.local.DatabaseProvider.getDatabase(context)
+        val originalRows = db.maintenanceSettingsDao().getAll()
+        try {
+            repository.save(ServiceIntervals(salesLimits = ServiceIntervals().salesLimits + (TechServiceNode.MIXERS to 500L)))
+            val today = java.time.LocalDate.now(java.time.ZoneOffset.UTC)
+                .format(java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+            val detail = station().let { it.copy(station = it.station.copy(mixersServiceDate = today,
+                maintenanceSales = mapOf(TechServiceNode.MIXERS to 499L))) }
+            notifications.showServiceAttentionIfNeeded(listOf(detail))
+            assertFalse(manager.activeNotifications.any { it.id == 1004 })
+            notifications.showServiceAttentionIfNeeded(listOf(detail.copy(station = detail.station.copy(maintenanceSales = emptyMap()))))
+            assertFalse(manager.activeNotifications.any { it.id == 1004 })
+            notifications.showServiceAttentionIfNeeded(listOf(detail.copy(station = detail.station.copy(
+                maintenanceSales = mapOf(TechServiceNode.MIXERS to 500L)))))
+            posted(1004)
+        } finally {
+            db.withTransaction {
+                db.openHelper.writableDatabase.execSQL("DELETE FROM maintenance_settings")
+                db.maintenanceSettingsDao().upsertAll(originalRows)
+            }
+        }
+    }
+
     private fun scan(stations: List<StationDetail>) {
         notifications.showCriticalStockAttentionIfNeeded(stations)
-        notifications.showServiceAttentionIfNeeded(stations)
+        runBlocking { notifications.showServiceAttentionIfNeeded(stations) }
     }
 
     private fun posted(id: Int): Notification {

@@ -129,7 +129,7 @@ test('full_sync without entities returns all response collections', () => {
   assert.equal(result.success, true);
   assert.deepEqual(Object.keys(result.data).sort(), Object.values(schema).map(s => s.responseKey).sort());
   for (const [key, rows] of Object.entries(result.data)) {
-    assert.equal(rows.length, key === 'stationServiceVisits' ? 0 : key === 'stationMaintenance' ? 6 : 1);
+    assert.equal(rows.length, key === 'stationServiceVisits' ? 0 : ['stationMaintenance', 'maintenanceSettings'].includes(key) ? 6 : 1);
   }
   assert.equal(result.data.stations[0].salesAfterService, 54);
   assert.equal(result.data.warehouseStock[0].minQuantity, 24);

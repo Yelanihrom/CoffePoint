@@ -1,4 +1,9 @@
 {
+  "maintenance_settings": {
+    "key": "nodeType",
+    "responseKey": "maintenanceSettings",
+    "headers": ["nodeType", "intervalDays", "salesLimit", "updatedAt"]
+  },
   "station_maintenance": {
     "key": "stationId,nodeType",
     "responseKey": "stationMaintenance",

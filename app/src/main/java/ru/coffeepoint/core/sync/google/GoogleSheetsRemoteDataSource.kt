@@ -18,6 +18,7 @@ import ru.coffeepoint.feature.station.model.CoffeeStation
 import ru.coffeepoint.feature.station.model.StationDetail
 import ru.coffeepoint.feature.station.model.StationInventory
 import ru.coffeepoint.feature.station.model.StationSettings
+import ru.coffeepoint.feature.station.model.TechServiceNode
 import java.math.BigDecimal
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
@@ -313,6 +314,32 @@ class GoogleSheetsRemoteDataSource(
             },
             stationServiceVisits = data.stationServiceVisits.orEmpty().map { it.toServiceVisit() }
         )
+    }
+
+    suspend fun loadMaintenanceSettings(): List<ru.coffeepoint.core.data.local.entity.MaintenanceSettingsEntity> {
+        if (!GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) {
+            throw UnknownHostException("Maintenance settings sync is disabled")
+        }
+        val response = api.fullSync(webAppUrl, "full_sync", syncToken, "maintenance_settings")
+        if (!response.success) throw GoogleSheetsSyncException(response.error?.status,
+            response.error?.message ?: "Maintenance settings sync error")
+        return parseMaintenanceSettings(response.data?.maintenanceSettings)
+    }
+
+    suspend fun syncMaintenanceSettings(
+        rows: List<ru.coffeepoint.core.data.local.entity.MaintenanceSettingsEntity>
+    ): GoogleSheetsEntitySyncResult = syncEntity("maintenance settings") {
+        if (!GoogleSheetsSyncConfig.isEnabled(webAppUrl, syncToken)) {
+            throw UnknownHostException("Maintenance settings sync is disabled")
+        }
+        require(rows.isNotEmpty() && rows.map { it.nodeType }.distinct().size == rows.size)
+        val items = rows.map { row ->
+            TechServiceNode.valueOf(row.nodeType)
+            require(row.intervalDays > 0 && row.salesLimit in 0..MAX_MAINTENANCE_SALES_LIMIT)
+            mapOf("nodeType" to row.nodeType, "intervalDays" to row.intervalDays,
+                "salesLimit" to row.salesLimit, "updatedAt" to Instant.parse(row.updatedAt).toString())
+        }
+        request("upsert_batch", "maintenance_settings", mapOf("items" to items))
     }
 
     suspend fun loadNotificationSettings(): List<ru.coffeepoint.core.notification.NotificationSettingsRow> {

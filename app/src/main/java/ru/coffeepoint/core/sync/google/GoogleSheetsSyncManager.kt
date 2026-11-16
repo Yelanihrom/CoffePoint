@@ -18,6 +18,11 @@ class GoogleSheetsSyncManager(
     private val remoteDataSource: GoogleSheetsRemoteDataSource =
         GoogleSheetsRemoteDataSource()
 ) {
+    suspend fun loadMaintenanceSettings() = remoteDataSource.loadMaintenanceSettings()
+
+    suspend fun syncMaintenanceSettings(rows: List<ru.coffeepoint.core.data.local.entity.MaintenanceSettingsEntity>) =
+        remoteDataSource.syncMaintenanceSettings(rows)
+
     suspend fun loadNotificationSettings() = remoteDataSource.loadNotificationSettings()
 
     suspend fun syncNotificationSettings(row: ru.coffeepoint.core.notification.NotificationSettingsRow) =
